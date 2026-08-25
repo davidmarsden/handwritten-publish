@@ -74,18 +74,27 @@ function percent(value: number): string {
   return `${Number((value * 100).toFixed(4))}%`;
 }
 
-function publishedLinks(document: HandwrittenDocument) {
-  return document.pages.map(page => page.annotations.filter(
-    (annotation): annotation is LinkAnnotation => annotation.type === 'link',
-  ));
+function isPublishableHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 export function microblogAnnotationError(document: HandwrittenDocument): string | null {
   for (let pageIndex = 0; pageIndex < document.pages.length; pageIndex += 1) {
-    const links = publishedLinks(document)[pageIndex];
-    for (let linkIndex = 0; linkIndex < links.length; linkIndex += 1) {
-      if (!links[linkIndex].href.trim()) {
+    const links = document.pages[pageIndex].annotations.filter(
+      (annotation): annotation is LinkAnnotation => annotation.type === 'link',
+    );
+    for (const link of links) {
+      const href = link.href.trim();
+      if (!href) {
         return `Page ${pageIndex + 1} has a link region without a URL. Add the URL or delete the region before syncing Micro.blog.`;
+      }
+      if (!isPublishableHttpUrl(href)) {
+        return `Page ${pageIndex + 1} has a link region with an invalid URL. Use a complete http:// or https:// address before syncing Micro.blog.`;
       }
     }
   }
@@ -109,7 +118,7 @@ function linkHtml(link: LinkAnnotation, pageIndex: number): string {
 export function microblogHtml(document: HandwrittenDocument, mediaUrls: string[]): string {
   const pages = mediaUrls.map((url, index) => {
     const links = document.pages[index]?.annotations.filter(
-      (annotation): annotation is LinkAnnotation => annotation.type === 'link' && Boolean(annotation.href.trim()),
+      (annotation): annotation is LinkAnnotation => annotation.type === 'link' && isPublishableHttpUrl(annotation.href.trim()),
     ) ?? [];
     const overlays = links.map(link => linkHtml(link, index)).join('');
     return `<figure class="handwritten-page" style="position:relative;margin:0;display:block"><img src="${escapeHtml(url)}" alt="Handwritten page ${index + 1} of ${mediaUrls.length}" style="display:block;width:100%;height:auto">${overlays}</figure>`;
