@@ -1,4 +1,6 @@
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import AnnotationEditor from './AnnotationEditor';
+import { annotationStyle } from './annotations';
 import { buildBundle, downloadBlob, readBundle } from './bundle';
 import { documentPages, importPngFiles, type ImportedPage } from './importPng';
 import {
@@ -11,7 +13,7 @@ import {
   uploadMicroblogPage,
   verifyMicroblogDraft,
 } from './microblog';
-import { createDocument, type HandwrittenDocument } from './model';
+import { createDocument, type Annotation, type HandwrittenDocument } from './model';
 import { clearDraft, loadDraft, saveDraft } from './persistence';
 import './styles.css';
 
@@ -27,6 +29,7 @@ export default function App() {
   const [status, setStatus] = useState('Loading local draft…');
   const [hydrated, setHydrated] = useState(false);
   const [baseDocument, setBaseDocument] = useState<HandwrittenDocument>(() => createDocument('Untitled handwritten post'));
+  const [annotationPageId, setAnnotationPageId] = useState<string | null>(null);
   const [microblogToken, setMicroblogToken] = useState('');
   const [microblogConfig, setMicroblogConfig] = useState<MicroblogConfig | null>(null);
   const [microblogDestination, setMicroblogDestination] = useState('');
@@ -37,6 +40,10 @@ export default function App() {
     transcript: transcript || undefined,
     pages: documentPages(pages),
   }), [baseDocument, title, transcript, pages]);
+
+  const annotationPage = annotationPageId
+    ? pages.find(page => page.id === annotationPageId) ?? null
+    : null;
 
   function markEdited() {
     setBaseDocument(current => ({ ...current, updatedAt: new Date().toISOString() }));
@@ -85,6 +92,7 @@ export default function App() {
       const imported = await importPngFiles(selected);
       revokePages(pages);
       setPages(imported);
+      setAnnotationPageId(null);
       markEdited();
       setStatus(`${imported.length} PNG page${imported.length === 1 ? '' : 's'} imported.`);
     } catch (error) {
@@ -106,6 +114,7 @@ export default function App() {
       setTitle(imported.document.title);
       setTranscript(imported.document.transcript ?? '');
       setPages(imported.pages);
+      setAnnotationPageId(null);
       setStatus(`Opened ${file.name}.`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not open .hwpublish bundle.');
@@ -126,6 +135,14 @@ export default function App() {
     markEdited();
   }
 
+  function updatePageAnnotations(pageId: string, annotations: Annotation[]) {
+    setPages(current => current.map(page => (
+      page.id === pageId ? { ...page, annotations } : page
+    )));
+    markEdited();
+    setStatus('Annotation changes saved locally.');
+  }
+
   async function exportBundle() {
     const blob = await buildBundle(document, pages);
     const safeTitle = title.trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'handwritten-post';
@@ -140,6 +157,7 @@ export default function App() {
     setTitle(fresh.title);
     setTranscript('');
     setPages([]);
+    setAnnotationPageId(null);
     if (microblogConfig) {
       setMicroblogDestination(current => (
         microblogConfig.destinations.some(destination => destination.uid === current)
@@ -271,23 +289,61 @@ export default function App() {
         <section className="workspace">
           <div className="sectionHeading">
             <div><p className="eyebrow">Document</p><h2>{pages.length} page{pages.length === 1 ? '' : 's'}</h2></div>
-            <p>Natural filename order is applied on PNG import. Bundles restore their saved order and document identity.</p>
+            <p>Natural filename order is applied on PNG import. Link and photo regions are portable document metadata and do not alter the source image.</p>
           </div>
           <div className="pageGrid">
             {pages.map((page, index) => (
               <article className="pageCard" key={page.id}>
-                <img src={page.previewUrl} alt={`Handwritten page ${index + 1}`} />
+                <div className="pageCardPreview">
+                  <img src={page.previewUrl} alt={`Handwritten page ${index + 1}`} />
+                  {page.annotations.map((annotation, annotationIndex) => (
+                    annotation.type === 'link' && annotation.href ? (
+                      <a
+                        key={`annotation-${annotationIndex}`}
+                        className="previewAnnotation link"
+                        style={annotationStyle(annotation)}
+                        href={annotation.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={annotation.label || `Link region ${annotationIndex + 1}`}
+                      />
+                    ) : (
+                      <span
+                        key={`annotation-${annotationIndex}`}
+                        className={`previewAnnotation ${annotation.type}`}
+                        style={annotationStyle(annotation)}
+                        title={annotation.type === 'photo' ? annotation.alt || annotation.assetId || 'Photo placeholder' : 'Incomplete link region'}
+                      />
+                    )
+                  ))}
+                </div>
                 <div className="pageMeta">
-                  <div><strong>Page {index + 1}</strong><small>{page.filename}</small></div>
-                  <div className="orderButtons">
-                    <button aria-label={`Move page ${index + 1} earlier`} onClick={() => move(index, -1)} disabled={controlsDisabled || index === 0}>↑</button>
-                    <button aria-label={`Move page ${index + 1} later`} onClick={() => move(index, 1)} disabled={controlsDisabled || index === pages.length - 1}>↓</button>
+                  <div>
+                    <strong>Page {index + 1}</strong>
+                    <small>{page.filename}</small>
+                    <small>{page.annotations.length} annotation{page.annotations.length === 1 ? '' : 's'}</small>
+                  </div>
+                  <div className="pageActions">
+                    <button type="button" onClick={() => setAnnotationPageId(page.id)} disabled={controlsDisabled}>Annotate</button>
+                    <div className="orderButtons">
+                      <button aria-label={`Move page ${index + 1} earlier`} onClick={() => move(index, -1)} disabled={controlsDisabled || index === 0}>↑</button>
+                      <button aria-label={`Move page ${index + 1} later`} onClick={() => move(index, 1)} disabled={controlsDisabled || index === pages.length - 1}>↓</button>
+                    </div>
                   </div>
                 </div>
               </article>
             ))}
           </div>
         </section>
+      )}
+
+      {annotationPage && (
+        <AnnotationEditor
+          page={annotationPage}
+          disabled={controlsDisabled}
+          onChange={annotations => updatePageAnnotations(annotationPage.id, annotations)}
+          onClose={() => setAnnotationPageId(null)}
+        />
       )}
 
       <section className="panel transcript">
@@ -309,7 +365,7 @@ export default function App() {
         <div>
           <p className="eyebrow">Publisher</p>
           <h2>Micro.blog</h2>
-          <p>Create and revise a private server-side draft. Your app token stays only in this page's memory and is never saved into the document or exported bundle.</p>
+          <p>Create and revise a private server-side draft. Annotation regions are document metadata for now and are not yet included in Micro.blog output.</p>
         </div>
         <label>
           <span>App token</span>
@@ -357,7 +413,7 @@ export default function App() {
         )}
         {existingMicroblogDraft && (
           <p>
-            {microblogDraftStale ? 'Local document changed since the last Micro.blog sync. ' : 'Draft is in sync with this local document. '}
+            {microblogDraftStale ? 'Micro.blog-visible content changed since the last sync. ' : 'Draft is in sync with current Micro.blog-visible content. '}
             <a href={existingMicroblogDraft.preview} target="_blank" rel="noreferrer">Open private preview ↗</a>
           </p>
         )}

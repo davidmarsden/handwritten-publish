@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canReuseMicroblogMedia, isMicroblogDraftStale, microblogHtml } from './microblog';
+import { canReuseMicroblogMedia, isMicroblogDraftStale, microblogContentRevision, microblogHtml } from './microblog';
 import { createDocument, type MicroblogDraftState } from './model';
 
 describe('microblogHtml', () => {
@@ -28,6 +28,27 @@ describe('Micro.blog draft sync state', () => {
     expect(isMicroblogDraftStale(document, draft)).toBe(true);
     draft.syncedDocumentUpdatedAt = document.updatedAt;
     expect(isMicroblogDraftStale(document, draft)).toBe(false);
+  });
+
+  it('does not mark annotation-only edits stale once a publish-visible revision is known', () => {
+    const document = createDocument('Test');
+    document.pages = [
+      { id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1, height: 1, annotations: [] },
+    ];
+    const draft: MicroblogDraftState = {
+      destination: 'https://example.com/',
+      url: 'https://example.com/post.html',
+      preview: 'https://micro.blog/preview',
+      createdAt: document.createdAt,
+      syncedContentRevision: microblogContentRevision(document),
+    };
+
+    document.pages[0].annotations.push({ type: 'link', x: .1, y: .2, width: .3, height: .04, href: 'https://example.org' });
+    document.updatedAt = new Date(Date.parse(document.updatedAt) + 1000).toISOString();
+    expect(isMicroblogDraftStale(document, draft)).toBe(false);
+
+    document.transcript = 'Now visible to Micro.blog';
+    expect(isMicroblogDraftStale(document, draft)).toBe(true);
   });
 
   it('reuses uploaded media only when ordered page hashes still match', () => {

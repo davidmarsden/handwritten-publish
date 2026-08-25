@@ -80,6 +80,14 @@ export function microblogHtml(document: HandwrittenDocument, mediaUrls: string[]
   return pages.join('\n');
 }
 
+export function microblogContentRevision(document: HandwrittenDocument): string {
+  return JSON.stringify({
+    title: document.title.trim(),
+    transcript: document.transcript ?? '',
+    pageHashes: document.pages.map(page => page.sha256),
+  });
+}
+
 function syncedDraftState(
   draft: Pick<MicroblogDraftState, 'destination' | 'url' | 'preview' | 'createdAt'>,
   document: HandwrittenDocument,
@@ -89,12 +97,16 @@ function syncedDraftState(
     ...draft,
     syncedAt: new Date().toISOString(),
     syncedDocumentUpdatedAt: document.updatedAt,
+    syncedContentRevision: microblogContentRevision(document),
     pageHashes: document.pages.map(page => page.sha256),
     mediaUrls,
   };
 }
 
 export function isMicroblogDraftStale(document: HandwrittenDocument, draft: MicroblogDraftState): boolean {
+  if (draft.syncedContentRevision) {
+    return draft.syncedContentRevision !== microblogContentRevision(document);
+  }
   return draft.syncedDocumentUpdatedAt !== document.updatedAt;
 }
 

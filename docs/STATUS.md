@@ -14,16 +14,20 @@ Handwritten Publish is now a working local-first publishing tool, not just a for
 - [x] Micro.blog media upload through a thin Netlify bridge
 - [x] Private Micro.blog draft creation and preview
 - [x] Track/update an existing Micro.blog draft
-- [x] Detect when the local document has changed since the last Micro.blog sync
+- [x] Detect Micro.blog-visible changes since the last sync
+- [x] Visual page annotation editor
+- [x] Normalized link regions with URL/label metadata
+- [x] Normalized photo placeholders with asset ID/alt metadata
+- [x] Annotation overlays in the local page preview
+- [x] Annotation metadata persists through IndexedDB and `.hwpublish`
 
 ## Next
 
-- [ ] Richer draft state and revision history
-- [ ] Visual annotation editor
-- [ ] Clickable handwritten link regions
+- [ ] Publish clickable handwritten link regions
 - [ ] Original photo assets, placement and alt text
+- [ ] Richer draft state and revision history
 - [ ] handwritten.blog publisher adapter
 - [ ] Assisted transcription and accessibility metadata
 - [ ] Native reMarkable input/send integration when safely supportable
 
-Publishing from Handwritten Publish remains draft-first. A tracked Micro.blog post must still be a draft before the app will update it.
+Publishing from Handwritten Publish remains draft-first. A tracked Micro.blog post must still be a draft before the app will update it. Annotation metadata is local/portable document state for now and is not yet included in Micro.blog output.
