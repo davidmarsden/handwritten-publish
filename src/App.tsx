@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import AnnotationEditor from './AnnotationEditor';
 import { annotationStyle } from './annotations';
 import { documentAssets, importPhotoAsset, type ImportedAsset } from './assets';
@@ -43,6 +43,8 @@ export default function App() {
   const [microblogToken, setMicroblogToken] = useState('');
   const [microblogConfig, setMicroblogConfig] = useState<MicroblogConfig | null>(null);
   const [microblogDestination, setMicroblogDestination] = useState('');
+  const [draggingPageId, setDraggingPageId] = useState<string | null>(null);
+  const dragMoved = useRef(false);
 
   const document = useMemo(() => ({
     ...baseDocument,
@@ -168,6 +170,50 @@ export default function App() {
       return next;
     });
     markEdited();
+    setStatus('Page order updated.');
+  }
+
+  function reorderPage(draggedId: string, targetId: string) {
+    if (draggedId === targetId) return;
+    setPages(current => {
+      const from = current.findIndex(page => page.id === draggedId);
+      const to = current.findIndex(page => page.id === targetId);
+      if (from < 0 || to < 0 || from === to) return current;
+      const next = [...current];
+      const [dragged] = next.splice(from, 1);
+      next.splice(to, 0, dragged);
+      dragMoved.current = true;
+      return next;
+    });
+  }
+
+  function beginPageDrag(event: ReactPointerEvent<HTMLButtonElement>, pageId: string) {
+    if (busy || !hydrated) return;
+    dragMoved.current = false;
+    setDraggingPageId(pageId);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function continuePageDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (!draggingPageId) return;
+    const target = documentElementAt(event.clientX, event.clientY);
+    const targetId = target?.dataset.pageId;
+    if (targetId) reorderPage(draggingPageId, targetId);
+  }
+
+  function endPageDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (dragMoved.current) {
+      markEdited();
+      setStatus('Page order updated.');
+    }
+    dragMoved.current = false;
+    setDraggingPageId(null);
+  }
+
+  function documentElementAt(x: number, y: number): HTMLElement | null {
+    const element = window.document.elementFromPoint(x, y);
+    return element instanceof HTMLElement ? element.closest<HTMLElement>('[data-page-id]') : null;
   }
 
   function updatePageAnnotations(pageId: string, annotations: Annotation[]) {
@@ -341,13 +387,13 @@ export default function App() {
         <section className="workspace">
           <div className="sectionHeading">
             <div><p className="eyebrow">Document</p><h2>{pages.length} page{pages.length === 1 ? '' : 's'} · {assets.length} overlay photo asset{assets.length === 1 ? '' : 's'}</h2></div>
-            <p>Handwritten pages and standalone photos share one movable sequence. Handwritten pages can also carry positioned photo and link overlays.</p>
+            <p>Drag pages into position. The arrow buttons remain available as a keyboard-friendly fallback.</p>
           </div>
-          <div className="pageGrid">
+          <div className={`pageGrid${draggingPageId ? ' isDragging' : ''}`}>
             {pages.map((page, index) => {
               const standalonePhoto = page.kind === 'photo';
               return (
-                <article className="pageCard" key={page.id}>
+                <article className={`pageCard${draggingPageId === page.id ? ' dragging' : ''}`} key={page.id} data-page-id={page.id}>
                   <div className="pageCardPreview">
                     <img src={page.previewUrl} alt={standalonePhoto ? page.alt || `Photo page ${index + 1}` : `Handwritten page ${index + 1}`} />
                     {!standalonePhoto && page.annotations.map((annotation, annotationIndex) => {
@@ -361,8 +407,18 @@ export default function App() {
                       return <span key={`annotation-${annotationIndex}`} className={`previewAnnotation ${annotation.type}`} style={annotationStyle(annotation)} title={annotation.type === 'photo' ? annotation.alt || 'Unbound photo placeholder' : 'Incomplete link region'} />;
                     })}
                   </div>
+                  <button
+                    type="button"
+                    className="dragHandle"
+                    aria-label={`Drag page ${index + 1} to reorder`}
+                    disabled={controlsDisabled}
+                    onPointerDown={event => beginPageDrag(event, page.id)}
+                    onPointerMove={continuePageDrag}
+                    onPointerUp={endPageDrag}
+                    onPointerCancel={endPageDrag}
+                  ><span aria-hidden="true">↕</span> Drag to reorder</button>
                   <div className="pageMeta">
-                    <div>
+                    <div className="pageIdentity">
                       <strong>{standalonePhoto ? `Photo page ${index + 1}` : `Page ${index + 1}`}</strong>
                       <small>{page.filename}</small>
                       <small>{standalonePhoto ? `${page.width} × ${page.height}` : `${page.annotations.length} annotation${page.annotations.length === 1 ? '' : 's'}`}</small>
@@ -373,14 +429,14 @@ export default function App() {
                       ) : (
                         <button type="button" onClick={() => setAnnotationPageId(page.id)} disabled={controlsDisabled}>Annotate</button>
                       )}
-                      <div className="orderButtons">
+                      <div className="orderButtons" aria-label="Page order fallback controls">
                         <button aria-label={`Move page ${index + 1} earlier`} onClick={() => move(index, -1)} disabled={controlsDisabled || index === 0}>↑</button>
                         <button aria-label={`Move page ${index + 1} later`} onClick={() => move(index, 1)} disabled={controlsDisabled || index === pages.length - 1}>↓</button>
                       </div>
                     </div>
                   </div>
                   {standalonePhoto && (
-                    <label><span>Photo alt text <em>recommended</em></span><textarea value={page.alt ?? ''} placeholder="Describe this standalone photo" disabled={controlsDisabled} onChange={event => updatePhotoPageAlt(page.id, event.target.value)} /></label>
+                    <label className="photoAltField"><span>Photo alt text <em>recommended</em></span><textarea value={page.alt ?? ''} placeholder="Describe this standalone photo" disabled={controlsDisabled} onChange={event => updatePhotoPageAlt(page.id, event.target.value)} /></label>
                   )}
                 </article>
               );
