@@ -39,6 +39,7 @@ export type MicroblogDraftState = {
   createdAt: string;
   syncedAt?: string;
   syncedDocumentUpdatedAt?: string;
+  syncedContentRevision?: string;
   pageHashes?: string[];
   mediaUrls?: string[];
 };
