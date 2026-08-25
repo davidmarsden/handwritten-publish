@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
-import type { Annotation, DocumentPage, HandwrittenAsset, HandwrittenDocument, HandwrittenPage, PhotoPage } from './model';
-import { FORMAT_VERSION, isPhotoPage } from './model';
+import type { Annotation, DocumentPage, HandwrittenAsset, HandwrittenDocument, HandwrittenPage } from './model';
+import { FORMAT_VERSION, LEGACY_FORMAT_VERSION, isPhotoPage, upgradeDocumentFormat } from './model';
 import { importedPage, sha256, type ImportedPage } from './importPng';
 import { assetExtension, importedAsset, type ImportedAsset } from './assets';
 
@@ -12,8 +12,9 @@ function pageExtension(page: DocumentPage): string {
 
 export async function buildBundle(document: HandwrittenDocument, pages: ImportedPage[], assets: ImportedAsset[] = []): Promise<Blob> {
   const zip = new JSZip();
-  zip.file('manifest.json', JSON.stringify(document, null, 2));
-  if (document.transcript) zip.file('transcript.md', document.transcript);
+  const manifest = upgradeDocumentFormat(document);
+  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+  if (manifest.transcript) zip.file('transcript.md', manifest.transcript);
 
   const pageFolder = zip.folder('pages');
   pages.forEach((page, index) => {
@@ -59,6 +60,16 @@ function hasBasePageFields(page: Partial<DocumentPage>): boolean {
     && typeof page.height === 'number' && Number.isFinite(page.height) && page.height > 0;
 }
 
+function isLegacyPage(value: unknown): value is HandwrittenPage {
+  if (!value || typeof value !== 'object') return false;
+  const page = value as Partial<HandwrittenPage> & Record<string, unknown>;
+  return hasBasePageFields(page)
+    && page.kind === undefined
+    && page.mediaType === 'image/png'
+    && Array.isArray(page.annotations)
+    && page.annotations.every(isAnnotation);
+}
+
 function isPage(value: unknown): value is DocumentPage {
   if (!value || typeof value !== 'object') return false;
   const page = value as Partial<DocumentPage> & Record<string, unknown>;
@@ -90,19 +101,25 @@ function isAsset(value: unknown): value is HandwrittenAsset {
 
 function parseManifest(value: unknown): HandwrittenDocument {
   if (!value || typeof value !== 'object') throw new Error('Invalid .hwpublish manifest.');
-  const document = value as Partial<HandwrittenDocument>;
-  if (document.format !== 'handwritten-publish' || document.version !== FORMAT_VERSION) throw new Error('Unsupported .hwpublish format version.');
+  const document = value as Partial<HandwrittenDocument> & { version?: number };
+  if (document.format !== 'handwritten-publish') throw new Error('Invalid .hwpublish manifest.');
+  if (document.version !== LEGACY_FORMAT_VERSION && document.version !== FORMAT_VERSION) {
+    throw new Error('Unsupported .hwpublish format version.');
+  }
+
+  const pagesValid = Array.isArray(document.pages)
+    && (document.version === LEGACY_FORMAT_VERSION
+      ? document.pages.every(isLegacyPage)
+      : document.pages.every(isPage));
+
   if (typeof document.id !== 'string' || typeof document.title !== 'string'
     || typeof document.createdAt !== 'string' || typeof document.updatedAt !== 'string'
-    || !Array.isArray(document.pages) || !document.pages.every(isPage)
+    || !pagesValid
     || (document.assets !== undefined && (!Array.isArray(document.assets) || !document.assets.every(isAsset)))) {
     throw new Error('Invalid .hwpublish manifest.');
   }
 
-  return {
-    ...(document as HandwrittenDocument),
-    pages: document.pages.map(page => page.kind === undefined ? { ...page, kind: 'handwritten' } as HandwrittenPage : page),
-  };
+  return upgradeDocumentFormat(document as HandwrittenDocument);
 }
 
 export async function readBundle(file: File): Promise<{ document: HandwrittenDocument; pages: ImportedPage[]; assets: ImportedAsset[] }> {
@@ -110,13 +127,16 @@ export async function readBundle(file: File): Promise<{ document: HandwrittenDoc
   const manifestEntry = zip.file('manifest.json');
   if (!manifestEntry) throw new Error('This bundle does not contain manifest.json.');
 
-  const document = parseManifest(JSON.parse(await manifestEntry.async('string')));
+  const rawManifest = JSON.parse(await manifestEntry.async('string')) as { version?: number };
+  const sourceVersion = rawManifest.version;
+  const document = parseManifest(rawManifest);
   const orderedPages = [...document.pages].sort((a, b) => a.position - b.position);
   const pages: ImportedPage[] = [];
 
   for (let index = 0; index < orderedPages.length; index += 1) {
     const page = orderedPages[index];
-    const archiveName = `pages/page-${String(index + 1).padStart(4, '0')}.${pageExtension(page)}`;
+    const extension = sourceVersion === LEGACY_FORMAT_VERSION ? 'png' : pageExtension(page);
+    const archiveName = `pages/page-${String(index + 1).padStart(4, '0')}.${extension}`;
     const entry = zip.file(archiveName);
     if (!entry) throw new Error(`Bundle is missing ${archiveName}.`);
     const blob = await entry.async('blob');
