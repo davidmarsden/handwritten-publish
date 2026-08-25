@@ -8,6 +8,7 @@ import {
   createMicroblogDraft,
   fetchMicroblogConfig,
   isMicroblogDraftStale,
+  microblogAnnotationError,
   type MicroblogConfig,
   updateMicroblogDraft,
   uploadMicroblogPage,
@@ -198,6 +199,12 @@ export default function App() {
       return;
     }
 
+    const annotationError = microblogAnnotationError(document);
+    if (annotationError) {
+      setStatus(annotationError);
+      return;
+    }
+
     const existingDraft = baseDocument.publishing?.microblog;
     if (existingDraft && !isMicroblogDraftStale(document, existingDraft)) {
       setStatus('Micro.blog draft is already up to date.');
@@ -248,6 +255,7 @@ export default function App() {
   const controlsDisabled = busy || !hydrated;
   const existingMicroblogDraft = baseDocument.publishing?.microblog;
   const hasValidTitle = Boolean(title.trim());
+  const microblogLinkError = microblogAnnotationError(document);
   const microblogDraftStale = existingMicroblogDraft
     ? isMicroblogDraftStale(document, existingMicroblogDraft)
     : false;
@@ -297,7 +305,7 @@ export default function App() {
                 <div className="pageCardPreview">
                   <img src={page.previewUrl} alt={`Handwritten page ${index + 1}`} />
                   {page.annotations.map((annotation, annotationIndex) => (
-                    annotation.type === 'link' && annotation.href ? (
+                    annotation.type === 'link' && annotation.href.trim() ? (
                       <a
                         key={`annotation-${annotationIndex}`}
                         className="previewAnnotation link"
@@ -365,7 +373,7 @@ export default function App() {
         <div>
           <p className="eyebrow">Publisher</p>
           <h2>Micro.blog</h2>
-          <p>Create and revise a private server-side draft. Annotation regions are document metadata for now and are not yet included in Micro.blog output.</p>
+          <p>Create and revise a private server-side draft. Completed link regions publish as responsive clickable overlays; photo placeholders remain local metadata for now.</p>
         </div>
         <label>
           <span>App token</span>
@@ -400,7 +408,7 @@ export default function App() {
         )}
         <button
           onClick={syncMicroblogDraft}
-          disabled={controlsDisabled || !microblogConfig || !pages.length || !hasValidTitle || Boolean(existingMicroblogDraft && !microblogDraftStale)}
+          disabled={controlsDisabled || !microblogConfig || !pages.length || !hasValidTitle || Boolean(microblogLinkError) || Boolean(existingMicroblogDraft && !microblogDraftStale)}
         >
           {!existingMicroblogDraft
             ? 'Create Micro.blog draft'
@@ -410,6 +418,9 @@ export default function App() {
         </button>
         {!hasValidTitle && microblogConfig && pages.length > 0 && (
           <small>Add a post title before syncing a Micro.blog draft.</small>
+        )}
+        {microblogLinkError && microblogConfig && pages.length > 0 && (
+          <small>{microblogLinkError}</small>
         )}
         {existingMicroblogDraft && (
           <p>
