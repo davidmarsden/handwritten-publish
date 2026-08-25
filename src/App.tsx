@@ -23,8 +23,11 @@ export default function App() {
     title,
     transcript: transcript || undefined,
     pages: documentPages(pages),
-    updatedAt: new Date().toISOString(),
   }), [baseDocument, title, transcript, pages]);
+
+  function markEdited() {
+    setBaseDocument(current => ({ ...current, updatedAt: new Date().toISOString() }));
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +72,7 @@ export default function App() {
       const imported = await importPngFiles(selected);
       revokePages(pages);
       setPages(imported);
+      markEdited();
       setStatus(`${imported.length} PNG page${imported.length === 1 ? '' : 's'} imported.`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not import PNG pages.');
@@ -106,6 +110,7 @@ export default function App() {
       [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
+    markEdited();
   }
 
   async function exportBundle() {
@@ -126,6 +131,8 @@ export default function App() {
     setStatus('New local document started.');
   }
 
+  const controlsDisabled = busy || !hydrated;
+
   return (
     <main className="shell">
       <header className="hero">
@@ -137,18 +144,25 @@ export default function App() {
       <section className="panel controls">
         <label>
           <span>Post title</span>
-          <input value={title} onChange={event => setTitle(event.target.value)} />
+          <input
+            value={title}
+            disabled={controlsDisabled}
+            onChange={event => {
+              setTitle(event.target.value);
+              markEdited();
+            }}
+          />
         </label>
         <label className="fileButton">
-          {busy ? 'Reading…' : pages.length ? 'Replace PNG pages' : 'Choose PNG pages'}
-          <input type="file" accept="image/png,.png" multiple onChange={onFiles} disabled={busy} />
+          {busy ? 'Reading…' : !hydrated ? 'Restoring local draft…' : pages.length ? 'Replace PNG pages' : 'Choose PNG pages'}
+          <input type="file" accept="image/png,.png" multiple onChange={onFiles} disabled={controlsDisabled} />
         </label>
         <label className="fileButton">
           Open .hwpublish
-          <input type="file" accept=".hwpublish,application/zip" onChange={onBundle} disabled={busy} />
+          <input type="file" accept=".hwpublish,application/zip" onChange={onBundle} disabled={controlsDisabled} />
         </label>
-        <button onClick={exportBundle} disabled={!pages.length || busy}>Export .hwpublish</button>
-        <button onClick={newDocument} disabled={busy}>New document</button>
+        <button onClick={exportBundle} disabled={!pages.length || controlsDisabled}>Export .hwpublish</button>
+        <button onClick={newDocument} disabled={controlsDisabled}>New document</button>
         <small aria-live="polite">{status}</small>
       </section>
 
@@ -165,8 +179,8 @@ export default function App() {
                 <div className="pageMeta">
                   <div><strong>Page {index + 1}</strong><small>{page.filename}</small></div>
                   <div className="orderButtons">
-                    <button aria-label={`Move page ${index + 1} earlier`} onClick={() => move(index, -1)} disabled={index === 0}>↑</button>
-                    <button aria-label={`Move page ${index + 1} later`} onClick={() => move(index, 1)} disabled={index === pages.length - 1}>↓</button>
+                    <button aria-label={`Move page ${index + 1} earlier`} onClick={() => move(index, -1)} disabled={controlsDisabled || index === 0}>↑</button>
+                    <button aria-label={`Move page ${index + 1} later`} onClick={() => move(index, 1)} disabled={controlsDisabled || index === pages.length - 1}>↓</button>
                   </div>
                 </div>
               </article>
@@ -178,7 +192,15 @@ export default function App() {
       <section className="panel transcript">
         <label>
           <span>Transcript <em>optional for now</em></span>
-          <textarea value={transcript} onChange={event => setTranscript(event.target.value)} placeholder="Add or paste a transcript. AI-assisted transcription comes later; the page images remain canonical." />
+          <textarea
+            value={transcript}
+            disabled={controlsDisabled}
+            onChange={event => {
+              setTranscript(event.target.value);
+              markEdited();
+            }}
+            placeholder="Add or paste a transcript. AI-assisted transcription comes later; the page images remain canonical."
+          />
         </label>
       </section>
     </main>
