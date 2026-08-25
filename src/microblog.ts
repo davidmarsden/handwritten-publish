@@ -1,0 +1,96 @@
+import type { ImportedPage } from './importPng';
+import type { HandwrittenDocument, MicroblogDraftState } from './model';
+
+export type MicroblogDestination = {
+  uid: string;
+  name: string;
+};
+
+export type MicroblogConfig = {
+  mediaEndpoint: string;
+  destinations: MicroblogDestination[];
+};
+
+type DraftResponse = {
+  url: string;
+  preview: string;
+};
+
+async function responseError(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = await response.json() as { error?: string };
+    return payload.error || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export async function fetchMicroblogConfig(token: string): Promise<MicroblogConfig> {
+  const response = await fetch('/api/microblog/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: token.trim() }),
+  });
+  if (!response.ok) throw new Error(await responseError(response, 'Could not connect to Micro.blog.'));
+  const config = await response.json() as { destinations: MicroblogDestination[] };
+  return { mediaEndpoint: '/api/microblog/media', destinations: config.destinations };
+}
+
+export async function uploadMicroblogPage(
+  _mediaEndpoint: string,
+  token: string,
+  page: ImportedPage,
+): Promise<string> {
+  const body = new FormData();
+  body.append('token', token.trim());
+  body.append('file', page.file, page.filename);
+  const response = await fetch('/api/microblog/media', { method: 'POST', body });
+  if (!response.ok) throw new Error(await responseError(response, `Could not upload ${page.filename}.`));
+  const payload = await response.json() as { url?: string };
+  if (!payload.url) throw new Error(`Micro.blog uploaded ${page.filename} but returned no media URL.`);
+  return payload.url;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+export function microblogHtml(document: HandwrittenDocument, mediaUrls: string[]): string {
+  const pages = mediaUrls.map((url, index) => (
+    `<figure class="handwritten-page"><img src="${escapeHtml(url)}" alt="Handwritten page ${index + 1} of ${mediaUrls.length}"></figure>`
+  ));
+  if (document.transcript) {
+    pages.push(`<details class="handwritten-transcript"><summary>Transcript</summary><div>${escapeHtml(document.transcript).replaceAll('\n', '<br>')}</div></details>`);
+  }
+  return pages.join('\n');
+}
+
+export async function createMicroblogDraft(
+  token: string,
+  destination: string,
+  document: HandwrittenDocument,
+  mediaUrls: string[],
+): Promise<MicroblogDraftState> {
+  const response = await fetch('/api/microblog/draft', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token: token.trim(),
+      destination,
+      title: document.title,
+      html: microblogHtml(document, mediaUrls),
+    }),
+  });
+  if (!response.ok) throw new Error(await responseError(response, 'Micro.blog could not create the draft.'));
+  const result = await response.json() as DraftResponse;
+  return {
+    destination,
+    url: result.url,
+    preview: result.preview || result.url,
+    createdAt: new Date().toISOString(),
+  };
+}
