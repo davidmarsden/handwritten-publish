@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { canReuseMicroblogMedia, isMicroblogDraftStale, microblogContentRevision, microblogHtml } from './microblog';
+import {
+  canReuseMicroblogMedia,
+  isMicroblogDraftStale,
+  microblogAnnotationError,
+  microblogContentRevision,
+  microblogHtml,
+} from './microblog';
 import { createDocument, type MicroblogDraftState } from './model';
 
 describe('microblogHtml', () => {
@@ -12,6 +18,39 @@ describe('microblogHtml', () => {
     expect(html).toContain('alt="Handwritten page 1 of 2"');
     expect(html).toContain('&lt;hello&gt; &amp; goodbye');
     expect(html).not.toContain('<hello>');
+  });
+
+  it('renders responsive handwritten link overlays and ignores photo placeholders', () => {
+    const document = createDocument('Links');
+    document.pages = [{
+      id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1000, height: 1400,
+      annotations: [
+        { type: 'link', x: .125, y: .5, width: .25, height: .05, href: 'https://example.com/?a=1&b=2', label: 'Example & more' },
+        { type: 'photo', x: .2, y: .2, width: .4, height: .3, assetId: 'future-photo', alt: 'Not published yet' },
+      ],
+    }];
+
+    const html = microblogHtml(document, ['https://media.example/page.png']);
+    expect(html).toContain('style="position:relative;margin:0;display:block"');
+    expect(html).toContain('left:12.5%');
+    expect(html).toContain('top:50%');
+    expect(html).toContain('width:25%');
+    expect(html).toContain('height:5%');
+    expect(html).toContain('href="https://example.com/?a=1&amp;b=2"');
+    expect(html).toContain('aria-label="Example &amp; more"');
+    expect(html).not.toContain('future-photo');
+    expect(html).not.toContain('Not published yet');
+  });
+
+  it('requires every published link region to have a URL', () => {
+    const document = createDocument('Incomplete');
+    document.pages = [{
+      id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1, height: 1,
+      annotations: [{ type: 'link', x: .1, y: .2, width: .3, height: .04, href: '   ' }],
+    }];
+    expect(microblogAnnotationError(document)).toContain('Page 1');
+    document.pages[0].annotations = [{ type: 'photo', x: .1, y: .2, width: .3, height: .2, assetId: '' }];
+    expect(microblogAnnotationError(document)).toBeNull();
   });
 });
 
@@ -30,7 +69,7 @@ describe('Micro.blog draft sync state', () => {
     expect(isMicroblogDraftStale(document, draft)).toBe(false);
   });
 
-  it('does not mark annotation-only edits stale once a publish-visible revision is known', () => {
+  it('marks link edits stale but still ignores photo-placeholder-only edits', () => {
     const document = createDocument('Test');
     document.pages = [
       { id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1, height: 1, annotations: [] },
@@ -43,15 +82,14 @@ describe('Micro.blog draft sync state', () => {
       syncedContentRevision: microblogContentRevision(document),
     };
 
-    document.pages[0].annotations.push({ type: 'link', x: .1, y: .2, width: .3, height: .04, href: 'https://example.org' });
-    document.updatedAt = new Date(Date.parse(document.updatedAt) + 1000).toISOString();
+    document.pages[0].annotations.push({ type: 'photo', x: .1, y: .2, width: .3, height: .2, assetId: 'photo-1' });
     expect(isMicroblogDraftStale(document, draft)).toBe(false);
 
-    document.transcript = 'Now visible to Micro.blog';
+    document.pages[0].annotations.push({ type: 'link', x: .1, y: .2, width: .3, height: .04, href: 'https://example.org' });
     expect(isMicroblogDraftStale(document, draft)).toBe(true);
   });
 
-  it('reuses uploaded media only when ordered page hashes still match', () => {
+  it('reuses uploaded media when only link overlays change', () => {
     const document = createDocument('Test');
     document.pages = [
       { id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1, height: 1, annotations: [] },
@@ -66,6 +104,7 @@ describe('Micro.blog draft sync state', () => {
       mediaUrls: ['https://example.com/1.png', 'https://example.com/2.png'],
     };
 
+    document.pages[0].annotations.push({ type: 'link', x: .1, y: .2, width: .3, height: .04, href: 'https://example.org' });
     expect(canReuseMicroblogMedia(document, draft)).toBe(true);
     draft.pageHashes = ['hash-2', 'hash-1'];
     expect(canReuseMicroblogMedia(document, draft)).toBe(false);
