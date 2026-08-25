@@ -1,13 +1,14 @@
 import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
 
-const MAX_PAGE_BYTES = 5_000_000;
+const MAX_MEDIA_BYTES = 5_000_000;
+const SUPPORTED_MEDIA_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 
 function decodedFilename(value: string | null): string {
-  if (!value) return 'handwritten-page.png';
+  if (!value) return 'handwritten-media';
   try {
-    return decodeURIComponent(value).trim() || 'handwritten-page.png';
+    return decodeURIComponent(value).trim() || 'handwritten-media';
   } catch {
-    return 'handwritten-page.png';
+    return 'handwritten-media';
   }
 }
 
@@ -19,18 +20,20 @@ export default async (request: Request) => {
   const contentType = request.headers.get('content-type') || 'application/octet-stream';
 
   if (!token) return json({ error: 'Micro.blog app token is required.' }, 400);
-  if (contentType !== 'image/png') return json({ error: 'PNG page is required.' }, 400);
+  if (!SUPPORTED_MEDIA_TYPES.has(contentType)) {
+    return json({ error: 'A PNG, JPEG or WebP image is required.' }, 400);
+  }
 
   let bytes: ArrayBuffer;
   try {
     bytes = await request.arrayBuffer();
   } catch (error) {
-    return json({ error: `Could not read the PNG upload: ${error instanceof Error ? error.message : 'unknown error'}` }, 400);
+    return json({ error: `Could not read the image upload: ${error instanceof Error ? error.message : 'unknown error'}` }, 400);
   }
 
-  if (!bytes.byteLength) return json({ error: 'PNG page is empty.' }, 400);
-  if (bytes.byteLength > MAX_PAGE_BYTES) {
-    return json({ error: `This PNG page is ${(bytes.byteLength / 1_000_000).toFixed(1)} MB; the current upload bridge supports pages up to 5 MB.` }, 413);
+  if (!bytes.byteLength) return json({ error: 'Image upload is empty.' }, 400);
+  if (bytes.byteLength > MAX_MEDIA_BYTES) {
+    return json({ error: `This image is ${(bytes.byteLength / 1_000_000).toFixed(1)} MB; the current upload bridge supports media files up to 5 MB.` }, 413);
   }
 
   let configResponse: Response;
@@ -45,7 +48,7 @@ export default async (request: Request) => {
   if (!config['media-endpoint']) return json({ error: 'Micro.blog did not return a media endpoint.' }, 502);
 
   const outgoing = new FormData();
-  outgoing.append('file', new Blob([bytes], { type: 'image/png' }), filename);
+  outgoing.append('file', new Blob([bytes], { type: contentType }), filename);
 
   let response: Response;
   try {
