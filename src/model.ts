@@ -44,7 +44,7 @@ export type PhotoPage = {
   sha256: string;
   width: number;
   height: number;
-  annotations: [];
+  annotations: Annotation[];
   alt?: string;
 };
 
