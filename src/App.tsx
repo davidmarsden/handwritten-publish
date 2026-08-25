@@ -162,7 +162,13 @@ export default function App() {
   }
 
   async function publishMicroblogDraft() {
+    const normalizedTitle = title.trim();
     if (!microblogConfig || !microblogToken.trim() || !pages.length) return;
+    if (!normalizedTitle) {
+      setStatus('Add a post title before creating a Micro.blog draft.');
+      return;
+    }
+
     setBusy(true);
     try {
       const mediaUrls: string[] = [];
@@ -171,7 +177,12 @@ export default function App() {
         mediaUrls.push(await uploadMicroblogPage(microblogConfig.mediaEndpoint, microblogToken, pages[index]));
       }
       setStatus('Creating private Micro.blog draft…');
-      const draft = await createMicroblogDraft(microblogToken, microblogDestination, document, mediaUrls);
+      const draft = await createMicroblogDraft(
+        microblogToken,
+        microblogDestination,
+        { ...document, title: normalizedTitle },
+        mediaUrls,
+      );
       setBaseDocument(current => ({
         ...current,
         publishing: {
@@ -189,6 +200,7 @@ export default function App() {
 
   const controlsDisabled = busy || !hydrated;
   const existingMicroblogDraft = baseDocument.publishing?.microblog;
+  const hasValidTitle = Boolean(title.trim());
 
   return (
     <main className="shell">
@@ -296,10 +308,13 @@ export default function App() {
         )}
         <button
           onClick={publishMicroblogDraft}
-          disabled={controlsDisabled || !microblogConfig || !pages.length || Boolean(existingMicroblogDraft)}
+          disabled={controlsDisabled || !microblogConfig || !pages.length || !hasValidTitle || Boolean(existingMicroblogDraft)}
         >
           {existingMicroblogDraft ? 'Micro.blog draft already created' : 'Create Micro.blog draft'}
         </button>
+        {!hasValidTitle && microblogConfig && pages.length > 0 && !existingMicroblogDraft && (
+          <small>Add a post title before creating a Micro.blog draft.</small>
+        )}
         {existingMicroblogDraft && (
           <p>
             Draft tracked for this document. <a href={existingMicroblogDraft.preview} target="_blank" rel="noreferrer">Open private preview ↗</a>
