@@ -7,6 +7,7 @@ Handwritten Publish is now a working local-first publishing tool, not just a for
 - [x] Import multiple reMarkable PNG pages
 - [x] Import standalone JPEG/PNG/WebP photo pages into the same ordered document sequence
 - [x] Natural filename ordering and manual page reordering
+- [x] Touch/mouse drag-and-drop page ordering with keyboard-friendly arrow fallbacks
 - [x] Move handwritten pages and standalone photo pages together with the same page-order controls
 - [x] Remove standalone photo pages and edit their alt text
 - [x] Stable document identity and page SHA-256 hashes
