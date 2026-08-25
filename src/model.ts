@@ -21,7 +21,10 @@ export type PhotoAnnotation = NormalizedRect & {
 
 export type Annotation = LinkAnnotation | PhotoAnnotation;
 
+export type AssetMediaType = 'image/jpeg' | 'image/png' | 'image/webp';
+
 export type HandwrittenPage = {
+  kind?: 'handwritten';
   id: string;
   position: number;
   filename: string;
@@ -32,7 +35,20 @@ export type HandwrittenPage = {
   annotations: Annotation[];
 };
 
-export type AssetMediaType = 'image/jpeg' | 'image/png' | 'image/webp';
+export type PhotoPage = {
+  kind: 'photo';
+  id: string;
+  position: number;
+  filename: string;
+  mediaType: AssetMediaType;
+  sha256: string;
+  width: number;
+  height: number;
+  annotations: [];
+  alt?: string;
+};
+
+export type DocumentPage = HandwrittenPage | PhotoPage;
 
 export type HandwrittenAsset = {
   id: string;
@@ -70,12 +86,20 @@ export type HandwrittenDocument = {
   createdAt: string;
   updatedAt: string;
   transcript?: string;
-  pages: HandwrittenPage[];
+  pages: DocumentPage[];
   assets?: HandwrittenAsset[];
   publishing?: {
     microblog?: MicroblogDraftState;
   };
 };
+
+export function isPhotoPage(page: DocumentPage): page is PhotoPage {
+  return page.kind === 'photo';
+}
+
+export function isHandwrittenPage(page: DocumentPage): page is HandwrittenPage {
+  return page.kind !== 'photo';
+}
 
 export function createDocument(title = 'Untitled handwritten post'): HandwrittenDocument {
   const now = new Date().toISOString();
