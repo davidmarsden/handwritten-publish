@@ -67,7 +67,7 @@ input, textarea, select {
 .pageGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
 .pageCard { overflow: hidden; border-radius: 12px; background: #fffdf8; border: 1px solid rgba(32,32,30,.1); }
 .pageCardPreview { position: relative; background: white; }
-.pageCardPreview img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: contain; background: white; }
+.pageCardPreview img { display: block; width: 100%; height: auto; background: white; }
 .previewAnnotation { position: absolute; z-index: 2; border: 2px solid currentColor; background: rgba(255,255,255,.14); }
 .previewAnnotation.link { color: #1d5fa7; }
 .previewAnnotation.photo { color: #8d5a18; border-style: dashed; }
