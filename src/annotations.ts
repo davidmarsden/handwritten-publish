@@ -1,16 +1,16 @@
 import type { Annotation, NormalizedRect } from './model';
 
-const MIN_SIZE = 0.01;
+export const MIN_ANNOTATION_SIZE = 0.01;
 
 export function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
 export function constrainRect(rect: NormalizedRect): NormalizedRect {
-  const x = clamp01(rect.x);
-  const y = clamp01(rect.y);
-  const width = Math.min(Math.max(MIN_SIZE, rect.width), 1 - x);
-  const height = Math.min(Math.max(MIN_SIZE, rect.height), 1 - y);
+  const width = Math.min(1, Math.max(MIN_ANNOTATION_SIZE, rect.width));
+  const height = Math.min(1, Math.max(MIN_ANNOTATION_SIZE, rect.height));
+  const x = Math.min(clamp01(rect.x), 1 - width);
+  const y = Math.min(clamp01(rect.y), 1 - height);
   return { x, y, width, height };
 }
 
@@ -24,7 +24,7 @@ export function rectFromPoints(
   const bottom = clamp01(Math.max(start.y, end.y));
   const width = right - left;
   const height = bottom - top;
-  if (width < MIN_SIZE || height < MIN_SIZE) return null;
+  if (width < MIN_ANNOTATION_SIZE || height < MIN_ANNOTATION_SIZE) return null;
   return { x: left, y: top, width, height };
 }
 
