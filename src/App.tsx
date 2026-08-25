@@ -3,7 +3,7 @@ import AnnotationEditor from './AnnotationEditor';
 import { annotationStyle } from './annotations';
 import { documentAssets, importPhotoAsset, type ImportedAsset } from './assets';
 import { buildBundle, downloadBlob, readBundle } from './bundle';
-import { documentPages, importPngFiles, type ImportedPage } from './importPng';
+import { documentPages, importPhotoPageFiles, importPngFiles, type ImportedPage } from './importPng';
 import {
   canReuseMicroblogMedia,
   createMicroblogDraft,
@@ -52,9 +52,10 @@ export default function App() {
     assets: documentAssets(assets),
   }), [baseDocument, title, transcript, pages, assets]);
 
-  const annotationPage = annotationPageId
+  const annotationPageCandidate = annotationPageId
     ? pages.find(page => page.id === annotationPageId) ?? null
     : null;
+  const annotationPage = annotationPageCandidate?.kind === 'photo' ? null : annotationPageCandidate;
 
   function markEdited() {
     setBaseDocument(current => ({ ...current, updatedAt: new Date().toISOString() }));
@@ -118,6 +119,23 @@ export default function App() {
     }
   }
 
+  async function onPhotoPages(event: ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? []);
+    if (!selected.length) return;
+    setBusy(true);
+    try {
+      const imported = await importPhotoPageFiles(selected);
+      setPages(current => [...current, ...imported]);
+      markEdited();
+      setStatus(`${imported.length} standalone photo page${imported.length === 1 ? '' : 's'} added.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not add photo pages.');
+    } finally {
+      setBusy(false);
+      event.target.value = '';
+    }
+  }
+
   async function onBundle(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -153,9 +171,27 @@ export default function App() {
   }
 
   function updatePageAnnotations(pageId: string, annotations: Annotation[]) {
-    setPages(current => current.map(page => page.id === pageId ? { ...page, annotations } : page));
+    setPages(current => current.map(page => page.id === pageId && page.kind !== 'photo'
+      ? { ...page, annotations }
+      : page));
     markEdited();
     setStatus('Annotation changes saved locally.');
+  }
+
+  function updatePhotoPageAlt(pageId: string, alt: string) {
+    setPages(current => current.map(page => page.id === pageId && page.kind === 'photo'
+      ? { ...page, alt: alt || undefined }
+      : page));
+    markEdited();
+  }
+
+  function removePhotoPage(pageId: string) {
+    const page = pages.find(candidate => candidate.id === pageId);
+    if (!page || page.kind !== 'photo') return;
+    URL.revokeObjectURL(page.previewUrl);
+    setPages(current => current.filter(candidate => candidate.id !== pageId));
+    markEdited();
+    setStatus(`Photo page ${page.filename} removed.`);
   }
 
   async function addPhotoAsset(file: File): Promise<string> {
@@ -237,11 +273,11 @@ export default function App() {
       let mediaUrls: string[];
       if (existingDraft && canReuseMicroblogMedia(document, existingDraft)) {
         mediaUrls = existingDraft.mediaUrls ?? [];
-        setStatus('Handwritten pages are unchanged; reusing existing Micro.blog media…');
+        setStatus('Page media is unchanged; reusing existing Micro.blog media…');
       } else {
         mediaUrls = [];
         for (let index = 0; index < pages.length; index += 1) {
-          setStatus(`Uploading handwritten page ${index + 1} of ${pages.length} to Micro.blog…`);
+          setStatus(`Uploading page ${index + 1} of ${pages.length} to Micro.blog…`);
           mediaUrls.push(await uploadMicroblogPage(microblogConfig.mediaEndpoint, microblogToken, pages[index]));
         }
       }
@@ -258,7 +294,7 @@ export default function App() {
           photoMedia.push({ assetId, sha256: asset.sha256, url: reusableUrl });
           continue;
         }
-        setStatus(`Uploading photo ${index + 1} of ${photoAssetIds.length} to Micro.blog…`);
+        setStatus(`Uploading overlay photo ${index + 1} of ${photoAssetIds.length} to Micro.blog…`);
         const url = await uploadMicroblogPhoto(microblogConfig.mediaEndpoint, microblogToken, asset);
         photoMedia.push({ assetId, sha256: asset.sha256, url });
       }
@@ -288,12 +324,13 @@ export default function App() {
       <header className="hero">
         <p className="eyebrow">Handwritten Publish</p>
         <h1>Your handwriting, still handwriting.</h1>
-        <p>Turn reMarkable PNG exports into one portable, web-ready document without flattening away what makes them yours.</p>
+        <p>Turn reMarkable PNG exports and photos into one portable, web-ready document without flattening away what makes them yours.</p>
       </header>
 
       <section className="panel controls">
         <label><span>Post title</span><input value={title} disabled={controlsDisabled} onChange={event => { setTitle(event.target.value); markEdited(); }} /></label>
-        <label className="fileButton">{busy ? 'Reading…' : !hydrated ? 'Restoring local draft…' : pages.length ? 'Replace PNG pages' : 'Choose PNG pages'}<input type="file" accept="image/png,.png" multiple onChange={onFiles} disabled={controlsDisabled} /></label>
+        <label className="fileButton">{busy ? 'Reading…' : !hydrated ? 'Restoring local draft…' : pages.length ? 'Replace with PNG pages' : 'Choose PNG pages'}<input type="file" accept="image/png,.png" multiple onChange={onFiles} disabled={controlsDisabled} /></label>
+        <label className="fileButton">Add photo pages<input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple onChange={onPhotoPages} disabled={controlsDisabled} /></label>
         <label className="fileButton">Open .hwpublish<input type="file" accept=".hwpublish,application/zip" onChange={onBundle} disabled={controlsDisabled} /></label>
         <button onClick={exportBundle} disabled={!pages.length || controlsDisabled}>Export .hwpublish</button>
         <button onClick={newDocument} disabled={controlsDisabled}>New document</button>
@@ -303,37 +340,51 @@ export default function App() {
       {pages.length > 0 && (
         <section className="workspace">
           <div className="sectionHeading">
-            <div><p className="eyebrow">Document</p><h2>{pages.length} page{pages.length === 1 ? '' : 's'} · {assets.length} photo asset{assets.length === 1 ? '' : 's'}</h2></div>
-            <p>Photo regions can reference original JPEG, PNG or WebP assets. The handwritten page remains canonical underneath.</p>
+            <div><p className="eyebrow">Document</p><h2>{pages.length} page{pages.length === 1 ? '' : 's'} · {assets.length} overlay photo asset{assets.length === 1 ? '' : 's'}</h2></div>
+            <p>Handwritten pages and standalone photos share one movable sequence. Handwritten pages can also carry positioned photo and link overlays.</p>
           </div>
           <div className="pageGrid">
-            {pages.map((page, index) => (
-              <article className="pageCard" key={page.id}>
-                <div className="pageCardPreview">
-                  <img src={page.previewUrl} alt={`Handwritten page ${index + 1}`} />
-                  {page.annotations.map((annotation, annotationIndex) => {
-                    if (annotation.type === 'link' && annotation.href.trim()) return (
-                      <a key={`annotation-${annotationIndex}`} className="previewAnnotation link" style={annotationStyle(annotation)} href={annotation.href} target="_blank" rel="noreferrer" aria-label={annotation.label || `Link region ${annotationIndex + 1}`} />
-                    );
-                    if (annotation.type === 'photo') {
-                      const asset = assets.find(candidate => candidate.id === annotation.assetId);
-                      if (asset) return <img key={`annotation-${annotationIndex}`} className="embeddedPhotoPreview" style={annotationStyle(annotation)} src={asset.previewUrl} alt={annotation.alt || asset.filename} />;
-                    }
-                    return <span key={`annotation-${annotationIndex}`} className={`previewAnnotation ${annotation.type}`} style={annotationStyle(annotation)} title={annotation.type === 'photo' ? annotation.alt || 'Unbound photo placeholder' : 'Incomplete link region'} />;
-                  })}
-                </div>
-                <div className="pageMeta">
-                  <div><strong>Page {index + 1}</strong><small>{page.filename}</small><small>{page.annotations.length} annotation{page.annotations.length === 1 ? '' : 's'}</small></div>
-                  <div className="pageActions">
-                    <button type="button" onClick={() => setAnnotationPageId(page.id)} disabled={controlsDisabled}>Annotate</button>
-                    <div className="orderButtons">
-                      <button aria-label={`Move page ${index + 1} earlier`} onClick={() => move(index, -1)} disabled={controlsDisabled || index === 0}>↑</button>
-                      <button aria-label={`Move page ${index + 1} later`} onClick={() => move(index, 1)} disabled={controlsDisabled || index === pages.length - 1}>↓</button>
+            {pages.map((page, index) => {
+              const standalonePhoto = page.kind === 'photo';
+              return (
+                <article className="pageCard" key={page.id}>
+                  <div className="pageCardPreview">
+                    <img src={page.previewUrl} alt={standalonePhoto ? page.alt || `Photo page ${index + 1}` : `Handwritten page ${index + 1}`} />
+                    {!standalonePhoto && page.annotations.map((annotation, annotationIndex) => {
+                      if (annotation.type === 'link' && annotation.href.trim()) return (
+                        <a key={`annotation-${annotationIndex}`} className="previewAnnotation link" style={annotationStyle(annotation)} href={annotation.href} target="_blank" rel="noreferrer" aria-label={annotation.label || `Link region ${annotationIndex + 1}`} />
+                      );
+                      if (annotation.type === 'photo') {
+                        const asset = assets.find(candidate => candidate.id === annotation.assetId);
+                        if (asset) return <img key={`annotation-${annotationIndex}`} className="embeddedPhotoPreview" style={annotationStyle(annotation)} src={asset.previewUrl} alt={annotation.alt || asset.filename} />;
+                      }
+                      return <span key={`annotation-${annotationIndex}`} className={`previewAnnotation ${annotation.type}`} style={annotationStyle(annotation)} title={annotation.type === 'photo' ? annotation.alt || 'Unbound photo placeholder' : 'Incomplete link region'} />;
+                    })}
+                  </div>
+                  <div className="pageMeta">
+                    <div>
+                      <strong>{standalonePhoto ? `Photo page ${index + 1}` : `Page ${index + 1}`}</strong>
+                      <small>{page.filename}</small>
+                      <small>{standalonePhoto ? `${page.width} × ${page.height}` : `${page.annotations.length} annotation${page.annotations.length === 1 ? '' : 's'}`}</small>
+                    </div>
+                    <div className="pageActions">
+                      {standalonePhoto ? (
+                        <button type="button" className="dangerButton" onClick={() => removePhotoPage(page.id)} disabled={controlsDisabled}>Remove photo</button>
+                      ) : (
+                        <button type="button" onClick={() => setAnnotationPageId(page.id)} disabled={controlsDisabled}>Annotate</button>
+                      )}
+                      <div className="orderButtons">
+                        <button aria-label={`Move page ${index + 1} earlier`} onClick={() => move(index, -1)} disabled={controlsDisabled || index === 0}>↑</button>
+                        <button aria-label={`Move page ${index + 1} later`} onClick={() => move(index, 1)} disabled={controlsDisabled || index === pages.length - 1}>↓</button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                  {standalonePhoto && (
+                    <label><span>Photo alt text <em>recommended</em></span><textarea value={page.alt ?? ''} placeholder="Describe this standalone photo" disabled={controlsDisabled} onChange={event => updatePhotoPageAlt(page.id, event.target.value)} /></label>
+                  )}
+                </article>
+              );
+            })}
           </div>
         </section>
       )}
@@ -347,7 +398,7 @@ export default function App() {
       </section>
 
       <section className="panel microblogPublisher">
-        <div><p className="eyebrow">Publisher</p><h2>Micro.blog</h2><p>Create and revise a private server-side draft. Completed link regions publish as clickable overlays and bound photo regions publish with their original image and alt text.</p></div>
+        <div><p className="eyebrow">Publisher</p><h2>Micro.blog</h2><p>Create and revise a private server-side draft. Handwritten pages, standalone photo pages, clickable link regions and positioned overlay photos all publish in the document sequence.</p></div>
         <label><span>App token</span><input type="password" value={microblogToken} disabled={controlsDisabled} onChange={event => { setMicroblogToken(event.target.value); setMicroblogConfig(null); }} autoComplete="off" placeholder="Paste a Micro.blog app token" /></label>
         <button onClick={connectMicroblog} disabled={controlsDisabled || !microblogToken.trim()}>{microblogConfig ? 'Reconnect Micro.blog' : 'Connect Micro.blog'}</button>
         {microblogConfig && microblogConfig.destinations.length > 0 && (

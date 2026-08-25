@@ -8,6 +8,7 @@ import type {
   MicroblogPhotoMedia,
   PhotoAnnotation,
 } from './model';
+import { isPhotoPage } from './model';
 
 export type MicroblogDestination = {
   uid: string;
@@ -71,7 +72,7 @@ export async function uploadMicroblogPage(
   token: string,
   page: ImportedPage,
 ): Promise<string> {
-  return uploadMicroblogMedia(token, page.file, page.filename, 'image/png');
+  return uploadMicroblogMedia(token, page.file, page.filename, page.mediaType);
 }
 
 export async function uploadMicroblogPhoto(
@@ -111,6 +112,7 @@ function assetById(document: HandwrittenDocument, assetId: string): HandwrittenA
 export function microblogPhotoAssetIds(document: HandwrittenDocument): string[] {
   const ids: string[] = [];
   for (const page of document.pages) {
+    if (isPhotoPage(page)) continue;
     for (const annotation of page.annotations) {
       if (annotation.type === 'photo' && annotation.assetId && !ids.includes(annotation.assetId)) ids.push(annotation.assetId);
     }
@@ -125,7 +127,9 @@ export function reusableMicroblogPhotoUrl(draft: MicroblogDraftState, asset: Han
 
 export function microblogAnnotationError(document: HandwrittenDocument): string | null {
   for (let pageIndex = 0; pageIndex < document.pages.length; pageIndex += 1) {
-    for (const annotation of document.pages[pageIndex].annotations) {
+    const page = document.pages[pageIndex];
+    if (isPhotoPage(page)) continue;
+    for (const annotation of page.annotations) {
       if (annotation.type === 'link') {
         const href = annotation.href.trim();
         if (!href) {
@@ -187,12 +191,19 @@ export function microblogHtml(
   photoUrls: Record<string, string> = {},
 ): string {
   const pages = mediaUrls.map((url, index) => {
-    const annotations = document.pages[index]?.annotations ?? [];
-    const photos = annotations
+    const page = document.pages[index];
+    if (!page) return '';
+
+    if (isPhotoPage(page)) {
+      const alt = page.alt?.trim() || `Photo page ${index + 1} of ${mediaUrls.length}`;
+      return `<figure class="photo-page" style="margin:0;display:block"><img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" style="display:block;width:100%;height:auto"></figure>`;
+    }
+
+    const photos = page.annotations
       .filter((annotation): annotation is PhotoAnnotation => annotation.type === 'photo')
       .map(photo => photoHtml(photo, index, photoUrls))
       .join('');
-    const links = annotations
+    const links = page.annotations
       .filter((annotation): annotation is LinkAnnotation => annotation.type === 'link' && Boolean(canonicalPublishableHttpUrl(annotation.href.trim())))
       .map(link => linkHtml(link, index))
       .join('');
@@ -208,29 +219,37 @@ export function microblogContentRevision(document: HandwrittenDocument): string 
   return JSON.stringify({
     title: document.title.trim(),
     transcript: document.transcript ?? '',
-    pages: document.pages.map(page => ({
-      sha256: page.sha256,
-      annotations: page.annotations.map(annotation => annotation.type === 'link'
-        ? {
-            type: 'link',
-            x: annotation.x,
-            y: annotation.y,
-            width: annotation.width,
-            height: annotation.height,
-            href: canonicalPublishableHttpUrl(annotation.href.trim()) ?? annotation.href.trim(),
-            label: annotation.label?.trim() ?? '',
-          }
-        : {
-            type: 'photo',
-            x: annotation.x,
-            y: annotation.y,
-            width: annotation.width,
-            height: annotation.height,
-            assetId: annotation.assetId,
-            assetSha256: assetById(document, annotation.assetId)?.sha256 ?? '',
-            alt: annotation.alt?.trim() ?? '',
-          }),
-    })),
+    pages: document.pages.map(page => isPhotoPage(page)
+      ? {
+          kind: 'photo',
+          sha256: page.sha256,
+          mediaType: page.mediaType,
+          alt: page.alt?.trim() ?? '',
+        }
+      : {
+          kind: 'handwritten',
+          sha256: page.sha256,
+          annotations: page.annotations.map(annotation => annotation.type === 'link'
+            ? {
+                type: 'link',
+                x: annotation.x,
+                y: annotation.y,
+                width: annotation.width,
+                height: annotation.height,
+                href: canonicalPublishableHttpUrl(annotation.href.trim()) ?? annotation.href.trim(),
+                label: annotation.label?.trim() ?? '',
+              }
+            : {
+                type: 'photo',
+                x: annotation.x,
+                y: annotation.y,
+                width: annotation.width,
+                height: annotation.height,
+                assetId: annotation.assetId,
+                assetSha256: assetById(document, annotation.assetId)?.sha256 ?? '',
+                alt: annotation.alt?.trim() ?? '',
+              }),
+        }),
   });
 }
 

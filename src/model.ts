@@ -1,4 +1,6 @@
-export const FORMAT_VERSION = 1 as const;
+export const LEGACY_FORMAT_VERSION = 1 as const;
+export const FORMAT_VERSION = 2 as const;
+export type FormatVersion = typeof LEGACY_FORMAT_VERSION | typeof FORMAT_VERSION;
 
 export type NormalizedRect = {
   x: number;
@@ -21,7 +23,10 @@ export type PhotoAnnotation = NormalizedRect & {
 
 export type Annotation = LinkAnnotation | PhotoAnnotation;
 
+export type AssetMediaType = 'image/jpeg' | 'image/png' | 'image/webp';
+
 export type HandwrittenPage = {
+  kind?: 'handwritten';
   id: string;
   position: number;
   filename: string;
@@ -32,7 +37,20 @@ export type HandwrittenPage = {
   annotations: Annotation[];
 };
 
-export type AssetMediaType = 'image/jpeg' | 'image/png' | 'image/webp';
+export type PhotoPage = {
+  kind: 'photo';
+  id: string;
+  position: number;
+  filename: string;
+  mediaType: AssetMediaType;
+  sha256: string;
+  width: number;
+  height: number;
+  annotations: Annotation[];
+  alt?: string;
+};
+
+export type DocumentPage = HandwrittenPage | PhotoPage;
 
 export type HandwrittenAsset = {
   id: string;
@@ -64,18 +82,36 @@ export type MicroblogDraftState = {
 
 export type HandwrittenDocument = {
   format: 'handwritten-publish';
-  version: typeof FORMAT_VERSION;
+  version: FormatVersion;
   id: string;
   title: string;
   createdAt: string;
   updatedAt: string;
   transcript?: string;
-  pages: HandwrittenPage[];
+  pages: DocumentPage[];
   assets?: HandwrittenAsset[];
   publishing?: {
     microblog?: MicroblogDraftState;
   };
 };
+
+export function isPhotoPage(page: DocumentPage): page is PhotoPage {
+  return page.kind === 'photo';
+}
+
+export function isHandwrittenPage(page: DocumentPage): page is HandwrittenPage {
+  return page.kind !== 'photo';
+}
+
+export function upgradeDocumentFormat(document: HandwrittenDocument): HandwrittenDocument {
+  return {
+    ...document,
+    version: FORMAT_VERSION,
+    pages: document.pages.map(page => page.kind === undefined
+      ? { ...page, kind: 'handwritten' as const }
+      : page),
+  };
+}
 
 export function createDocument(title = 'Untitled handwritten post'): HandwrittenDocument {
   const now = new Date().toISOString();

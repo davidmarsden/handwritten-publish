@@ -5,10 +5,14 @@ Handwritten Publish is now a working local-first publishing tool, not just a for
 ## Working
 
 - [x] Import multiple reMarkable PNG pages
+- [x] Import standalone JPEG/PNG/WebP photo pages into the same ordered document sequence
 - [x] Natural filename ordering and manual page reordering
+- [x] Move handwritten pages and standalone photo pages together with the same page-order controls
+- [x] Remove standalone photo pages and edit their alt text
 - [x] Stable document identity and page SHA-256 hashes
 - [x] IndexedDB local draft persistence, including page files
 - [x] Portable `.hwpublish` export and verified round-trip import
+- [x] Backward-compatible import of older PNG-only `.hwpublish` bundles
 - [x] Optional transcript
 - [x] Micro.blog account/destination discovery
 - [x] Micro.blog media upload through a thin Netlify bridge
@@ -32,6 +36,8 @@ Handwritten Publish is now a working local-first publishing tool, not just a for
 - [x] Publish photo-region alt text
 - [x] Reuse unchanged previously uploaded photo assets across draft updates
 - [x] Treat photo binding, asset content, geometry and alt-text edits as Micro.blog-visible revisions
+- [x] Publish standalone photo pages in sequence alongside handwritten pages
+- [x] Reuse standalone photo-page media when only alt text or other non-file content changes
 
 ## Next
 
@@ -40,4 +46,4 @@ Handwritten Publish is now a working local-first publishing tool, not just a for
 - [ ] Assisted transcription and accessibility metadata
 - [ ] Native reMarkable input/send integration when safely supportable
 
-Publishing from Handwritten Publish remains draft-first. A tracked Micro.blog post must still be a draft before the app will update it. Completed HTTP/HTTPS link annotations and bound photo annotations are included in Micro.blog output. Unbound or missing photo regions block sync before media upload rather than being silently omitted.
+Publishing from Handwritten Publish remains draft-first. A tracked Micro.blog post must still be a draft before the app will update it. Handwritten pages, standalone photo pages, completed HTTP/HTTPS link annotations and bound photo annotations are included in Micro.blog output. Unbound or missing photo regions block sync before media upload rather than being silently omitted.
