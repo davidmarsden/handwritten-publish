@@ -1,5 +1,5 @@
 import { PointerEvent, useMemo, useState } from 'react';
-import { annotationStyle, rectFromPoints, replaceAnnotation } from './annotations';
+import { annotationStyle, constrainRect, rectFromPoints, replaceAnnotation } from './annotations';
 import type { Annotation } from './model';
 import type { ImportedPage } from './importPng';
 
@@ -67,6 +67,20 @@ export default function AnnotationEditor({ page, disabled = false, onChange, onC
   function updateSelected(next: Annotation) {
     if (selectedIndex === null) return;
     onChange(replaceAnnotation(page.annotations, selectedIndex, next));
+  }
+
+  function updateGeometry(field: 'x' | 'y' | 'width' | 'height', rawValue: string) {
+    if (!selected) return;
+    const value = Number(rawValue);
+    if (!Number.isFinite(value)) return;
+    const rect = constrainRect({
+      x: selected.x,
+      y: selected.y,
+      width: selected.width,
+      height: selected.height,
+      [field]: value,
+    });
+    updateSelected({ ...selected, ...rect });
   }
 
   function removeSelected() {
@@ -166,16 +180,16 @@ export default function AnnotationEditor({ page, disabled = false, onChange, onC
                   </label>
                 </>
               )}
-              <dl className="annotationCoords">
-                <div><dt>x</dt><dd>{selected.x.toFixed(3)}</dd></div>
-                <div><dt>y</dt><dd>{selected.y.toFixed(3)}</dd></div>
-                <div><dt>w</dt><dd>{selected.width.toFixed(3)}</dd></div>
-                <div><dt>h</dt><dd>{selected.height.toFixed(3)}</dd></div>
-              </dl>
+              <div className="annotationCoords" aria-label="Normalized region coordinates">
+                <label><span>x</span><input type="number" min="0" max="1" step="0.001" value={selected.x} disabled={disabled} onChange={event => updateGeometry('x', event.target.value)} /></label>
+                <label><span>y</span><input type="number" min="0" max="1" step="0.001" value={selected.y} disabled={disabled} onChange={event => updateGeometry('y', event.target.value)} /></label>
+                <label><span>w</span><input type="number" min="0.01" max="1" step="0.001" value={selected.width} disabled={disabled} onChange={event => updateGeometry('width', event.target.value)} /></label>
+                <label><span>h</span><input type="number" min="0.01" max="1" step="0.001" value={selected.height} disabled={disabled} onChange={event => updateGeometry('height', event.target.value)} /></label>
+              </div>
               <button type="button" className="dangerButton" onClick={removeSelected} disabled={disabled}>Delete region</button>
             </>
           ) : (
-            <p>Drag a new region over the page or select an existing one to edit its metadata.</p>
+            <p>Drag a new region over the page or select an existing one to edit its metadata and geometry.</p>
           )}
         </aside>
       </div>
