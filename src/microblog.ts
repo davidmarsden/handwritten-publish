@@ -7,6 +7,7 @@ export type MicroblogDestination = {
 };
 
 export type MicroblogConfig = {
+  mediaEndpoint: string;
   destinations: MicroblogDestination[];
 };
 
@@ -31,10 +32,15 @@ export async function fetchMicroblogConfig(token: string): Promise<MicroblogConf
     body: JSON.stringify({ token: token.trim() }),
   });
   if (!response.ok) throw new Error(await responseError(response, 'Could not connect to Micro.blog.'));
-  return response.json() as Promise<MicroblogConfig>;
+  const config = await response.json() as { destinations: MicroblogDestination[] };
+  return { mediaEndpoint: '/api/microblog/media', destinations: config.destinations };
 }
 
-export async function uploadMicroblogPage(token: string, page: ImportedPage): Promise<string> {
+export async function uploadMicroblogPage(
+  _mediaEndpoint: string,
+  token: string,
+  page: ImportedPage,
+): Promise<string> {
   const body = new FormData();
   body.append('token', token.trim());
   body.append('file', page.file, page.filename);
