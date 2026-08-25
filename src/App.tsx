@@ -10,12 +10,15 @@ import {
   fetchMicroblogConfig,
   isMicroblogDraftStale,
   microblogAnnotationError,
+  microblogPhotoAssetIds,
+  reusableMicroblogPhotoUrl,
   type MicroblogConfig,
   updateMicroblogDraft,
   uploadMicroblogPage,
+  uploadMicroblogPhoto,
   verifyMicroblogDraft,
 } from './microblog';
-import { createDocument, type Annotation, type HandwrittenDocument } from './model';
+import { createDocument, type Annotation, type HandwrittenDocument, type MicroblogPhotoMedia } from './model';
 import { clearDraft, loadDraft, saveDraft } from './persistence';
 import './styles.css';
 
@@ -230,6 +233,7 @@ export default function App() {
         setStatus('Verifying the tracked Micro.blog post is still a draft…');
         await verifyMicroblogDraft(microblogToken, existingDraft);
       }
+
       let mediaUrls: string[];
       if (existingDraft && canReuseMicroblogMedia(document, existingDraft)) {
         mediaUrls = existingDraft.mediaUrls ?? [];
@@ -241,10 +245,27 @@ export default function App() {
           mediaUrls.push(await uploadMicroblogPage(microblogConfig.mediaEndpoint, microblogToken, pages[index]));
         }
       }
+
       const normalizedDocument = { ...document, title: normalizedTitle };
+      const photoAssetIds = microblogPhotoAssetIds(normalizedDocument);
+      const photoMedia: MicroblogPhotoMedia[] = [];
+      for (let index = 0; index < photoAssetIds.length; index += 1) {
+        const assetId = photoAssetIds[index];
+        const asset = assets.find(candidate => candidate.id === assetId);
+        if (!asset) throw new Error('A referenced photo file is missing from local storage. Rebind the photo before syncing Micro.blog.');
+        const reusableUrl = existingDraft ? reusableMicroblogPhotoUrl(existingDraft, asset) : null;
+        if (reusableUrl) {
+          photoMedia.push({ assetId, sha256: asset.sha256, url: reusableUrl });
+          continue;
+        }
+        setStatus(`Uploading photo ${index + 1} of ${photoAssetIds.length} to Micro.blog…`);
+        const url = await uploadMicroblogPhoto(microblogConfig.mediaEndpoint, microblogToken, asset);
+        photoMedia.push({ assetId, sha256: asset.sha256, url });
+      }
+
       const draft = existingDraft
-        ? await updateMicroblogDraft(microblogToken, normalizedDocument, existingDraft, mediaUrls)
-        : await createMicroblogDraft(microblogToken, microblogDestination, normalizedDocument, mediaUrls);
+        ? await updateMicroblogDraft(microblogToken, normalizedDocument, existingDraft, mediaUrls, photoMedia)
+        : await createMicroblogDraft(microblogToken, microblogDestination, normalizedDocument, mediaUrls, photoMedia);
       setBaseDocument(current => ({ ...current, publishing: { ...current.publishing, microblog: draft } }));
       setStatus(existingDraft
         ? 'Micro.blog draft updated. Open the private preview to review it.'
@@ -259,7 +280,7 @@ export default function App() {
   const controlsDisabled = busy || !hydrated;
   const existingMicroblogDraft = baseDocument.publishing?.microblog;
   const hasValidTitle = Boolean(title.trim());
-  const microblogLinkError = microblogAnnotationError(document);
+  const microblogAnnotationIssue = microblogAnnotationError(document);
   const microblogDraftStale = existingMicroblogDraft ? isMicroblogDraftStale(document, existingMicroblogDraft) : false;
 
   return (
@@ -283,7 +304,7 @@ export default function App() {
         <section className="workspace">
           <div className="sectionHeading">
             <div><p className="eyebrow">Document</p><h2>{pages.length} page{pages.length === 1 ? '' : 's'} · {assets.length} photo asset{assets.length === 1 ? '' : 's'}</h2></div>
-            <p>Photo regions can now reference original JPEG, PNG or WebP assets. The handwritten page remains canonical underneath.</p>
+            <p>Photo regions can reference original JPEG, PNG or WebP assets. The handwritten page remains canonical underneath.</p>
           </div>
           <div className="pageGrid">
             {pages.map((page, index) => (
@@ -326,17 +347,17 @@ export default function App() {
       </section>
 
       <section className="panel microblogPublisher">
-        <div><p className="eyebrow">Publisher</p><h2>Micro.blog</h2><p>Create and revise a private server-side draft. Completed link regions publish as responsive clickable overlays; original photo assets remain local/portable until the next publishing milestone.</p></div>
+        <div><p className="eyebrow">Publisher</p><h2>Micro.blog</h2><p>Create and revise a private server-side draft. Completed link regions publish as clickable overlays and bound photo regions publish with their original image and alt text.</p></div>
         <label><span>App token</span><input type="password" value={microblogToken} disabled={controlsDisabled} onChange={event => { setMicroblogToken(event.target.value); setMicroblogConfig(null); }} autoComplete="off" placeholder="Paste a Micro.blog app token" /></label>
         <button onClick={connectMicroblog} disabled={controlsDisabled || !microblogToken.trim()}>{microblogConfig ? 'Reconnect Micro.blog' : 'Connect Micro.blog'}</button>
         {microblogConfig && microblogConfig.destinations.length > 0 && (
           <label><span>Destination blog</span><select value={microblogDestination} onChange={event => setMicroblogDestination(event.target.value)} disabled={controlsDisabled || Boolean(existingMicroblogDraft)}>{microblogConfig.destinations.map(destination => <option key={destination.uid} value={destination.uid}>{destination.name}</option>)}</select></label>
         )}
-        <button onClick={syncMicroblogDraft} disabled={controlsDisabled || !microblogConfig || !pages.length || !hasValidTitle || Boolean(microblogLinkError) || Boolean(existingMicroblogDraft && !microblogDraftStale)}>
+        <button onClick={syncMicroblogDraft} disabled={controlsDisabled || !microblogConfig || !pages.length || !hasValidTitle || Boolean(microblogAnnotationIssue) || Boolean(existingMicroblogDraft && !microblogDraftStale)}>
           {!existingMicroblogDraft ? 'Create Micro.blog draft' : microblogDraftStale ? 'Update Micro.blog draft' : 'Micro.blog draft is up to date'}
         </button>
         {!hasValidTitle && microblogConfig && pages.length > 0 && <small>Add a post title before syncing a Micro.blog draft.</small>}
-        {microblogLinkError && microblogConfig && pages.length > 0 && <small>{microblogLinkError}</small>}
+        {microblogAnnotationIssue && microblogConfig && pages.length > 0 && <small>{microblogAnnotationIssue}</small>}
         {existingMicroblogDraft && <p>{microblogDraftStale ? 'Micro.blog-visible content changed since the last sync. ' : 'Draft is in sync with current Micro.blog-visible content. '}<a href={existingMicroblogDraft.preview} target="_blank" rel="noreferrer">Open private preview ↗</a></p>}
       </section>
     </main>
