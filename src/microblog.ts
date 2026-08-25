@@ -74,12 +74,13 @@ function percent(value: number): string {
   return `${Number((value * 100).toFixed(4))}%`;
 }
 
-function isPublishableHttpUrl(value: string): boolean {
+function canonicalPublishableHttpUrl(value: string): string | null {
   try {
     const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return url.href;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -93,7 +94,7 @@ export function microblogAnnotationError(document: HandwrittenDocument): string 
       if (!href) {
         return `Page ${pageIndex + 1} has a link region without a URL. Add the URL or delete the region before syncing Micro.blog.`;
       }
-      if (!isPublishableHttpUrl(href)) {
+      if (!canonicalPublishableHttpUrl(href)) {
         return `Page ${pageIndex + 1} has a link region with an invalid URL. Use a complete http:// or https:// address before syncing Micro.blog.`;
       }
     }
@@ -103,6 +104,8 @@ export function microblogAnnotationError(document: HandwrittenDocument): string 
 
 function linkHtml(link: LinkAnnotation, pageIndex: number): string {
   const label = link.label?.trim() || `Handwritten link on page ${pageIndex + 1}`;
+  const href = canonicalPublishableHttpUrl(link.href.trim());
+  if (!href) return '';
   const style = [
     'position:absolute',
     `left:${percent(link.x)}`,
@@ -112,13 +115,13 @@ function linkHtml(link: LinkAnnotation, pageIndex: number): string {
     'display:block',
     'z-index:2',
   ].join(';');
-  return `<a href="${escapeHtml(link.href.trim())}" aria-label="${escapeHtml(label)}" style="${style}"></a>`;
+  return `<a href="${escapeHtml(href)}" aria-label="${escapeHtml(label)}" style="${style}"></a>`;
 }
 
 export function microblogHtml(document: HandwrittenDocument, mediaUrls: string[]): string {
   const pages = mediaUrls.map((url, index) => {
     const links = document.pages[index]?.annotations.filter(
-      (annotation): annotation is LinkAnnotation => annotation.type === 'link' && isPublishableHttpUrl(annotation.href.trim()),
+      (annotation): annotation is LinkAnnotation => annotation.type === 'link' && Boolean(canonicalPublishableHttpUrl(annotation.href.trim())),
     ) ?? [];
     const overlays = links.map(link => linkHtml(link, index)).join('');
     return `<figure class="handwritten-page" style="position:relative;margin:0;display:block"><img src="${escapeHtml(url)}" alt="Handwritten page ${index + 1} of ${mediaUrls.length}" style="display:block;width:100%;height:auto">${overlays}</figure>`;
@@ -142,7 +145,7 @@ export function microblogContentRevision(document: HandwrittenDocument): string 
           y: link.y,
           width: link.width,
           height: link.height,
-          href: link.href.trim(),
+          href: canonicalPublishableHttpUrl(link.href.trim()) ?? link.href.trim(),
           label: link.label?.trim() ?? '',
         })),
     })),
