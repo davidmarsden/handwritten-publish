@@ -107,6 +107,20 @@ export function canReuseMicroblogMedia(document: HandwrittenDocument, draft: Mic
     && draft.pageHashes.every((hash, index) => hash === hashes[index]);
 }
 
+export async function verifyMicroblogDraft(token: string, draft: MicroblogDraftState): Promise<void> {
+  const response = await fetch('/api/microblog/draft', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token: token.trim(),
+      destination: draft.destination,
+      updateUrl: draft.url,
+      verifyOnly: true,
+    }),
+  });
+  if (!response.ok) throw new Error(await responseError(response, 'Could not verify the existing Micro.blog draft.'));
+}
+
 export async function createMicroblogDraft(
   token: string,
   destination: string,
