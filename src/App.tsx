@@ -9,12 +9,14 @@ export default function App() {
   const [pages, setPages] = useState<ImportedPage[]>([]);
   const [transcript, setTranscript] = useState('');
   const [busy, setBusy] = useState(false);
+  const [baseDocument] = useState(() => createDocument('Untitled handwritten post'));
 
   const document = useMemo(() => ({
-    ...createDocument(title),
+    ...baseDocument,
+    title,
     transcript: transcript || undefined,
     pages: documentPages(pages),
-  }), [title, transcript, pages]);
+  }), [baseDocument, title, transcript, pages]);
 
   async function onFiles(event: ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files ?? []);
