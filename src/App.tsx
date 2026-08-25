@@ -318,7 +318,7 @@ export default function App() {
       )}
 
       {annotationPage && (
-        <AnnotationEditor page={annotationPage} assets={assets} disabled={controlsDisabled} onAddAsset={addPhotoAsset} onChange={annotations => updatePageAnnotations(annotationPage.id, annotations)} onClose={() => setAnnotationPageId(null)} />
+        <AnnotationEditor page={annotationPage} assets={assets} disabled={controlsDisabled} onAddAsset={addPhotoAsset} onImportStateChange={setBusy} onError={setStatus} onChange={annotations => updatePageAnnotations(annotationPage.id, annotations)} onClose={() => setAnnotationPageId(null)} />
       )}
 
       <section className="panel transcript">
