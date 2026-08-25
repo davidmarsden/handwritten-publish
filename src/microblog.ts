@@ -80,6 +80,47 @@ export function microblogHtml(document: HandwrittenDocument, mediaUrls: string[]
   return pages.join('\n');
 }
 
+function syncedDraftState(
+  draft: Pick<MicroblogDraftState, 'destination' | 'url' | 'preview' | 'createdAt'>,
+  document: HandwrittenDocument,
+  mediaUrls: string[],
+): MicroblogDraftState {
+  return {
+    ...draft,
+    syncedAt: new Date().toISOString(),
+    syncedDocumentUpdatedAt: document.updatedAt,
+    pageHashes: document.pages.map(page => page.sha256),
+    mediaUrls,
+  };
+}
+
+export function isMicroblogDraftStale(document: HandwrittenDocument, draft: MicroblogDraftState): boolean {
+  return draft.syncedDocumentUpdatedAt !== document.updatedAt;
+}
+
+export function canReuseMicroblogMedia(document: HandwrittenDocument, draft: MicroblogDraftState): boolean {
+  const hashes = document.pages.map(page => page.sha256);
+  return Array.isArray(draft.mediaUrls)
+    && draft.mediaUrls.length === hashes.length
+    && Array.isArray(draft.pageHashes)
+    && draft.pageHashes.length === hashes.length
+    && draft.pageHashes.every((hash, index) => hash === hashes[index]);
+}
+
+export async function verifyMicroblogDraft(token: string, draft: MicroblogDraftState): Promise<void> {
+  const response = await fetch('/api/microblog/draft', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token: token.trim(),
+      destination: draft.destination,
+      updateUrl: draft.url,
+      verifyOnly: true,
+    }),
+  });
+  if (!response.ok) throw new Error(await responseError(response, 'Could not verify the existing Micro.blog draft.'));
+}
+
 export async function createMicroblogDraft(
   token: string,
   destination: string,
@@ -98,10 +139,31 @@ export async function createMicroblogDraft(
   });
   if (!response.ok) throw new Error(await responseError(response, 'Micro.blog could not create the draft.'));
   const result = await response.json() as DraftResponse;
-  return {
+  return syncedDraftState({
     destination,
     url: result.url,
     preview: result.preview || result.url,
     createdAt: new Date().toISOString(),
-  };
+  }, document, mediaUrls);
+}
+
+export async function updateMicroblogDraft(
+  token: string,
+  document: HandwrittenDocument,
+  draft: MicroblogDraftState,
+  mediaUrls: string[],
+): Promise<MicroblogDraftState> {
+  const response = await fetch('/api/microblog/draft', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token: token.trim(),
+      destination: draft.destination,
+      title: document.title,
+      html: microblogHtml(document, mediaUrls),
+      updateUrl: draft.url,
+    }),
+  });
+  if (!response.ok) throw new Error(await responseError(response, 'Micro.blog could not update the draft.'));
+  return syncedDraftState(draft, document, mediaUrls);
 }

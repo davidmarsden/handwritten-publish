@@ -2,10 +2,14 @@ import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { buildBundle, downloadBlob, readBundle } from './bundle';
 import { documentPages, importPngFiles, type ImportedPage } from './importPng';
 import {
+  canReuseMicroblogMedia,
   createMicroblogDraft,
   fetchMicroblogConfig,
+  isMicroblogDraftStale,
   type MicroblogConfig,
+  updateMicroblogDraft,
   uploadMicroblogPage,
+  verifyMicroblogDraft,
 } from './microblog';
 import { createDocument, type HandwrittenDocument } from './model';
 import { clearDraft, loadDraft, saveDraft } from './persistence';
@@ -136,6 +140,13 @@ export default function App() {
     setTitle(fresh.title);
     setTranscript('');
     setPages([]);
+    if (microblogConfig) {
+      setMicroblogDestination(current => (
+        microblogConfig.destinations.some(destination => destination.uid === current)
+          ? current
+          : microblogConfig.destinations[0]?.uid ?? ''
+      ));
+    }
     await clearDraft();
     setStatus('New local document started.');
   }
@@ -161,28 +172,44 @@ export default function App() {
     }
   }
 
-  async function publishMicroblogDraft() {
+  async function syncMicroblogDraft() {
     const normalizedTitle = title.trim();
     if (!microblogConfig || !microblogToken.trim() || !pages.length) return;
     if (!normalizedTitle) {
-      setStatus('Add a post title before creating a Micro.blog draft.');
+      setStatus('Add a post title before syncing a Micro.blog draft.');
+      return;
+    }
+
+    const existingDraft = baseDocument.publishing?.microblog;
+    if (existingDraft && !isMicroblogDraftStale(document, existingDraft)) {
+      setStatus('Micro.blog draft is already up to date.');
       return;
     }
 
     setBusy(true);
     try {
-      const mediaUrls: string[] = [];
-      for (let index = 0; index < pages.length; index += 1) {
-        setStatus(`Uploading handwritten page ${index + 1} of ${pages.length} to Micro.blog…`);
-        mediaUrls.push(await uploadMicroblogPage(microblogConfig.mediaEndpoint, microblogToken, pages[index]));
+      if (existingDraft) {
+        setStatus('Verifying the tracked Micro.blog post is still a draft…');
+        await verifyMicroblogDraft(microblogToken, existingDraft);
       }
-      setStatus('Creating private Micro.blog draft…');
-      const draft = await createMicroblogDraft(
-        microblogToken,
-        microblogDestination,
-        { ...document, title: normalizedTitle },
-        mediaUrls,
-      );
+
+      let mediaUrls: string[];
+      if (existingDraft && canReuseMicroblogMedia(document, existingDraft)) {
+        mediaUrls = existingDraft.mediaUrls ?? [];
+        setStatus('Handwritten pages are unchanged; reusing existing Micro.blog media…');
+      } else {
+        mediaUrls = [];
+        for (let index = 0; index < pages.length; index += 1) {
+          setStatus(`Uploading handwritten page ${index + 1} of ${pages.length} to Micro.blog…`);
+          mediaUrls.push(await uploadMicroblogPage(microblogConfig.mediaEndpoint, microblogToken, pages[index]));
+        }
+      }
+
+      const normalizedDocument = { ...document, title: normalizedTitle };
+      const draft = existingDraft
+        ? await updateMicroblogDraft(microblogToken, normalizedDocument, existingDraft, mediaUrls)
+        : await createMicroblogDraft(microblogToken, microblogDestination, normalizedDocument, mediaUrls);
+
       setBaseDocument(current => ({
         ...current,
         publishing: {
@@ -190,9 +217,11 @@ export default function App() {
           microblog: draft,
         },
       }));
-      setStatus('Micro.blog draft created. Open the preview to review and publish it.');
+      setStatus(existingDraft
+        ? 'Micro.blog draft updated. Open the private preview to review it.'
+        : 'Micro.blog draft created. Open the preview to review and publish it.');
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Could not create the Micro.blog draft.');
+      setStatus(error instanceof Error ? error.message : 'Could not sync the Micro.blog draft.');
     } finally {
       setBusy(false);
     }
@@ -201,6 +230,9 @@ export default function App() {
   const controlsDisabled = busy || !hydrated;
   const existingMicroblogDraft = baseDocument.publishing?.microblog;
   const hasValidTitle = Boolean(title.trim());
+  const microblogDraftStale = existingMicroblogDraft
+    ? isMicroblogDraftStale(document, existingMicroblogDraft)
+    : false;
 
   return (
     <main className="shell">
@@ -277,7 +309,7 @@ export default function App() {
         <div>
           <p className="eyebrow">Publisher</p>
           <h2>Micro.blog</h2>
-          <p>Create a private server-side draft. Your app token stays only in this page's memory and is never saved into the document or exported bundle.</p>
+          <p>Create and revise a private server-side draft. Your app token stays only in this page's memory and is never saved into the document or exported bundle.</p>
         </div>
         <label>
           <span>App token</span>
@@ -299,7 +331,11 @@ export default function App() {
         {microblogConfig && microblogConfig.destinations.length > 0 && (
           <label>
             <span>Destination blog</span>
-            <select value={microblogDestination} onChange={event => setMicroblogDestination(event.target.value)} disabled={controlsDisabled}>
+            <select
+              value={microblogDestination}
+              onChange={event => setMicroblogDestination(event.target.value)}
+              disabled={controlsDisabled || Boolean(existingMicroblogDraft)}
+            >
               {microblogConfig.destinations.map(destination => (
                 <option key={destination.uid} value={destination.uid}>{destination.name}</option>
               ))}
@@ -307,17 +343,22 @@ export default function App() {
           </label>
         )}
         <button
-          onClick={publishMicroblogDraft}
-          disabled={controlsDisabled || !microblogConfig || !pages.length || !hasValidTitle || Boolean(existingMicroblogDraft)}
+          onClick={syncMicroblogDraft}
+          disabled={controlsDisabled || !microblogConfig || !pages.length || !hasValidTitle || Boolean(existingMicroblogDraft && !microblogDraftStale)}
         >
-          {existingMicroblogDraft ? 'Micro.blog draft already created' : 'Create Micro.blog draft'}
+          {!existingMicroblogDraft
+            ? 'Create Micro.blog draft'
+            : microblogDraftStale
+              ? 'Update Micro.blog draft'
+              : 'Micro.blog draft is up to date'}
         </button>
-        {!hasValidTitle && microblogConfig && pages.length > 0 && !existingMicroblogDraft && (
-          <small>Add a post title before creating a Micro.blog draft.</small>
+        {!hasValidTitle && microblogConfig && pages.length > 0 && (
+          <small>Add a post title before syncing a Micro.blog draft.</small>
         )}
         {existingMicroblogDraft && (
           <p>
-            Draft tracked for this document. <a href={existingMicroblogDraft.preview} target="_blank" rel="noreferrer">Open private preview ↗</a>
+            {microblogDraftStale ? 'Local document changed since the last Micro.blog sync. ' : 'Draft is in sync with this local document. '}
+            <a href={existingMicroblogDraft.preview} target="_blank" rel="noreferrer">Open private preview ↗</a>
           </p>
         )}
       </section>
