@@ -100,10 +100,11 @@ input, textarea, select {
 .annotationInspector label + label { display: block; margin-top: 13px; }
 .annotationInspector textarea { min-height: 110px; }
 .annotationInspector > p { color: #6a655c; line-height: 1.5; }
-.annotationCoords { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 16px 0; }
-.annotationCoords div { background: #f3efe6; border-radius: 8px; padding: 7px; }
-.annotationCoords dt { font-size: .68rem; text-transform: uppercase; color: #777168; }
-.annotationCoords dd { margin: 2px 0 0; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.annotationCoords { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 16px 0; }
+.annotationCoords label { min-width: 0; }
+.annotationCoords label + label { margin-top: 0; }
+.annotationCoords span { margin-bottom: 4px; font-size: .68rem; text-transform: uppercase; color: #777168; }
+.annotationCoords input { padding: 7px; font-size: .8rem; font-variant-numeric: tabular-nums; }
 .dangerButton { background: #6d241e; }
 
 .transcript, .microblogPublisher { margin-top: 20px; padding: 18px; }
@@ -124,4 +125,5 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.5; }
   .sectionHeading, .annotationHeader { align-items: start; flex-direction: column; gap: 8px; }
   .pageActions { flex-direction: column; align-items: end; }
   .annotationToolbar span { width: 100%; margin-left: 0; }
+  .annotationCoords { grid-template-columns: repeat(2, 1fr); }
 }
