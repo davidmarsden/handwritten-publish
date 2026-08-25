@@ -10,7 +10,7 @@ function sourceStatus(source: unknown): string | null {
 }
 
 function richHtmlContent(html: string) {
-  return [{ html: [html] }];
+  return [{ html }];
 }
 
 async function verifyDraft(token: string, updateUrl: string, destination?: string) {
@@ -60,7 +60,7 @@ export default async (request: Request) => {
       ...(body.destination ? { 'mp-destination': body.destination } : {}),
       replace: {
         name: [body.title.trim()],
-        content: richHtmlContent(body.html),
+        content: [body.html],
       },
     };
 
