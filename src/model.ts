@@ -43,6 +43,12 @@ export type HandwrittenAsset = {
   height: number;
 };
 
+export type MicroblogPhotoMedia = {
+  assetId: string;
+  sha256: string;
+  url: string;
+};
+
 export type MicroblogDraftState = {
   destination: string;
   url: string;
@@ -53,6 +59,7 @@ export type MicroblogDraftState = {
   syncedContentRevision?: string;
   pageHashes?: string[];
   mediaUrls?: string[];
+  photoMedia?: MicroblogPhotoMedia[];
 };
 
 export type HandwrittenDocument = {

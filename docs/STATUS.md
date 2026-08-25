@@ -27,13 +27,17 @@ Handwritten Publish is now a working local-first publishing tool, not just a for
 - [x] Render bound original photos over the handwritten placeholder locally
 - [x] Persist original photo files through IndexedDB and `.hwpublish` bundles
 - [x] Verify bundled photo assets by SHA-256 on import
+- [x] Upload only photo assets referenced by published photo regions
+- [x] Publish bound original photos as responsive overlays in Micro.blog drafts
+- [x] Publish photo-region alt text
+- [x] Reuse unchanged previously uploaded photo assets across draft updates
+- [x] Treat photo binding, asset content, geometry and alt-text edits as Micro.blog-visible revisions
 
 ## Next
 
-- [ ] Publish bound original photo assets to Micro.blog drafts
 - [ ] Richer draft state and revision history
 - [ ] handwritten.blog publisher adapter
 - [ ] Assisted transcription and accessibility metadata
 - [ ] Native reMarkable input/send integration when safely supportable
 
-Publishing from Handwritten Publish remains draft-first. A tracked Micro.blog post must still be a draft before the app will update it. Completed HTTP/HTTPS link annotations are included in Micro.blog output; original photo assets are now local/portable document content but are not yet uploaded to Micro.blog.
+Publishing from Handwritten Publish remains draft-first. A tracked Micro.blog post must still be a draft before the app will update it. Completed HTTP/HTTPS link annotations and bound photo annotations are included in Micro.blog output. Unbound or missing photo regions block sync before media upload rather than being silently omitted.
