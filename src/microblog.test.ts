@@ -42,6 +42,19 @@ describe('microblogHtml', () => {
     expect(html).not.toContain('Not published yet');
   });
 
+  it('serializes the same canonical URL that validation accepts', () => {
+    const document = createDocument('Canonical');
+    document.pages = [{
+      id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1, height: 1,
+      annotations: [{ type: 'link', x: .1, y: .2, width: .3, height: .04, href: 'https:example.com' }],
+    }];
+
+    expect(microblogAnnotationError(document)).toBeNull();
+    const html = microblogHtml(document, ['https://media.example/page.png']);
+    expect(html).toContain('href="https://example.com/"');
+    expect(html).not.toContain('href="https:example.com"');
+  });
+
   it('requires every published link region to have a safe complete URL', () => {
     const document = createDocument('Incomplete');
     document.pages = [{
