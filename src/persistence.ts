@@ -1,4 +1,5 @@
 import type { HandwrittenDocument } from './model';
+import { upgradeDocumentFormat } from './model';
 import { importedPage, type ImportedPage } from './importPng';
 import { importedAsset, type ImportedAsset } from './assets';
 
@@ -52,7 +53,7 @@ export async function saveDraft(document: HandwrittenDocument, pages: ImportedPa
     const store = transaction.objectStore(STORE);
     const stored: StoredDraft = {
       key: CURRENT_KEY,
-      document,
+      document: upgradeDocumentFormat(document),
       pages: pages.map(({ file, previewUrl: _previewUrl, ...page }) => ({ page, file })),
       assets: assets.map(({ file, previewUrl: _previewUrl, ...asset }) => ({ asset, file })),
     };
@@ -75,9 +76,16 @@ export async function loadDraft(): Promise<{ document: HandwrittenDocument; page
     });
     await done;
     if (!stored) return null;
+
+    const document = upgradeDocumentFormat(stored.document);
+    const pages = stored.pages.map(({ page, file }) => {
+      const upgradedPage = page.kind === undefined ? { ...page, kind: 'handwritten' as const } : page;
+      return importedPage(upgradedPage, file);
+    });
+
     return {
-      document: stored.document,
-      pages: stored.pages.map(({ page, file }) => importedPage(page, file)),
+      document,
+      pages,
       assets: (stored.assets ?? []).map(({ asset, file }) => importedAsset(asset, file)),
     };
   } finally {
