@@ -45,6 +45,7 @@ export default function App() {
   const [microblogDestination, setMicroblogDestination] = useState('');
   const [draggingPageId, setDraggingPageId] = useState<string | null>(null);
   const dragMoved = useRef(false);
+  const lastDragTargetId = useRef<string | null>(null);
 
   const document = useMemo(() => ({
     ...baseDocument,
@@ -190,6 +191,7 @@ export default function App() {
   function beginPageDrag(event: ReactPointerEvent<HTMLButtonElement>, pageId: string) {
     if (busy || !hydrated) return;
     dragMoved.current = false;
+    lastDragTargetId.current = pageId;
     setDraggingPageId(pageId);
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -198,7 +200,10 @@ export default function App() {
     if (!draggingPageId) return;
     const target = documentElementAt(event.clientX, event.clientY);
     const targetId = target?.dataset.pageId;
-    if (targetId) reorderPage(draggingPageId, targetId);
+    if (targetId && targetId !== lastDragTargetId.current) {
+      lastDragTargetId.current = targetId;
+      reorderPage(draggingPageId, targetId);
+    }
   }
 
   function endPageDrag(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -208,6 +213,7 @@ export default function App() {
       setStatus('Page order updated.');
     }
     dragMoved.current = false;
+    lastDragTargetId.current = null;
     setDraggingPageId(null);
   }
 
