@@ -42,13 +42,20 @@ describe('microblogHtml', () => {
     expect(html).not.toContain('Not published yet');
   });
 
-  it('requires every published link region to have a URL', () => {
+  it('requires every published link region to have a safe complete URL', () => {
     const document = createDocument('Incomplete');
     document.pages = [{
       id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1, height: 1,
       annotations: [{ type: 'link', x: .1, y: .2, width: .3, height: .04, href: '   ' }],
     }];
-    expect(microblogAnnotationError(document)).toContain('Page 1');
+    expect(microblogAnnotationError(document)).toContain('without a URL');
+
+    document.pages[0].annotations = [{ type: 'link', x: .1, y: .2, width: .3, height: .04, href: 'javascript:alert(1)' }];
+    expect(microblogAnnotationError(document)).toContain('invalid URL');
+
+    document.pages[0].annotations = [{ type: 'link', x: .1, y: .2, width: .3, height: .04, href: 'https://example.org' }];
+    expect(microblogAnnotationError(document)).toBeNull();
+
     document.pages[0].annotations = [{ type: 'photo', x: .1, y: .2, width: .3, height: .2, assetId: '' }];
     expect(microblogAnnotationError(document)).toBeNull();
   });
