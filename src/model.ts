@@ -32,6 +32,13 @@ export type HandwrittenPage = {
   annotations: Annotation[];
 };
 
+export type MicroblogDraftState = {
+  destination: string;
+  url: string;
+  preview: string;
+  createdAt: string;
+};
+
 export type HandwrittenDocument = {
   format: 'handwritten-publish';
   version: typeof FORMAT_VERSION;
@@ -41,6 +48,9 @@ export type HandwrittenDocument = {
   updatedAt: string;
   transcript?: string;
   pages: HandwrittenPage[];
+  publishing?: {
+    microblog?: MicroblogDraftState;
+  };
 };
 
 export function createDocument(title = 'Untitled handwritten post'): HandwrittenDocument {
