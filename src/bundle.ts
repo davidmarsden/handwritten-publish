@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import type { HandwrittenDocument, HandwrittenPage } from './model';
+import type { Annotation, HandwrittenDocument, HandwrittenPage } from './model';
 import { FORMAT_VERSION } from './model';
 import { importedPage, sha256, type ImportedPage } from './importPng';
 
@@ -17,6 +17,35 @@ export async function buildBundle(document: HandwrittenDocument, pages: Imported
   return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
 
+function isNormalizedNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function isAnnotation(value: unknown): value is Annotation {
+  if (!value || typeof value !== 'object') return false;
+  const annotation = value as Partial<Annotation> & Record<string, unknown>;
+  if (!isNormalizedNumber(annotation.x)
+    || !isNormalizedNumber(annotation.y)
+    || !isNormalizedNumber(annotation.width)
+    || !isNormalizedNumber(annotation.height)
+    || annotation.width <= 0
+    || annotation.height <= 0
+    || annotation.x + annotation.width > 1
+    || annotation.y + annotation.height > 1) {
+    return false;
+  }
+
+  if (annotation.type === 'link') {
+    return typeof annotation.href === 'string'
+      && (annotation.label === undefined || typeof annotation.label === 'string');
+  }
+  if (annotation.type === 'photo') {
+    return typeof annotation.assetId === 'string'
+      && (annotation.alt === undefined || typeof annotation.alt === 'string');
+  }
+  return false;
+}
+
 function isPage(value: unknown): value is HandwrittenPage {
   if (!value || typeof value !== 'object') return false;
   const page = value as Partial<HandwrittenPage>;
@@ -27,7 +56,8 @@ function isPage(value: unknown): value is HandwrittenPage {
     && typeof page.sha256 === 'string'
     && typeof page.width === 'number'
     && typeof page.height === 'number'
-    && Array.isArray(page.annotations);
+    && Array.isArray(page.annotations)
+    && page.annotations.every(isAnnotation);
 }
 
 function parseManifest(value: unknown): HandwrittenDocument {
