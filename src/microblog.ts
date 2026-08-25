@@ -52,7 +52,7 @@ export async function uploadMicroblogPage(
     headers: {
       'Content-Type': 'image/png',
       'X-Microblog-Token': token.trim(),
-      'X-File-Name': page.filename,
+      'X-File-Name': encodeURIComponent(page.filename),
     },
     body: page.file,
   });
