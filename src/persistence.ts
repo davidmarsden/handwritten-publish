@@ -1,5 +1,6 @@
 import type { HandwrittenDocument } from './model';
 import { importedPage, type ImportedPage } from './importPng';
+import { importedAsset, type ImportedAsset } from './assets';
 
 const DB_NAME = 'handwritten-publish';
 const DB_VERSION = 1;
@@ -11,10 +12,16 @@ type StoredPage = {
   file: File;
 };
 
+type StoredAsset = {
+  asset: NonNullable<HandwrittenDocument['assets']>[number];
+  file: File;
+};
+
 type StoredDraft = {
   key: typeof CURRENT_KEY;
   document: HandwrittenDocument;
   pages: StoredPage[];
+  assets?: StoredAsset[];
 };
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -37,7 +44,7 @@ function complete(transaction: IDBTransaction): Promise<void> {
   });
 }
 
-export async function saveDraft(document: HandwrittenDocument, pages: ImportedPage[]): Promise<void> {
+export async function saveDraft(document: HandwrittenDocument, pages: ImportedPage[], assets: ImportedAsset[] = []): Promise<void> {
   const db = await openDatabase();
   try {
     const transaction = db.transaction(STORE, 'readwrite');
@@ -47,6 +54,7 @@ export async function saveDraft(document: HandwrittenDocument, pages: ImportedPa
       key: CURRENT_KEY,
       document,
       pages: pages.map(({ file, previewUrl: _previewUrl, ...page }) => ({ page, file })),
+      assets: assets.map(({ file, previewUrl: _previewUrl, ...asset }) => ({ asset, file })),
     };
     store.put(stored);
     await done;
@@ -55,7 +63,7 @@ export async function saveDraft(document: HandwrittenDocument, pages: ImportedPa
   }
 }
 
-export async function loadDraft(): Promise<{ document: HandwrittenDocument; pages: ImportedPage[] } | null> {
+export async function loadDraft(): Promise<{ document: HandwrittenDocument; pages: ImportedPage[]; assets: ImportedAsset[] } | null> {
   const db = await openDatabase();
   try {
     const transaction = db.transaction(STORE, 'readonly');
@@ -70,6 +78,7 @@ export async function loadDraft(): Promise<{ document: HandwrittenDocument; page
     return {
       document: stored.document,
       pages: stored.pages.map(({ page, file }) => importedPage(page, file)),
+      assets: (stored.assets ?? []).map(({ asset, file }) => importedAsset(asset, file)),
     };
   } finally {
     db.close();
