@@ -16,6 +16,8 @@ type DraftResponse = {
   preview: string;
 };
 
+const MAX_MEDIA_PAGE_BYTES = 5_000_000;
+
 async function responseError(response: Response, fallback: string): Promise<string> {
   try {
     const payload = await response.json() as { error?: string };
@@ -41,10 +43,19 @@ export async function uploadMicroblogPage(
   token: string,
   page: ImportedPage,
 ): Promise<string> {
-  const body = new FormData();
-  body.append('token', token.trim());
-  body.append('file', page.file, page.filename);
-  const response = await fetch('/api/microblog/media', { method: 'POST', body });
+  if (page.file.size > MAX_MEDIA_PAGE_BYTES) {
+    throw new Error(`${page.filename} is ${(page.file.size / 1_000_000).toFixed(1)} MB; the current Micro.blog bridge supports PNG pages up to 5 MB.`);
+  }
+
+  const response = await fetch('/api/microblog/media', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'image/png',
+      'X-Microblog-Token': token.trim(),
+      'X-File-Name': encodeURIComponent(page.filename),
+    },
+    body: page.file,
+  });
   if (!response.ok) throw new Error(await responseError(response, `Could not upload ${page.filename}.`));
   const payload = await response.json() as { url?: string };
   if (!payload.url) throw new Error(`Micro.blog uploaded ${page.filename} but returned no media URL.`);
