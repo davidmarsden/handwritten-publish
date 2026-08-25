@@ -41,6 +41,7 @@ export async function saveDraft(document: HandwrittenDocument, pages: ImportedPa
   const db = await openDatabase();
   try {
     const transaction = db.transaction(STORE, 'readwrite');
+    const done = complete(transaction);
     const store = transaction.objectStore(STORE);
     const stored: StoredDraft = {
       key: CURRENT_KEY,
@@ -48,7 +49,7 @@ export async function saveDraft(document: HandwrittenDocument, pages: ImportedPa
       pages: pages.map(({ file, previewUrl: _previewUrl, ...page }) => ({ page, file })),
     };
     store.put(stored);
-    await complete(transaction);
+    await done;
   } finally {
     db.close();
   }
@@ -58,12 +59,13 @@ export async function loadDraft(): Promise<{ document: HandwrittenDocument; page
   const db = await openDatabase();
   try {
     const transaction = db.transaction(STORE, 'readonly');
+    const done = complete(transaction);
     const request = transaction.objectStore(STORE).get(CURRENT_KEY);
     const stored = await new Promise<StoredDraft | undefined>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result as StoredDraft | undefined);
       request.onerror = () => reject(request.error ?? new Error('Could not read local draft.'));
     });
-    await complete(transaction);
+    await done;
     if (!stored) return null;
     return {
       document: stored.document,
@@ -78,8 +80,9 @@ export async function clearDraft(): Promise<void> {
   const db = await openDatabase();
   try {
     const transaction = db.transaction(STORE, 'readwrite');
+    const done = complete(transaction);
     transaction.objectStore(STORE).delete(CURRENT_KEY);
-    await complete(transaction);
+    await done;
   } finally {
     db.close();
   }
