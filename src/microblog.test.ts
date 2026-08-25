@@ -50,6 +50,26 @@ describe('microblogHtml', () => {
     expect(html).toContain('object-fit:cover');
   });
 
+  it('renders standalone photo pages in document order with alt text', () => {
+    const document = createDocument('Mixed pages');
+    document.pages = [
+      { kind: 'handwritten', id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1000, height: 1400, annotations: [] },
+      { kind: 'photo', id: 'b', position: 2, filename: 'garden.jpg', mediaType: 'image/jpeg', sha256: 'hash-photo', width: 1200, height: 900, annotations: [], alt: 'Garden & statue' },
+      { kind: 'handwritten', id: 'c', position: 3, filename: '2.png', mediaType: 'image/png', sha256: 'hash-2', width: 1000, height: 1400, annotations: [] },
+    ];
+
+    const html = microblogHtml(document, [
+      'https://media.example/1.png',
+      'https://media.example/garden.jpg',
+      'https://media.example/2.png',
+    ]);
+
+    expect(html.indexOf('/1.png')).toBeLessThan(html.indexOf('/garden.jpg'));
+    expect(html.indexOf('/garden.jpg')).toBeLessThan(html.indexOf('/2.png'));
+    expect(html).toContain('class="photo-page"');
+    expect(html).toContain('alt="Garden &amp; statue"');
+  });
+
   it('serializes the same canonical URL that validation accepts', () => {
     const document = createDocument('Canonical');
     document.pages = [{
@@ -124,7 +144,33 @@ describe('Micro.blog draft sync state', () => {
     expect(isMicroblogDraftStale(document, draft)).toBe(true);
   });
 
-  it('reuses handwritten page media when only overlays change', () => {
+  it('marks standalone photo order and alt edits stale while reusing unchanged media', () => {
+    const document = createDocument('Mixed');
+    document.pages = [
+      { kind: 'handwritten', id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1, height: 1, annotations: [] },
+      { kind: 'photo', id: 'b', position: 2, filename: 'photo.jpg', mediaType: 'image/jpeg', sha256: 'photo-hash', width: 1, height: 1, annotations: [], alt: 'Before' },
+    ];
+    const draft: MicroblogDraftState = {
+      destination: 'https://example.com/',
+      url: 'https://example.com/post.html',
+      preview: 'https://micro.blog/preview',
+      createdAt: document.createdAt,
+      pageHashes: ['hash-1', 'photo-hash'],
+      mediaUrls: ['https://media.example/1.png', 'https://media.example/photo.jpg'],
+      syncedContentRevision: microblogContentRevision(document),
+    };
+
+    const photoPage = document.pages[1];
+    if (photoPage.kind === 'photo') photoPage.alt = 'After';
+    expect(isMicroblogDraftStale(document, draft)).toBe(true);
+    expect(canReuseMicroblogMedia(document, draft)).toBe(true);
+
+    document.pages.reverse();
+    expect(isMicroblogDraftStale(document, draft)).toBe(true);
+    expect(canReuseMicroblogMedia(document, draft)).toBe(false);
+  });
+
+  it('reuses page media when only overlays change', () => {
     const document = createDocument('Test');
     document.pages = [
       { id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1, height: 1, annotations: [] },
@@ -145,7 +191,7 @@ describe('Micro.blog draft sync state', () => {
     expect(canReuseMicroblogMedia(document, draft)).toBe(false);
   });
 
-  it('uploads each referenced photo once and reuses matching published photo media', () => {
+  it('uploads each referenced overlay photo once and reuses matching published photo media', () => {
     const document = createDocument('Photos');
     const asset = { id: 'photo-1', filename: 'photo.jpg', mediaType: 'image/jpeg' as const, sha256: 'photo-hash', width: 1, height: 1 };
     document.assets = [asset];
