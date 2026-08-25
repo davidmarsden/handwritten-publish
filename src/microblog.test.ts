@@ -14,6 +14,10 @@ describe('microblogHtml', () => {
   it('keeps ordered handwritten pages and safely escapes transcript text', () => {
     const document = createDocument('Test');
     document.transcript = '<hello> & goodbye';
+    document.pages = [
+      { kind: 'handwritten', id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1000, height: 1400, annotations: [] },
+      { kind: 'handwritten', id: 'b', position: 2, filename: '2.png', mediaType: 'image/png', sha256: 'hash-2', width: 1000, height: 1400, annotations: [] },
+    ];
     const html = microblogHtml(document, ['https://example.com/1.png', 'https://example.com/2.png']);
 
     expect(html.indexOf('1.png')).toBeLessThan(html.indexOf('2.png'));
