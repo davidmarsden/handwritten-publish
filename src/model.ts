@@ -32,6 +32,17 @@ export type HandwrittenPage = {
   annotations: Annotation[];
 };
 
+export type AssetMediaType = 'image/jpeg' | 'image/png' | 'image/webp';
+
+export type HandwrittenAsset = {
+  id: string;
+  filename: string;
+  mediaType: AssetMediaType;
+  sha256: string;
+  width: number;
+  height: number;
+};
+
 export type MicroblogDraftState = {
   destination: string;
   url: string;
@@ -53,6 +64,7 @@ export type HandwrittenDocument = {
   updatedAt: string;
   transcript?: string;
   pages: HandwrittenPage[];
+  assets?: HandwrittenAsset[];
   publishing?: {
     microblog?: MicroblogDraftState;
   };
@@ -68,5 +80,6 @@ export function createDocument(title = 'Untitled handwritten post'): Handwritten
     createdAt: now,
     updatedAt: now,
     pages: [],
+    assets: [],
   };
 }
