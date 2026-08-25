@@ -1,8 +1,14 @@
 import JSZip from 'jszip';
-import type { Annotation, HandwrittenAsset, HandwrittenDocument, HandwrittenPage } from './model';
-import { FORMAT_VERSION } from './model';
+import type { Annotation, DocumentPage, HandwrittenAsset, HandwrittenDocument, HandwrittenPage, PhotoPage } from './model';
+import { FORMAT_VERSION, isPhotoPage } from './model';
 import { importedPage, sha256, type ImportedPage } from './importPng';
 import { assetExtension, importedAsset, type ImportedAsset } from './assets';
+
+function pageExtension(page: DocumentPage): string {
+  if (page.mediaType === 'image/jpeg') return 'jpg';
+  if (page.mediaType === 'image/webp') return 'webp';
+  return 'png';
+}
 
 export async function buildBundle(document: HandwrittenDocument, pages: ImportedPage[], assets: ImportedAsset[] = []): Promise<Blob> {
   const zip = new JSZip();
@@ -11,7 +17,7 @@ export async function buildBundle(document: HandwrittenDocument, pages: Imported
 
   const pageFolder = zip.folder('pages');
   pages.forEach((page, index) => {
-    const filename = `page-${String(index + 1).padStart(4, '0')}.png`;
+    const filename = `page-${String(index + 1).padStart(4, '0')}.${pageExtension(page)}`;
     pageFolder?.file(filename, page.file);
   });
 
@@ -43,16 +49,30 @@ function isAnnotation(value: unknown): value is Annotation {
   return false;
 }
 
-function isPage(value: unknown): value is HandwrittenPage {
-  if (!value || typeof value !== 'object') return false;
-  const page = value as Partial<HandwrittenPage>;
+function hasBasePageFields(page: Partial<DocumentPage>): boolean {
   return typeof page.id === 'string'
     && typeof page.position === 'number'
+    && Number.isFinite(page.position)
     && typeof page.filename === 'string'
-    && page.mediaType === 'image/png'
     && typeof page.sha256 === 'string'
-    && typeof page.width === 'number'
-    && typeof page.height === 'number'
+    && typeof page.width === 'number' && Number.isFinite(page.width) && page.width > 0
+    && typeof page.height === 'number' && Number.isFinite(page.height) && page.height > 0;
+}
+
+function isPage(value: unknown): value is DocumentPage {
+  if (!value || typeof value !== 'object') return false;
+  const page = value as Partial<DocumentPage> & Record<string, unknown>;
+  if (!hasBasePageFields(page)) return false;
+
+  if (page.kind === 'photo') {
+    return (page.mediaType === 'image/jpeg' || page.mediaType === 'image/png' || page.mediaType === 'image/webp')
+      && Array.isArray(page.annotations)
+      && page.annotations.length === 0
+      && (page.alt === undefined || typeof page.alt === 'string');
+  }
+
+  return (page.kind === undefined || page.kind === 'handwritten')
+    && page.mediaType === 'image/png'
     && Array.isArray(page.annotations)
     && page.annotations.every(isAnnotation);
 }
@@ -78,7 +98,11 @@ function parseManifest(value: unknown): HandwrittenDocument {
     || (document.assets !== undefined && (!Array.isArray(document.assets) || !document.assets.every(isAsset)))) {
     throw new Error('Invalid .hwpublish manifest.');
   }
-  return document as HandwrittenDocument;
+
+  return {
+    ...(document as HandwrittenDocument),
+    pages: document.pages.map(page => page.kind === undefined ? { ...page, kind: 'handwritten' } as HandwrittenPage : page),
+  };
 }
 
 export async function readBundle(file: File): Promise<{ document: HandwrittenDocument; pages: ImportedPage[]; assets: ImportedAsset[] }> {
@@ -92,13 +116,13 @@ export async function readBundle(file: File): Promise<{ document: HandwrittenDoc
 
   for (let index = 0; index < orderedPages.length; index += 1) {
     const page = orderedPages[index];
-    const archiveName = `pages/page-${String(index + 1).padStart(4, '0')}.png`;
+    const archiveName = `pages/page-${String(index + 1).padStart(4, '0')}.${pageExtension(page)}`;
     const entry = zip.file(archiveName);
     if (!entry) throw new Error(`Bundle is missing ${archiveName}.`);
     const blob = await entry.async('blob');
     const actualHash = await sha256(blob);
     if (actualHash !== page.sha256) throw new Error(`Page ${index + 1} failed its integrity check.`);
-    pages.push(importedPage(page, new File([blob], page.filename, { type: 'image/png' })));
+    pages.push(importedPage(page, new File([blob], page.filename, { type: page.mediaType })));
   }
 
   const assets: ImportedAsset[] = [];
