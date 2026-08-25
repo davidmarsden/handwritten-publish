@@ -1,4 +1,6 @@
-export const FORMAT_VERSION = 1 as const;
+export const LEGACY_FORMAT_VERSION = 1 as const;
+export const FORMAT_VERSION = 2 as const;
+export type FormatVersion = typeof LEGACY_FORMAT_VERSION | typeof FORMAT_VERSION;
 
 export type NormalizedRect = {
   x: number;
@@ -80,7 +82,7 @@ export type MicroblogDraftState = {
 
 export type HandwrittenDocument = {
   format: 'handwritten-publish';
-  version: typeof FORMAT_VERSION;
+  version: FormatVersion;
   id: string;
   title: string;
   createdAt: string;
@@ -99,6 +101,16 @@ export function isPhotoPage(page: DocumentPage): page is PhotoPage {
 
 export function isHandwrittenPage(page: DocumentPage): page is HandwrittenPage {
   return page.kind !== 'photo';
+}
+
+export function upgradeDocumentFormat(document: HandwrittenDocument): HandwrittenDocument {
+  return {
+    ...document,
+    version: FORMAT_VERSION,
+    pages: document.pages.map(page => page.kind === undefined
+      ? { ...page, kind: 'handwritten' as const }
+      : page),
+  };
 }
 
 export function createDocument(title = 'Untitled handwritten post'): HandwrittenDocument {
