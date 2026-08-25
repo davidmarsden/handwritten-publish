@@ -30,20 +30,28 @@ input, textarea, select { width: 100%; border: 1px solid rgba(32,32,30,.18); bor
 .sectionHeading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 16px; }
 .sectionHeading h2 { margin: 3px 0 0; font-size: 1.7rem; }
 .sectionHeading > p { margin: 0; max-width: 520px; color: #6a655c; }
-.pageGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
-.pageCard { overflow: hidden; border-radius: 12px; background: #fffdf8; border: 1px solid rgba(32,32,30,.1); }
+.pageGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.pageCard { overflow: hidden; border-radius: 12px; background: #fffdf8; border: 1px solid rgba(32,32,30,.1); transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease; }
+.pageCard.dragging { opacity: .72; transform: scale(.985); box-shadow: 0 14px 32px rgba(32,32,30,.18); outline: 2px solid rgba(32,32,30,.35); outline-offset: 2px; }
+.pageGrid.isDragging .pageCard:not(.dragging) { transition: transform .1s ease; }
 .pageCardPreview { position: relative; background: white; }
 .pageCardPreview > img:first-child { display: block; width: 100%; height: auto; background: white; }
 .previewAnnotation { position: absolute; z-index: 3; border: 2px solid currentColor; background: rgba(255,255,255,.14); }
 .previewAnnotation.link { color: #1d5fa7; }
 .previewAnnotation.photo { color: #8d5a18; border-style: dashed; }
 .embeddedPhotoPreview, .annotationPhotoAsset { position: absolute; z-index: 2; object-fit: cover; background: white; }
-.pageMeta { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; }
-.pageMeta small { display: block; margin-top: 3px; color: #777168; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 145px; }
-.pageActions { display: flex; align-items: center; gap: 7px; }
-.pageActions > button { padding: 7px 10px; }
-.orderButtons { display: flex; gap: 6px; }
-.orderButtons button { padding: 7px 10px; }
+.dragHandle { width: 100%; border: 0; border-top: 1px solid rgba(32,32,30,.08); border-bottom: 1px solid rgba(32,32,30,.08); background: #eee8dc; color: #393630; padding: 11px 12px; font-weight: 750; text-align: center; cursor: grab; touch-action: none; user-select: none; }
+.dragHandle:active { cursor: grabbing; background: #e2dacb; }
+.dragHandle span { margin-right: 6px; font-size: 1rem; }
+.pageMeta { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 10px; }
+.pageIdentity { min-width: 0; }
+.pageMeta small { display: block; margin-top: 3px; color: #777168; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.pageActions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.pageActions > button { padding: 8px 11px; }
+.orderButtons { display: flex; gap: 6px; margin-left: auto; }
+.orderButtons button { min-width: 38px; padding: 8px 10px; }
+.photoAltField { display: block; padding: 0 10px 10px; }
+.photoAltField textarea { min-height: 96px; }
 
 .annotationEditor { margin-top: 20px; padding: 20px; }
 .annotationHeader { display: flex; align-items: start; justify-content: space-between; gap: 24px; }
@@ -90,7 +98,8 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.5; }
   .shell { width: min(100% - 20px, 1180px); padding-top: 26px; }
   .controls { grid-template-columns: 1fr; }
   .sectionHeading, .annotationHeader { align-items: start; flex-direction: column; gap: 8px; }
-  .pageActions { flex-direction: column; align-items: end; }
+  .pageGrid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+  .pageActions { align-items: center; }
   .annotationToolbar span { width: 100%; margin-left: 0; }
   .annotationCoords { grid-template-columns: repeat(2, 1fr); }
 }
