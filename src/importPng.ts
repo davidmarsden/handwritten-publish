@@ -64,7 +64,8 @@ export async function importPngFiles(files: File[]): Promise<ImportedPage[]> {
 export async function importPhotoPageFiles(files: File[]): Promise<ImportedPage[]> {
   const photos = files
     .map(file => ({ file, mediaType: photoMediaType(file) }))
-    .filter((entry): entry is { file: File; mediaType: AssetMediaType } => Boolean(entry.mediaType));
+    .filter((entry): entry is { file: File; mediaType: AssetMediaType } => Boolean(entry.mediaType))
+    .sort((a, b) => naturalCompare(a.file, b.file));
 
   if (!photos.length) throw new Error('Choose a JPEG, PNG or WebP photo.');
 
