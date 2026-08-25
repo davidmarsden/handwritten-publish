@@ -5,6 +5,8 @@ import {
   microblogAnnotationError,
   microblogContentRevision,
   microblogHtml,
+  microblogPhotoAssetIds,
+  reusableMicroblogPhotoUrl,
 } from './microblog';
 import { createDocument, type MicroblogDraftState } from './model';
 
@@ -20,17 +22,22 @@ describe('microblogHtml', () => {
     expect(html).not.toContain('<hello>');
   });
 
-  it('renders responsive handwritten link overlays and ignores photo placeholders', () => {
-    const document = createDocument('Links');
+  it('renders responsive link and photo overlays with escaped metadata', () => {
+    const document = createDocument('Overlays');
+    document.assets = [{ id: 'photo-1', filename: 'garden.jpg', mediaType: 'image/jpeg', sha256: 'photo-hash', width: 1200, height: 900 }];
     document.pages = [{
       id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1000, height: 1400,
       annotations: [
         { type: 'link', x: .125, y: .5, width: .25, height: .05, href: 'https://example.com/?a=1&b=2', label: 'Example & more' },
-        { type: 'photo', x: .2, y: .2, width: .4, height: .3, assetId: 'future-photo', alt: 'Not published yet' },
+        { type: 'photo', x: .2, y: .2, width: .4, height: .3, assetId: 'photo-1', alt: 'Garden & statue' },
       ],
     }];
 
-    const html = microblogHtml(document, ['https://media.example/page.png']);
+    const html = microblogHtml(
+      document,
+      ['https://media.example/page.png'],
+      { 'photo-1': 'https://media.example/garden.jpg?a=1&b=2' },
+    );
     expect(html).toContain('style="position:relative;margin:0;display:block"');
     expect(html).toContain('left:12.5%');
     expect(html).toContain('top:50%');
@@ -38,8 +45,9 @@ describe('microblogHtml', () => {
     expect(html).toContain('height:5%');
     expect(html).toContain('href="https://example.com/?a=1&amp;b=2"');
     expect(html).toContain('aria-label="Example &amp; more"');
-    expect(html).not.toContain('future-photo');
-    expect(html).not.toContain('Not published yet');
+    expect(html).toContain('src="https://media.example/garden.jpg?a=1&amp;b=2"');
+    expect(html).toContain('alt="Garden &amp; statue"');
+    expect(html).toContain('object-fit:cover');
   });
 
   it('serializes the same canonical URL that validation accepts', () => {
@@ -55,7 +63,7 @@ describe('microblogHtml', () => {
     expect(html).not.toContain('href="https:example.com"');
   });
 
-  it('requires every published link region to have a safe complete URL', () => {
+  it('requires publishable links and bound photo assets before syncing', () => {
     const document = createDocument('Incomplete');
     document.pages = [{
       id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1, height: 1,
@@ -66,10 +74,14 @@ describe('microblogHtml', () => {
     document.pages[0].annotations = [{ type: 'link', x: .1, y: .2, width: .3, height: .04, href: 'javascript:alert(1)' }];
     expect(microblogAnnotationError(document)).toContain('invalid URL');
 
-    document.pages[0].annotations = [{ type: 'link', x: .1, y: .2, width: .3, height: .04, href: 'https://example.org' }];
-    expect(microblogAnnotationError(document)).toBeNull();
-
     document.pages[0].annotations = [{ type: 'photo', x: .1, y: .2, width: .3, height: .2, assetId: '' }];
+    expect(microblogAnnotationError(document)).toContain('without a photo');
+
+    document.pages[0].annotations = [{ type: 'photo', x: .1, y: .2, width: .3, height: .2, assetId: 'missing' }];
+    expect(microblogAnnotationError(document)).toContain('missing from this document');
+
+    document.assets = [{ id: 'photo-1', filename: 'photo.jpg', mediaType: 'image/jpeg', sha256: 'photo-hash', width: 1, height: 1 }];
+    document.pages[0].annotations = [{ type: 'photo', x: .1, y: .2, width: .3, height: .2, assetId: 'photo-1' }];
     expect(microblogAnnotationError(document)).toBeNull();
   });
 });
@@ -89,8 +101,9 @@ describe('Micro.blog draft sync state', () => {
     expect(isMicroblogDraftStale(document, draft)).toBe(false);
   });
 
-  it('marks link edits stale but still ignores photo-placeholder-only edits', () => {
+  it('marks link and photo composition edits stale', () => {
     const document = createDocument('Test');
+    document.assets = [{ id: 'photo-1', filename: 'photo.jpg', mediaType: 'image/jpeg', sha256: 'photo-hash', width: 1, height: 1 }];
     document.pages = [
       { id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1, height: 1, annotations: [] },
     ];
@@ -103,13 +116,15 @@ describe('Micro.blog draft sync state', () => {
     };
 
     document.pages[0].annotations.push({ type: 'photo', x: .1, y: .2, width: .3, height: .2, assetId: 'photo-1' });
-    expect(isMicroblogDraftStale(document, draft)).toBe(false);
+    expect(isMicroblogDraftStale(document, draft)).toBe(true);
 
-    document.pages[0].annotations.push({ type: 'link', x: .1, y: .2, width: .3, height: .04, href: 'https://example.org' });
+    draft.syncedContentRevision = microblogContentRevision(document);
+    const photo = document.pages[0].annotations[0];
+    if (photo.type === 'photo') photo.alt = 'Updated alt';
     expect(isMicroblogDraftStale(document, draft)).toBe(true);
   });
 
-  it('reuses uploaded media when only link overlays change', () => {
+  it('reuses handwritten page media when only overlays change', () => {
     const document = createDocument('Test');
     document.pages = [
       { id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1, height: 1, annotations: [] },
@@ -128,5 +143,28 @@ describe('Micro.blog draft sync state', () => {
     expect(canReuseMicroblogMedia(document, draft)).toBe(true);
     draft.pageHashes = ['hash-2', 'hash-1'];
     expect(canReuseMicroblogMedia(document, draft)).toBe(false);
+  });
+
+  it('uploads each referenced photo once and reuses matching published photo media', () => {
+    const document = createDocument('Photos');
+    const asset = { id: 'photo-1', filename: 'photo.jpg', mediaType: 'image/jpeg' as const, sha256: 'photo-hash', width: 1, height: 1 };
+    document.assets = [asset];
+    document.pages = [
+      { id: 'a', position: 1, filename: '1.png', mediaType: 'image/png', sha256: 'hash-1', width: 1, height: 1, annotations: [
+        { type: 'photo', x: .1, y: .2, width: .3, height: .2, assetId: 'photo-1' },
+        { type: 'photo', x: .5, y: .6, width: .3, height: .2, assetId: 'photo-1' },
+      ] },
+    ];
+    const draft: MicroblogDraftState = {
+      destination: 'https://example.com/',
+      url: 'https://example.com/post.html',
+      preview: 'https://micro.blog/preview',
+      createdAt: document.createdAt,
+      photoMedia: [{ assetId: 'photo-1', sha256: 'photo-hash', url: 'https://media.example/photo.jpg' }],
+    };
+
+    expect(microblogPhotoAssetIds(document)).toEqual(['photo-1']);
+    expect(reusableMicroblogPhotoUrl(draft, asset)).toBe('https://media.example/photo.jpg');
+    expect(reusableMicroblogPhotoUrl({ ...draft, photoMedia: [{ ...draft.photoMedia![0], sha256: 'old-hash' }] }, asset)).toBeNull();
   });
 });
