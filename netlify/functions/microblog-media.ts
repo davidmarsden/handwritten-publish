@@ -2,11 +2,20 @@ import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microb
 
 const MAX_PAGE_BYTES = 5_000_000;
 
+function decodedFilename(value: string | null): string {
+  if (!value) return 'handwritten-page.png';
+  try {
+    return decodeURIComponent(value).trim() || 'handwritten-page.png';
+  } catch {
+    return 'handwritten-page.png';
+  }
+}
+
 export default async (request: Request) => {
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
 
   const token = request.headers.get('x-microblog-token')?.trim() ?? '';
-  const filename = request.headers.get('x-file-name')?.trim() || 'handwritten-page.png';
+  const filename = decodedFilename(request.headers.get('x-file-name'));
   const contentType = request.headers.get('content-type') || 'application/octet-stream';
 
   if (!token) return json({ error: 'Micro.blog app token is required.' }, 400);
