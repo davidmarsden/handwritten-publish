@@ -21,9 +21,18 @@ describe('annotation geometry', () => {
 
   it('keeps edited geometry inside the page', () => {
     expect(constrainRect({ x: .9, y: -.2, width: .5, height: .001 })).toEqual({
-      x: .9,
+      x: .5,
       y: 0,
-      width: .09999999999999998,
+      width: .5,
+      height: .01,
+    });
+  });
+
+  it('repositions edge origins so regions never collapse below the minimum size', () => {
+    expect(constrainRect({ x: 1, y: 1, width: .001, height: .001 })).toEqual({
+      x: .99,
+      y: .99,
+      width: .01,
       height: .01,
     });
   });
