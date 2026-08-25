@@ -1,6 +1,12 @@
 import { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import { buildBundle, downloadBlob, readBundle } from './bundle';
 import { documentPages, importPngFiles, type ImportedPage } from './importPng';
+import {
+  createMicroblogDraft,
+  fetchMicroblogConfig,
+  type MicroblogConfig,
+  uploadMicroblogPage,
+} from './microblog';
 import { createDocument, type HandwrittenDocument } from './model';
 import { clearDraft, loadDraft, saveDraft } from './persistence';
 import './styles.css';
@@ -17,6 +23,9 @@ export default function App() {
   const [status, setStatus] = useState('Loading local draft…');
   const [hydrated, setHydrated] = useState(false);
   const [baseDocument, setBaseDocument] = useState<HandwrittenDocument>(() => createDocument('Untitled handwritten post'));
+  const [microblogToken, setMicroblogToken] = useState('');
+  const [microblogConfig, setMicroblogConfig] = useState<MicroblogConfig | null>(null);
+  const [microblogDestination, setMicroblogDestination] = useState('');
 
   const document = useMemo(() => ({
     ...baseDocument,
@@ -131,7 +140,55 @@ export default function App() {
     setStatus('New local document started.');
   }
 
+  async function connectMicroblog() {
+    if (!microblogToken.trim()) return;
+    setBusy(true);
+    setStatus('Connecting to Micro.blog…');
+    try {
+      const config = await fetchMicroblogConfig(microblogToken);
+      setMicroblogConfig(config);
+      const remembered = baseDocument.publishing?.microblog?.destination;
+      const defaultDestination = remembered && config.destinations.some(destination => destination.uid === remembered)
+        ? remembered
+        : config.destinations[0]?.uid ?? '';
+      setMicroblogDestination(defaultDestination);
+      setStatus(`Micro.blog connected${config.destinations.length ? ` — ${config.destinations.length} blog${config.destinations.length === 1 ? '' : 's'} available.` : '.'}`);
+    } catch (error) {
+      setMicroblogConfig(null);
+      setStatus(error instanceof Error ? error.message : 'Could not connect to Micro.blog.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function publishMicroblogDraft() {
+    if (!microblogConfig || !microblogToken.trim() || !pages.length) return;
+    setBusy(true);
+    try {
+      const mediaUrls: string[] = [];
+      for (let index = 0; index < pages.length; index += 1) {
+        setStatus(`Uploading handwritten page ${index + 1} of ${pages.length} to Micro.blog…`);
+        mediaUrls.push(await uploadMicroblogPage(microblogConfig.mediaEndpoint, microblogToken, pages[index]));
+      }
+      setStatus('Creating private Micro.blog draft…');
+      const draft = await createMicroblogDraft(microblogToken, microblogDestination, document, mediaUrls);
+      setBaseDocument(current => ({
+        ...current,
+        publishing: {
+          ...current.publishing,
+          microblog: draft,
+        },
+      }));
+      setStatus('Micro.blog draft created. Open the preview to review and publish it.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not create the Micro.blog draft.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const controlsDisabled = busy || !hydrated;
+  const existingMicroblogDraft = baseDocument.publishing?.microblog;
 
   return (
     <main className="shell">
@@ -202,6 +259,52 @@ export default function App() {
             placeholder="Add or paste a transcript. AI-assisted transcription comes later; the page images remain canonical."
           />
         </label>
+      </section>
+
+      <section className="panel microblogPublisher">
+        <div>
+          <p className="eyebrow">Publisher</p>
+          <h2>Micro.blog</h2>
+          <p>Create a private server-side draft. Your app token stays only in this page's memory and is never saved into the document or exported bundle.</p>
+        </div>
+        <label>
+          <span>App token</span>
+          <input
+            type="password"
+            value={microblogToken}
+            disabled={controlsDisabled}
+            onChange={event => {
+              setMicroblogToken(event.target.value);
+              setMicroblogConfig(null);
+            }}
+            autoComplete="off"
+            placeholder="Paste a Micro.blog app token"
+          />
+        </label>
+        <button onClick={connectMicroblog} disabled={controlsDisabled || !microblogToken.trim()}>
+          {microblogConfig ? 'Reconnect Micro.blog' : 'Connect Micro.blog'}
+        </button>
+        {microblogConfig && microblogConfig.destinations.length > 0 && (
+          <label>
+            <span>Destination blog</span>
+            <select value={microblogDestination} onChange={event => setMicroblogDestination(event.target.value)} disabled={controlsDisabled}>
+              {microblogConfig.destinations.map(destination => (
+                <option key={destination.uid} value={destination.uid}>{destination.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <button
+          onClick={publishMicroblogDraft}
+          disabled={controlsDisabled || !microblogConfig || !pages.length || Boolean(existingMicroblogDraft)}
+        >
+          {existingMicroblogDraft ? 'Micro.blog draft already created' : 'Create Micro.blog draft'}
+        </button>
+        {existingMicroblogDraft && (
+          <p>
+            Draft tracked for this document. <a href={existingMicroblogDraft.preview} target="_blank" rel="noreferrer">Open private preview ↗</a>
+          </p>
+        )}
       </section>
     </main>
   );
