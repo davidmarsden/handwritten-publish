@@ -1,5 +1,5 @@
 import type { ImportedPage } from './importPng';
-import type { HandwrittenDocument, MicroblogDraftState } from './model';
+import type { HandwrittenDocument, LinkAnnotation, MicroblogDraftState } from './model';
 
 export type MicroblogDestination = {
   uid: string;
@@ -70,10 +70,62 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;');
 }
 
+function percent(value: number): string {
+  return `${Number((value * 100).toFixed(4))}%`;
+}
+
+function canonicalPublishableHttpUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+export function microblogAnnotationError(document: HandwrittenDocument): string | null {
+  for (let pageIndex = 0; pageIndex < document.pages.length; pageIndex += 1) {
+    const links = document.pages[pageIndex].annotations.filter(
+      (annotation): annotation is LinkAnnotation => annotation.type === 'link',
+    );
+    for (const link of links) {
+      const href = link.href.trim();
+      if (!href) {
+        return `Page ${pageIndex + 1} has a link region without a URL. Add the URL or delete the region before syncing Micro.blog.`;
+      }
+      if (!canonicalPublishableHttpUrl(href)) {
+        return `Page ${pageIndex + 1} has a link region with an invalid URL. Use a complete http:// or https:// address before syncing Micro.blog.`;
+      }
+    }
+  }
+  return null;
+}
+
+function linkHtml(link: LinkAnnotation, pageIndex: number): string {
+  const label = link.label?.trim() || `Handwritten link on page ${pageIndex + 1}`;
+  const href = canonicalPublishableHttpUrl(link.href.trim());
+  if (!href) return '';
+  const style = [
+    'position:absolute',
+    `left:${percent(link.x)}`,
+    `top:${percent(link.y)}`,
+    `width:${percent(link.width)}`,
+    `height:${percent(link.height)}`,
+    'display:block',
+    'z-index:2',
+  ].join(';');
+  return `<a href="${escapeHtml(href)}" aria-label="${escapeHtml(label)}" style="${style}"></a>`;
+}
+
 export function microblogHtml(document: HandwrittenDocument, mediaUrls: string[]): string {
-  const pages = mediaUrls.map((url, index) => (
-    `<figure class="handwritten-page"><img src="${escapeHtml(url)}" alt="Handwritten page ${index + 1} of ${mediaUrls.length}"></figure>`
-  ));
+  const pages = mediaUrls.map((url, index) => {
+    const links = document.pages[index]?.annotations.filter(
+      (annotation): annotation is LinkAnnotation => annotation.type === 'link' && Boolean(canonicalPublishableHttpUrl(annotation.href.trim())),
+    ) ?? [];
+    const overlays = links.map(link => linkHtml(link, index)).join('');
+    return `<figure class="handwritten-page" style="position:relative;margin:0;display:block"><img src="${escapeHtml(url)}" alt="Handwritten page ${index + 1} of ${mediaUrls.length}" style="display:block;width:100%;height:auto">${overlays}</figure>`;
+  });
   if (document.transcript) {
     pages.push(`<details class="handwritten-transcript"><summary>Transcript</summary><div>${escapeHtml(document.transcript).replaceAll('\n', '<br>')}</div></details>`);
   }
@@ -84,7 +136,19 @@ export function microblogContentRevision(document: HandwrittenDocument): string 
   return JSON.stringify({
     title: document.title.trim(),
     transcript: document.transcript ?? '',
-    pageHashes: document.pages.map(page => page.sha256),
+    pages: document.pages.map(page => ({
+      sha256: page.sha256,
+      links: page.annotations
+        .filter((annotation): annotation is LinkAnnotation => annotation.type === 'link')
+        .map(link => ({
+          x: link.x,
+          y: link.y,
+          width: link.width,
+          height: link.height,
+          href: canonicalPublishableHttpUrl(link.href.trim()) ?? link.href.trim(),
+          label: link.label?.trim() ?? '',
+        })),
+    })),
   });
 }
 
@@ -139,6 +203,9 @@ export async function createMicroblogDraft(
   document: HandwrittenDocument,
   mediaUrls: string[],
 ): Promise<MicroblogDraftState> {
+  const annotationError = microblogAnnotationError(document);
+  if (annotationError) throw new Error(annotationError);
+
   const response = await fetch('/api/microblog/draft', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -165,6 +232,9 @@ export async function updateMicroblogDraft(
   draft: MicroblogDraftState,
   mediaUrls: string[],
 ): Promise<MicroblogDraftState> {
+  const annotationError = microblogAnnotationError(document);
+  if (annotationError) throw new Error(annotationError);
+
   const response = await fetch('/api/microblog/draft', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

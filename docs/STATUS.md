@@ -20,14 +20,15 @@ Handwritten Publish is now a working local-first publishing tool, not just a for
 - [x] Normalized photo placeholders with asset ID/alt metadata
 - [x] Annotation overlays in the local page preview
 - [x] Annotation metadata persists through IndexedDB and `.hwpublish`
+- [x] Publish responsive clickable handwritten link regions to Micro.blog drafts
+- [x] Reuse existing page media when only link overlays change
 
 ## Next
 
-- [ ] Publish clickable handwritten link regions
 - [ ] Original photo assets, placement and alt text
 - [ ] Richer draft state and revision history
 - [ ] handwritten.blog publisher adapter
 - [ ] Assisted transcription and accessibility metadata
 - [ ] Native reMarkable input/send integration when safely supportable
 
-Publishing from Handwritten Publish remains draft-first. A tracked Micro.blog post must still be a draft before the app will update it. Annotation metadata is local/portable document state for now and is not yet included in Micro.blog output.
+Publishing from Handwritten Publish remains draft-first. A tracked Micro.blog post must still be a draft before the app will update it. Completed HTTP/HTTPS link annotations are included in Micro.blog output; photo placeholders remain local/portable document state for now.
