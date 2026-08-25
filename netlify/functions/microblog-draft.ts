@@ -9,6 +9,10 @@ function sourceStatus(source: unknown): string | null {
   return null;
 }
 
+function richHtmlContent(html: string) {
+  return [{ html }];
+}
+
 async function verifyDraft(token: string, updateUrl: string, destination?: string) {
   const sourceUrl = new URL(MICROPUB_ENDPOINT);
   sourceUrl.searchParams.set('q', 'source');
@@ -56,7 +60,7 @@ export default async (request: Request) => {
       ...(body.destination ? { 'mp-destination': body.destination } : {}),
       replace: {
         name: [body.title.trim()],
-        content: [{ html: body.html }],
+        content: [body.html],
       },
     };
 
@@ -68,7 +72,9 @@ export default async (request: Request) => {
       },
       body: JSON.stringify(payload),
     });
-    if (!response.ok) return upstreamError(response, 'Micro.blog could not update the draft.');
+    if (!response.ok) {
+      return upstreamError(response, `Micro.blog could not update the draft (HTTP ${response.status}).`);
+    }
     return json({ updated: true });
   }
 
@@ -77,7 +83,7 @@ export default async (request: Request) => {
     ...(body.destination ? { 'mp-destination': body.destination } : {}),
     properties: {
       name: [body.title.trim()],
-      content: [{ html: body.html }],
+      content: richHtmlContent(body.html),
       'post-status': ['draft'],
     },
   };
@@ -90,7 +96,7 @@ export default async (request: Request) => {
     },
     body: JSON.stringify(payload),
   });
-  if (!response.ok) return upstreamError(response, 'Micro.blog could not create the draft.');
+  if (!response.ok) return upstreamError(response, `Micro.blog could not create the draft (HTTP ${response.status}).`);
 
   let result: { url?: string; preview?: string } = {};
   try {
