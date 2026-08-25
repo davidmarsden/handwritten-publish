@@ -1,70 +1,48 @@
 import type { ImportedPage } from './importPng';
 import type { HandwrittenDocument, MicroblogDraftState } from './model';
 
-export const MICROPUB_ENDPOINT = 'https://micro.blog/micropub';
-
 export type MicroblogDestination = {
   uid: string;
   name: string;
 };
 
 export type MicroblogConfig = {
-  mediaEndpoint: string;
   destinations: MicroblogDestination[];
 };
 
-type RawConfig = {
-  'media-endpoint'?: string;
-  destination?: Array<{ uid?: string; name?: string }>;
-};
-
 type DraftResponse = {
-  url?: string;
-  preview?: string;
+  url: string;
+  preview: string;
 };
 
-function authHeaders(token: string): Record<string, string> {
-  return { Authorization: `Bearer ${token.trim()}` };
-}
-
-async function errorMessage(response: Response, fallback: string): Promise<string> {
+async function responseError(response: Response, fallback: string): Promise<string> {
   try {
-    const payload = await response.json() as { error?: string; error_description?: string };
-    return payload.error_description || payload.error || fallback;
+    const payload = await response.json() as { error?: string };
+    return payload.error || fallback;
   } catch {
     return fallback;
   }
 }
 
 export async function fetchMicroblogConfig(token: string): Promise<MicroblogConfig> {
-  const response = await fetch(`${MICROPUB_ENDPOINT}?q=config`, {
-    headers: authHeaders(token),
+  const response = await fetch('/api/microblog/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: token.trim() }),
   });
-  if (!response.ok) throw new Error(await errorMessage(response, 'Micro.blog rejected this app token.'));
-
-  const config = await response.json() as RawConfig;
-  if (!config['media-endpoint']) throw new Error('Micro.blog did not return a media endpoint.');
-
-  return {
-    mediaEndpoint: config['media-endpoint'],
-    destinations: (config.destination ?? [])
-      .filter((destination): destination is { uid: string; name?: string } => typeof destination.uid === 'string')
-      .map(destination => ({ uid: destination.uid, name: destination.name || destination.uid })),
-  };
+  if (!response.ok) throw new Error(await responseError(response, 'Could not connect to Micro.blog.'));
+  return response.json() as Promise<MicroblogConfig>;
 }
 
-export async function uploadMicroblogPage(mediaEndpoint: string, token: string, page: ImportedPage): Promise<string> {
+export async function uploadMicroblogPage(token: string, page: ImportedPage): Promise<string> {
   const body = new FormData();
+  body.append('token', token.trim());
   body.append('file', page.file, page.filename);
-  const response = await fetch(mediaEndpoint, {
-    method: 'POST',
-    headers: authHeaders(token),
-    body,
-  });
-  if (!response.ok) throw new Error(await errorMessage(response, `Could not upload ${page.filename}.`));
-  const location = response.headers.get('Location');
-  if (!location) throw new Error(`Micro.blog uploaded ${page.filename} but returned no media URL.`);
-  return location;
+  const response = await fetch('/api/microblog/media', { method: 'POST', body });
+  if (!response.ok) throw new Error(await responseError(response, `Could not upload ${page.filename}.`));
+  const payload = await response.json() as { url?: string };
+  if (!payload.url) throw new Error(`Micro.blog uploaded ${page.filename} but returned no media URL.`);
+  return payload.url;
 }
 
 function escapeHtml(value: string): string {
@@ -91,39 +69,22 @@ export async function createMicroblogDraft(
   document: HandwrittenDocument,
   mediaUrls: string[],
 ): Promise<MicroblogDraftState> {
-  const payload = {
-    type: ['h-entry'],
-    ...(destination ? { 'mp-destination': destination } : {}),
-    properties: {
-      name: [document.title],
-      content: [{ html: microblogHtml(document, mediaUrls) }],
-      'post-status': ['draft'],
-    },
-  };
-
-  const response = await fetch(MICROPUB_ENDPOINT, {
+  const response = await fetch('/api/microblog/draft', {
     method: 'POST',
-    headers: {
-      ...authHeaders(token),
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token: token.trim(),
+      destination,
+      title: document.title,
+      html: microblogHtml(document, mediaUrls),
+    }),
   });
-  if (!response.ok) throw new Error(await errorMessage(response, 'Micro.blog could not create the draft.'));
-
-  let result: DraftResponse = {};
-  try {
-    result = await response.json() as DraftResponse;
-  } catch {
-    // Micro.blog normally returns JSON for drafts; fall back to Location when available.
-  }
-  const url = result.url || response.headers.get('Location') || '';
-  if (!url) throw new Error('Micro.blog created the draft but returned no post URL.');
-
+  if (!response.ok) throw new Error(await responseError(response, 'Micro.blog could not create the draft.'));
+  const result = await response.json() as DraftResponse;
   return {
     destination,
-    url,
-    preview: result.preview || url,
+    url: result.url,
+    preview: result.preview || result.url,
     createdAt: new Date().toISOString(),
   };
 }
