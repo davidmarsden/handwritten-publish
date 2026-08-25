@@ -110,7 +110,14 @@ export default function AnnotationEditor({ page, assets, disabled = false, onCha
             const photoAsset = annotation.type === 'photo' ? assets.find(asset => asset.id === annotation.assetId) : undefined;
             return (
               <Fragment key={`${annotation.type}-${index}`}>
-                {photoAsset && <img className="annotationPhotoAsset" style={annotationStyle(annotation)} src={photoAsset.previewUrl} alt={annotation.alt || photoAsset.filename} />}
+                {annotation.type === 'photo' && photoAsset && (
+                  <img
+                    className="annotationPhotoAsset"
+                    style={annotationStyle(annotation)}
+                    src={photoAsset.previewUrl}
+                    alt={annotation.alt || photoAsset.filename}
+                  />
+                )}
                 <button
                   type="button"
                   className={`annotationRegion ${annotation.type} ${selectedIndex === index ? 'selected' : ''} ${photoAsset ? 'hasAsset' : ''}`}
