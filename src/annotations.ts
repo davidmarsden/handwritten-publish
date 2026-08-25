@@ -6,6 +6,14 @@ export function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
+export function constrainRect(rect: NormalizedRect): NormalizedRect {
+  const x = clamp01(rect.x);
+  const y = clamp01(rect.y);
+  const width = Math.min(Math.max(MIN_SIZE, rect.width), 1 - x);
+  const height = Math.min(Math.max(MIN_SIZE, rect.height), 1 - y);
+  return { x, y, width, height };
+}
+
 export function rectFromPoints(
   start: { x: number; y: number },
   end: { x: number; y: number },
