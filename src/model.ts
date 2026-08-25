@@ -37,6 +37,10 @@ export type MicroblogDraftState = {
   url: string;
   preview: string;
   createdAt: string;
+  syncedAt?: string;
+  syncedDocumentUpdatedAt?: string;
+  pageHashes?: string[];
+  mediaUrls?: string[];
 };
 
 export type HandwrittenDocument = {
