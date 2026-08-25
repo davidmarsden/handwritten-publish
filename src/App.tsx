@@ -9,6 +9,7 @@ import {
   type MicroblogConfig,
   updateMicroblogDraft,
   uploadMicroblogPage,
+  verifyMicroblogDraft,
 } from './microblog';
 import { createDocument, type HandwrittenDocument } from './model';
 import { clearDraft, loadDraft, saveDraft } from './persistence';
@@ -139,7 +140,13 @@ export default function App() {
     setTitle(fresh.title);
     setTranscript('');
     setPages([]);
-    setMicroblogDestination('');
+    if (microblogConfig) {
+      setMicroblogDestination(current => (
+        microblogConfig.destinations.some(destination => destination.uid === current)
+          ? current
+          : microblogConfig.destinations[0]?.uid ?? ''
+      ));
+    }
     await clearDraft();
     setStatus('New local document started.');
   }
@@ -181,6 +188,11 @@ export default function App() {
 
     setBusy(true);
     try {
+      if (existingDraft) {
+        setStatus('Verifying the tracked Micro.blog post is still a draft…');
+        await verifyMicroblogDraft(microblogToken, existingDraft);
+      }
+
       let mediaUrls: string[];
       if (existingDraft && canReuseMicroblogMedia(document, existingDraft)) {
         mediaUrls = existingDraft.mediaUrls ?? [];
