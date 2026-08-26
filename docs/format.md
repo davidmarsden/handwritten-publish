@@ -1,10 +1,17 @@
-# `.hwpublish` format v1
+# `.hwpublish` format
 
 A `.hwpublish` file is an ordinary ZIP archive. Its goal is boring portability: source pages and photos remain usable standard image files even if this application disappears.
 
-## Layout
+Handwritten Publish currently reads two manifest versions:
 
-A bundle can contain handwritten pages, standalone photo pages, original photo assets used as overlays, and an optional transcript.
+- **version 1** — the legacy PNG-only handwritten-page format;
+- **version 2** — the current mixed-media format used by Handwritten Publish v0.1.0.
+
+New producers should write version 2. Version 1 remains supported for backward compatibility and must retain its original PNG-only page shape.
+
+## Version 2 layout
+
+A version-2 bundle can contain handwritten pages, standalone photo pages, original photo assets used as overlays, and an optional transcript.
 
 ```text
 post.hwpublish
@@ -12,23 +19,29 @@ post.hwpublish
 ├── transcript.md                 # optional
 ├── pages/
 │   ├── page-0001.png
-│   ├── page-0002.jpg             # standalone photo pages may use their media type
+│   ├── page-0002.jpg             # extension follows the page media type
 │   └── …
 └── assets/                       # optional original overlay-photo assets
     ├── <asset-id>.jpg
     └── …
 ```
 
-Exact page/asset filenames are implementation details recorded by the manifest; consumers should read the manifest rather than infer document meaning from archive filenames alone.
+Archive paths are part of the current interchange convention and are derived deterministically; they are **not** stored as paths in the manifest.
+
+Pages are first ordered by their numeric `position`. The first ordered page is stored as `pages/page-0001.<ext>`, the second as `pages/page-0002.<ext>`, and so on. The extension is `png` for `image/png`, `jpg` for `image/jpeg`, and `webp` for `image/webp`. The manifest `filename` field preserves the user's original filename and must not be interpreted as the ZIP entry name.
+
+Each photo asset is stored as `assets/<id>.<ext>`, where `<id>` is the manifest asset ID and the extension is derived from its media type using the same `png` / `jpg` / `webp` convention. The manifest asset `filename` likewise preserves the original user filename rather than an archive path.
+
+Version-1 bundles use the same numbered page-path convention but every page entry is PNG (`pages/page-NNNN.png`) and no asset entries are defined by that format.
 
 ## Manifest
 
-`manifest.json` is UTF-8 JSON. Version 1 has this conceptual top-level shape:
+`manifest.json` is UTF-8 JSON. The current version-2 document has this conceptual top-level shape:
 
 ```json
 {
   "format": "handwritten-publish",
-  "version": 1,
+  "version": 2,
   "id": "uuid",
   "title": "Post title",
   "createdAt": "ISO-8601 timestamp",
@@ -39,7 +52,7 @@ Exact page/asset filenames are implementation details recorded by the manifest; 
 }
 ```
 
-Older version-1 bundles may omit fields introduced later, including `assets`; readers remain backward-compatible with the earlier PNG-only shape.
+`assets` may be omitted when there are no photo assets.
 
 Each page records stable application identity, display position, original filename, SHA-256 digest, dimensions, media type and page-specific metadata. Handwritten pages can carry annotations. Standalone photo pages carry their own photo-page metadata such as alt text.
 
@@ -47,12 +60,12 @@ Photo assets record a stable asset ID, original filename, media type, SHA-256 di
 
 ## Page kinds
 
-Version 1 supports two logical page kinds:
+Version 2 supports two logical page kinds:
 
-- **handwritten page** — normally a PNG exported/rendered from a handwriting device; may contain normalized link and photo annotations;
+- **handwritten page** — a PNG exported/rendered from a handwriting device; may contain normalized link and photo annotations;
 - **standalone photo page** — JPEG, PNG or WebP occupying its own position in the ordered document sequence.
 
-Older bundles without an explicit page-kind distinction are interpreted compatibly as handwritten pages.
+Version 1 predates that page-kind distinction. It contains handwritten PNG pages only, without the mixed-media `kind` model or photo-asset collection. Handwritten Publish upgrades valid version-1 documents to the current in-memory model when importing them.
 
 ## Coordinates
 
@@ -68,10 +81,11 @@ Publishing derivatives are not part of the portable source format. For example, 
 
 ## Compatibility principles
 
-- Existing version-1 fields must not silently change meaning.
-- Missing fields from earlier version-1 bundles should receive backward-compatible defaults.
-- Unknown fields should be ignored by readers where possible.
-- New annotation types may be added without altering the source page image.
+- Version 1 is the legacy PNG-only schema; its existing fields must not silently change meaning.
+- Version 2 is the current mixed-media schema and should be used by new producers.
+- Archive entry naming follows the deterministic convention documented above.
+- Unknown manifest fields should be ignored by readers where possible.
+- Future schema changes that cannot be represented compatibly should use a new format version rather than redefining an existing one.
 - Source page images and original photo assets are canonical. Transcripts, annotations and publishing state enrich them; they do not replace them.
 - A document `id` is stable across edits and republishes.
 - Page and asset SHA-256 digests identify source content independently of remote publishing URLs.
