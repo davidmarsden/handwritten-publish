@@ -67,11 +67,14 @@ export type MicroblogPhotoMedia = {
   url: string;
 };
 
+export type MicroblogPostStatus = 'draft' | 'published';
+
 export type MicroblogDraftState = {
   destination: string;
   url: string;
   preview: string;
   createdAt: string;
+  postStatus?: MicroblogPostStatus;
   syncedAt?: string;
   syncedDocumentUpdatedAt?: string;
   syncedContentRevision?: string;

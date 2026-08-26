@@ -1,5 +1,7 @@
 import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
 
+type PostStatus = 'draft' | 'published';
+
 function sourceStatus(source: unknown): string | null {
   if (!source || typeof source !== 'object') return null;
   const properties = (source as { properties?: Record<string, unknown> }).properties;
@@ -13,17 +15,36 @@ function richHtmlContent(html: string) {
   return [{ html }];
 }
 
-async function verifyDraft(token: string, updateUrl: string, destination?: string) {
+async function inspectPost(token: string, updateUrl: string, destination?: string): Promise<{ status?: PostStatus; error?: Response }> {
   const sourceUrl = new URL(MICROPUB_ENDPOINT);
   sourceUrl.searchParams.set('q', 'source');
   sourceUrl.searchParams.set('url', updateUrl);
   if (destination) sourceUrl.searchParams.set('mp-destination', destination);
 
   const sourceResponse = await fetch(sourceUrl, { headers: bearer(token) });
-  if (!sourceResponse.ok) return upstreamError(sourceResponse, 'Could not verify the existing Micro.blog draft.');
+  if (!sourceResponse.ok) {
+    return { error: upstreamError(sourceResponse, 'Could not verify the existing Micro.blog post.') };
+  }
   const source = await sourceResponse.json().catch(() => null);
-  if (sourceStatus(source) !== 'draft') {
-    return json({ error: 'This Micro.blog post is no longer a draft, so Handwritten Publish will not modify it.' }, 409);
+  const status = sourceStatus(source);
+  if (status !== 'draft' && status !== 'published') {
+    return { error: json({ error: `Handwritten Publish cannot safely update a Micro.blog post with status ${status ?? 'unknown'}.` }, 409) };
+  }
+  return { status };
+}
+
+async function verifyExpectedStatus(
+  token: string,
+  updateUrl: string,
+  expectedStatus: PostStatus,
+  destination?: string,
+): Promise<Response | null> {
+  const inspected = await inspectPost(token, updateUrl, destination);
+  if (inspected.error) return inspected.error;
+  if (inspected.status !== expectedStatus) {
+    return json({
+      error: `This Micro.blog post changed from ${expectedStatus} to ${inspected.status ?? 'an unknown status'} before the update, so Handwritten Publish did not modify it.`,
+    }, 409);
   }
   return null;
 }
@@ -37,21 +58,25 @@ export default async (request: Request) => {
     html?: string;
     updateUrl?: string;
     verifyOnly?: boolean;
+    expectedPostStatus?: PostStatus;
   };
   const token = body.token?.trim();
   if (!token) return json({ error: 'Micro.blog app token is required.' }, 400);
 
   if (body.verifyOnly) {
-    if (!body.updateUrl) return json({ error: 'Tracked Micro.blog draft URL is required.' }, 400);
-    const verificationError = await verifyDraft(token, body.updateUrl, body.destination);
-    return verificationError ?? json({ draft: true });
+    if (!body.updateUrl) return json({ error: 'Tracked Micro.blog post URL is required.' }, 400);
+    const inspected = await inspectPost(token, body.updateUrl, body.destination);
+    if (inspected.error) return inspected.error;
+    return json({ status: inspected.status });
   }
 
   if (!body.title?.trim()) return json({ error: 'Post title is required.' }, 400);
   if (!body.html?.trim()) return json({ error: 'Handwritten post content is required.' }, 400);
 
   if (body.updateUrl) {
-    const verificationError = await verifyDraft(token, body.updateUrl, body.destination);
+    // Backward-safe default: callers must explicitly opt into published updates.
+    const expectedStatus: PostStatus = body.expectedPostStatus === 'published' ? 'published' : 'draft';
+    const verificationError = await verifyExpectedStatus(token, body.updateUrl, expectedStatus, body.destination);
     if (verificationError) return verificationError;
 
     const payload = {
@@ -73,9 +98,9 @@ export default async (request: Request) => {
       body: JSON.stringify(payload),
     });
     if (!response.ok) {
-      return upstreamError(response, `Micro.blog could not update the draft (HTTP ${response.status}).`);
+      return upstreamError(response, `Micro.blog could not update the ${expectedStatus === 'published' ? 'published post' : 'draft'} (HTTP ${response.status}).`);
     }
-    return json({ updated: true });
+    return json({ updated: true, status: expectedStatus });
   }
 
   const payload = {

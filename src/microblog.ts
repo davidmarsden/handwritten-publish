@@ -7,6 +7,7 @@ import type {
   LinkAnnotation,
   MicroblogDraftState,
   MicroblogPhotoMedia,
+  MicroblogPostStatus,
   PhotoAnnotation,
 } from './model';
 import { isPhotoPage } from './model';
@@ -285,9 +286,11 @@ function syncedDraftState(
   document: HandwrittenDocument,
   mediaUrls: string[],
   photoMedia: MicroblogPhotoMedia[],
+  postStatus: MicroblogPostStatus,
 ): MicroblogDraftState {
   return {
     ...draft,
+    postStatus,
     syncedAt: new Date().toISOString(),
     syncedDocumentUpdatedAt: document.updatedAt,
     syncedContentRevision: microblogContentRevision(document),
@@ -311,7 +314,7 @@ export function canReuseMicroblogMedia(document: HandwrittenDocument, draft: Mic
     && draft.pageHashes.every((hash, index) => hash === hashes[index]);
 }
 
-export async function verifyMicroblogDraft(token: string, draft: MicroblogDraftState): Promise<void> {
+export async function inspectMicroblogPost(token: string, draft: MicroblogDraftState): Promise<MicroblogPostStatus> {
   const response = await fetch('/api/microblog/draft', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -322,7 +325,19 @@ export async function verifyMicroblogDraft(token: string, draft: MicroblogDraftS
       verifyOnly: true,
     }),
   });
-  if (!response.ok) throw new Error(await responseError(response, 'Could not verify the existing Micro.blog draft.'));
+  if (!response.ok) throw new Error(await responseError(response, 'Could not verify the existing Micro.blog post.'));
+  const result = await response.json() as { status?: MicroblogPostStatus };
+  if (result.status !== 'draft' && result.status !== 'published') {
+    throw new Error('Micro.blog returned an unknown post status. Handwritten Publish will not update it.');
+  }
+  return result.status;
+}
+
+export async function verifyMicroblogDraft(token: string, draft: MicroblogDraftState): Promise<void> {
+  const status = await inspectMicroblogPost(token, draft);
+  if (status !== 'draft') {
+    throw new Error('This Micro.blog post is published, so use the explicit published-post update control instead.');
+  }
 }
 
 export async function createMicroblogDraft(
@@ -353,7 +368,7 @@ export async function createMicroblogDraft(
     url: result.url,
     preview: result.preview || result.url,
     createdAt: new Date().toISOString(),
-  }, document, mediaUrls, photoMedia);
+  }, document, mediaUrls, photoMedia, 'draft');
 }
 
 export async function updateMicroblogDraft(
@@ -362,6 +377,7 @@ export async function updateMicroblogDraft(
   draft: MicroblogDraftState,
   mediaUrls: string[],
   photoMedia: MicroblogPhotoMedia[] = [],
+  expectedPostStatus: MicroblogPostStatus = 'draft',
 ): Promise<MicroblogDraftState> {
   const annotationError = microblogAnnotationError(document);
   if (annotationError) throw new Error(annotationError);
@@ -376,8 +392,14 @@ export async function updateMicroblogDraft(
       title: document.title,
       html: microblogHtml(document, mediaUrls, photoUrls),
       updateUrl: draft.url,
+      expectedPostStatus,
     }),
   });
-  if (!response.ok) throw new Error(await responseError(response, 'Micro.blog could not update the draft.'));
-  return syncedDraftState(draft, document, mediaUrls, photoMedia);
+  if (!response.ok) {
+    const fallback = expectedPostStatus === 'published'
+      ? 'Micro.blog could not update the published post.'
+      : 'Micro.blog could not update the draft.';
+    throw new Error(await responseError(response, fallback));
+  }
+  return syncedDraftState(draft, document, mediaUrls, photoMedia, expectedPostStatus);
 }
