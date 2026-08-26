@@ -37,7 +37,7 @@ input, textarea, select { width: 100%; border: 1px solid rgba(32,32,30,.18); bor
 .pageCardPreview { position: relative; background: white; }
 .pageCardPreview > img:first-child { display: block; width: 100%; height: auto; background: white; }
 .previewAnnotation { position: absolute; z-index: 3; border: 2px solid currentColor; background: rgba(255,255,255,.14); }
-.previewAnnotation.link { color: #1d5fa7; }
+.previewAnnotation.link { color: #1d5fa7; border: 1px solid rgba(29,95,167,.28); background: rgba(29,95,167,.12); box-shadow: inset 0 -2px 0 rgba(29,95,167,.8); border-radius: 2px; cursor: pointer; }
 .previewAnnotation.photo { color: #8d5a18; border-style: dashed; }
 .embeddedPhotoPreview, .annotationPhotoAsset { position: absolute; z-index: 2; object-fit: cover; background: white; }
 .dragHandle { width: 100%; border: 0; border-top: 1px solid rgba(32,32,30,.08); border-bottom: 1px solid rgba(32,32,30,.08); background: #eee8dc; color: #393630; padding: 11px 12px; font-weight: 750; text-align: center; cursor: grab; touch-action: none; user-select: none; }
