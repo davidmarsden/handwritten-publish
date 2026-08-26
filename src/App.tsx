@@ -33,7 +33,7 @@ function revokeAssets(assets: ImportedAsset[]) {
 }
 
 function categoriesFromText(value: string): string[] {
-  return [...new Set(value.split(',').map(category => category.trim()).filter(Boolean))];
+  return [...new Set(value.split(/\r?\n/).map(category => category.trim()).filter(Boolean))];
 }
 
 export default function App() {
@@ -106,7 +106,7 @@ export default function App() {
           setBaseDocument(saved.document);
           setTitle(saved.document.title);
           setSummary(saved.document.summary ?? '');
-          setCategoryText((saved.document.categories ?? []).join(', '));
+          setCategoryText((saved.document.categories ?? []).join('\n'));
           setTranscript(saved.document.transcript ?? '');
           setPages(saved.pages);
           setAssets(saved.assets);
@@ -199,7 +199,7 @@ export default function App() {
       setBaseDocument(imported.document);
       setTitle(imported.document.title);
       setSummary(imported.document.summary ?? '');
-      setCategoryText((imported.document.categories ?? []).join(', '));
+      setCategoryText((imported.document.categories ?? []).join('\n'));
       setTranscript(imported.document.transcript ?? '');
       setPages(imported.pages);
       setAssets(imported.assets);
@@ -310,7 +310,7 @@ export default function App() {
     const next = current.includes(category)
       ? current.filter(value => value !== category)
       : [...current, category];
-    setCategoryText(next.join(', '));
+    setCategoryText(next.join('\n'));
     markEdited();
   }
 
@@ -502,7 +502,7 @@ export default function App() {
 
       <section className="panel metadata">
         <label><span>Post summary <em>optional</em></span><textarea value={summary} disabled={controlsDisabled} onChange={event => { setSummary(event.target.value); markEdited(); }} placeholder="A sentence or two to describe the post in Micro.blog’s timeline and feeds." /></label>
-        <label><span>Categories <em>comma-separated</em></span><input value={categoryText} disabled={controlsDisabled} onChange={event => { setCategoryText(event.target.value); markEdited(); }} placeholder="e.g. Southall, Local politics" /></label>
+        <label><span>Categories <em>one per line</em></span><textarea value={categoryText} disabled={controlsDisabled} onChange={event => { setCategoryText(event.target.value); markEdited(); }} placeholder={'Southall\nFood, Drink\nLocal politics'} /></label>
         {microblogCategories.length > 0 && (
           <div className="categorySuggestions">
             <span>Existing Micro.blog categories</span>
