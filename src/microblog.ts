@@ -72,8 +72,13 @@ export async function uploadMicroblogPage(
   page: ImportedPage,
 ): Promise<string> {
   if (isPhotoPage(page)) {
-    const prepared = await preparePhotoForMicroblog(page.file);
-    return uploadMicroblogMedia(token, prepared.file, prepared.file.name, prepared.file.type);
+    const prepared = await preparePhotoForMicroblog(page.file, page.mediaType);
+    return uploadMicroblogMedia(
+      token,
+      prepared.file,
+      prepared.file.name,
+      prepared.optimized ? prepared.file.type : page.mediaType,
+    );
   }
   return uploadMicroblogMedia(token, page.file, page.filename, page.mediaType);
 }
@@ -83,8 +88,13 @@ export async function uploadMicroblogPhoto(
   token: string,
   asset: ImportedAsset,
 ): Promise<string> {
-  const prepared = await preparePhotoForMicroblog(asset.file);
-  return uploadMicroblogMedia(token, prepared.file, prepared.file.name, prepared.file.type);
+  const prepared = await preparePhotoForMicroblog(asset.file, asset.mediaType);
+  return uploadMicroblogMedia(
+    token,
+    prepared.file,
+    prepared.file.name,
+    prepared.optimized ? prepared.file.type : asset.mediaType,
+  );
 }
 
 function escapeHtml(value: string): string {
