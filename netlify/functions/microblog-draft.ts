@@ -2,10 +2,29 @@ import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microb
 
 type PostStatus = 'draft' | 'published';
 
-function sourceStatus(source: unknown): string | null {
+type InspectedPost = {
+  status?: PostStatus;
+  url?: string;
+  error?: Response;
+};
+
+function sourceProperties(source: unknown): Record<string, unknown> | null {
   if (!source || typeof source !== 'object') return null;
   const properties = (source as { properties?: Record<string, unknown> }).properties;
+  return properties && typeof properties === 'object' ? properties : null;
+}
+
+function sourceStatus(source: unknown): string | null {
+  const properties = sourceProperties(source);
   const value = properties?.['post-status'];
+  if (Array.isArray(value) && typeof value[0] === 'string') return value[0];
+  if (typeof value === 'string') return value;
+  return null;
+}
+
+function sourcePostUrl(source: unknown): string | null {
+  const properties = sourceProperties(source);
+  const value = properties?.url;
   if (Array.isArray(value) && typeof value[0] === 'string') return value[0];
   if (typeof value === 'string') return value;
   return null;
@@ -15,7 +34,60 @@ function richHtmlContent(html: string) {
   return [{ html }];
 }
 
-async function inspectPost(token: string, updateUrl: string, destination?: string): Promise<{ status?: PostStatus; error?: Response }> {
+function validStatus(status: string | null): PostStatus | null {
+  return status === 'draft' || status === 'published' ? status : null;
+}
+
+async function recoverPublishedPostByMedia(
+  token: string,
+  knownMediaUrls: string[],
+  destination?: string,
+): Promise<InspectedPost> {
+  const fingerprints = [...new Set(knownMediaUrls.map(url => url.trim()).filter(Boolean))];
+  if (!fingerprints.length) {
+    return { error: json({ error: 'The tracked Micro.blog URL no longer exists and there are no saved media URLs available to recover the published post safely.' }, 404) };
+  }
+
+  const matches: unknown[] = [];
+  for (let offset = 0; offset < 500; offset += 100) {
+    const sourceUrl = new URL(MICROPUB_ENDPOINT);
+    sourceUrl.searchParams.set('q', 'source');
+    sourceUrl.searchParams.set('limit', '100');
+    sourceUrl.searchParams.set('offset', String(offset));
+    if (destination) sourceUrl.searchParams.set('mp-destination', destination);
+
+    const response = await fetch(sourceUrl, { headers: bearer(token) });
+    if (!response.ok) return { error: upstreamError(response, 'Could not search Micro.blog for the published version of this post.') };
+    const payload = await response.json().catch(() => null) as { items?: unknown[] } | null;
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    for (const item of items) {
+      const serialized = JSON.stringify(item);
+      if (fingerprints.every(url => serialized.includes(url))) matches.push(item);
+    }
+    if (items.length < 100 || matches.length > 1) break;
+  }
+
+  if (matches.length !== 1) {
+    const reason = matches.length > 1
+      ? 'More than one Micro.blog post contains the tracked media, so Handwritten Publish will not guess which live post to edit.'
+      : 'The old draft URL no longer exists and Handwritten Publish could not uniquely identify the published post from its tracked media.';
+    return { error: json({ error: reason }, 409) };
+  }
+
+  const status = validStatus(sourceStatus(matches[0]));
+  const url = sourcePostUrl(matches[0]);
+  if (!status || !url) {
+    return { error: json({ error: 'Micro.blog found the post but did not return a safe published URL/status for it.' }, 409) };
+  }
+  return { status, url };
+}
+
+async function inspectPost(
+  token: string,
+  updateUrl: string,
+  destination?: string,
+  knownMediaUrls: string[] = [],
+): Promise<InspectedPost> {
   const sourceUrl = new URL(MICROPUB_ENDPOINT);
   sourceUrl.searchParams.set('q', 'source');
   sourceUrl.searchParams.set('url', updateUrl);
@@ -23,14 +95,17 @@ async function inspectPost(token: string, updateUrl: string, destination?: strin
 
   const sourceResponse = await fetch(sourceUrl, { headers: bearer(token) });
   if (!sourceResponse.ok) {
+    if (sourceResponse.status === 404) {
+      return recoverPublishedPostByMedia(token, knownMediaUrls, destination);
+    }
     return { error: upstreamError(sourceResponse, 'Could not verify the existing Micro.blog post.') };
   }
   const source = await sourceResponse.json().catch(() => null);
-  const status = sourceStatus(source);
-  if (status !== 'draft' && status !== 'published') {
-    return { error: json({ error: `Handwritten Publish cannot safely update a Micro.blog post with status ${status ?? 'unknown'}.` }, 409) };
+  const status = validStatus(sourceStatus(source));
+  if (!status) {
+    return { error: json({ error: `Handwritten Publish cannot safely update a Micro.blog post with status ${sourceStatus(source) ?? 'unknown'}.` }, 409) };
   }
-  return { status };
+  return { status, url: sourcePostUrl(source) ?? updateUrl };
 }
 
 async function verifyExpectedStatus(
@@ -38,15 +113,18 @@ async function verifyExpectedStatus(
   updateUrl: string,
   expectedStatus: PostStatus,
   destination?: string,
-): Promise<Response | null> {
-  const inspected = await inspectPost(token, updateUrl, destination);
-  if (inspected.error) return inspected.error;
+  knownMediaUrls: string[] = [],
+): Promise<{ url?: string; error?: Response }> {
+  const inspected = await inspectPost(token, updateUrl, destination, knownMediaUrls);
+  if (inspected.error) return { error: inspected.error };
   if (inspected.status !== expectedStatus) {
-    return json({
-      error: `This Micro.blog post changed from ${expectedStatus} to ${inspected.status ?? 'an unknown status'} before the update, so Handwritten Publish did not modify it.`,
-    }, 409);
+    return {
+      error: json({
+        error: `This Micro.blog post changed from ${expectedStatus} to ${inspected.status ?? 'an unknown status'} before the update, so Handwritten Publish did not modify it.`,
+      }, 409),
+    };
   }
-  return null;
+  return { url: inspected.url ?? updateUrl };
 }
 
 export default async (request: Request) => {
@@ -59,15 +137,19 @@ export default async (request: Request) => {
     updateUrl?: string;
     verifyOnly?: boolean;
     expectedPostStatus?: PostStatus;
+    knownMediaUrls?: string[];
   };
   const token = body.token?.trim();
   if (!token) return json({ error: 'Micro.blog app token is required.' }, 400);
+  const knownMediaUrls = Array.isArray(body.knownMediaUrls)
+    ? body.knownMediaUrls.filter((url): url is string => typeof url === 'string')
+    : [];
 
   if (body.verifyOnly) {
     if (!body.updateUrl) return json({ error: 'Tracked Micro.blog post URL is required.' }, 400);
-    const inspected = await inspectPost(token, body.updateUrl, body.destination);
+    const inspected = await inspectPost(token, body.updateUrl, body.destination, knownMediaUrls);
     if (inspected.error) return inspected.error;
-    return json({ status: inspected.status });
+    return json({ status: inspected.status, url: inspected.url ?? body.updateUrl });
   }
 
   if (!body.title?.trim()) return json({ error: 'Post title is required.' }, 400);
@@ -76,12 +158,13 @@ export default async (request: Request) => {
   if (body.updateUrl) {
     // Backward-safe default: callers must explicitly opt into published updates.
     const expectedStatus: PostStatus = body.expectedPostStatus === 'published' ? 'published' : 'draft';
-    const verificationError = await verifyExpectedStatus(token, body.updateUrl, expectedStatus, body.destination);
-    if (verificationError) return verificationError;
+    const verification = await verifyExpectedStatus(token, body.updateUrl, expectedStatus, body.destination, knownMediaUrls);
+    if (verification.error) return verification.error;
+    const resolvedUrl = verification.url ?? body.updateUrl;
 
     const payload = {
       action: 'update',
-      url: body.updateUrl,
+      url: resolvedUrl,
       ...(body.destination ? { 'mp-destination': body.destination } : {}),
       replace: {
         name: [body.title.trim()],
@@ -100,7 +183,7 @@ export default async (request: Request) => {
     if (!response.ok) {
       return upstreamError(response, `Micro.blog could not update the ${expectedStatus === 'published' ? 'published post' : 'draft'} (HTTP ${response.status}).`);
     }
-    return json({ updated: true, status: expectedStatus });
+    return json({ updated: true, status: expectedStatus, url: resolvedUrl });
   }
 
   const payload = {
