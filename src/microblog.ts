@@ -38,6 +38,13 @@ async function responseError(response: Response, fallback: string): Promise<stri
   }
 }
 
+function normalizedDocumentCategories(document: HandwrittenDocument): string[] {
+  return [...new Set((document.categories ?? [])
+    .map(category => category.trim())
+    .filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+}
+
 export async function fetchMicroblogConfig(token: string): Promise<MicroblogConfig> {
   const response = await fetch('/api/microblog/config', {
     method: 'POST',
@@ -47,6 +54,20 @@ export async function fetchMicroblogConfig(token: string): Promise<MicroblogConf
   if (!response.ok) throw new Error(await responseError(response, 'Could not connect to Micro.blog.'));
   const config = await response.json() as { destinations: MicroblogDestination[] };
   return { mediaEndpoint: '/api/microblog/media', destinations: config.destinations };
+}
+
+export async function fetchMicroblogCategories(token: string, destination: string): Promise<string[]> {
+  if (!destination.trim()) return [];
+  const response = await fetch('/api/microblog/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: token.trim(), destination: destination.trim() }),
+  });
+  if (!response.ok) throw new Error(await responseError(response, 'Could not load Micro.blog categories.'));
+  const config = await response.json() as { categories?: unknown[] };
+  return Array.isArray(config.categories)
+    ? config.categories.filter((category): category is string => typeof category === 'string')
+    : [];
 }
 
 async function uploadMicroblogMedia(token: string, file: File, filename: string, mediaType: string): Promise<string> {
@@ -246,6 +267,8 @@ export function microblogContentRevision(document: HandwrittenDocument): string 
   return JSON.stringify({
     renderer: MICROBLOG_RENDERER_REVISION,
     title: document.title.trim(),
+    summary: document.summary?.trim() ?? '',
+    categories: normalizedDocumentCategories(document),
     transcript: document.transcript ?? '',
     pages: document.pages.map(page => isPhotoPage(page)
       ? {
@@ -364,6 +387,8 @@ export async function createMicroblogDraft(
       token: token.trim(),
       destination,
       title: document.title,
+      summary: document.summary?.trim() ?? '',
+      categories: normalizedDocumentCategories(document),
       html: microblogHtml(document, mediaUrls, photoUrls),
     }),
   });
@@ -396,6 +421,8 @@ export async function updateMicroblogDraft(
       token: token.trim(),
       destination: draft.destination,
       title: document.title,
+      summary: document.summary?.trim() ?? '',
+      categories: normalizedDocumentCategories(document),
       html: microblogHtml(document, mediaUrls, photoUrls),
       updateUrl: draft.url,
       knownMediaUrls: draft.mediaUrls ?? mediaUrls,
