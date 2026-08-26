@@ -90,6 +90,8 @@ export type HandwrittenDocument = {
   title: string;
   createdAt: string;
   updatedAt: string;
+  summary?: string;
+  categories?: string[];
   transcript?: string;
   pages: DocumentPage[];
   assets?: HandwrittenAsset[];
