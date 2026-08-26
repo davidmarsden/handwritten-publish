@@ -26,7 +26,7 @@ type DraftResponse = {
   preview: string;
 };
 
-const MICROBLOG_RENDERER_REVISION = 'microblog-html-v2-visible-links';
+const MICROBLOG_RENDERER_REVISION = 'microblog-html-v3-durable-link-marker';
 
 async function responseError(response: Response, fallback: string): Promise<string> {
   try {
@@ -180,12 +180,17 @@ function linkHtml(link: LinkAnnotation, pageIndex: number): string {
     `height:${percent(link.height)}`,
     'display:block',
     'z-index:3',
-    'background:rgba(29,95,167,.12)',
-    'box-shadow:inset 0 -2px 0 rgba(29,95,167,.8),inset 0 0 0 1px rgba(29,95,167,.28)',
-    'border-radius:2px',
+    'border:2px solid rgba(29,95,167,.72)',
     'cursor:pointer',
   ].join(';');
-  return `<a href="${escapeHtml(href)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}" style="${style}"></a>`;
+  const markerStyle = [
+    'position:absolute',
+    'right:1px',
+    'top:0',
+    'font-size:12px',
+    'line-height:1',
+  ].join(';');
+  return `<a class="handwritten-link" href="${escapeHtml(href)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}" style="${style}"><span class="handwritten-link-marker" style="${markerStyle}">↗</span></a>`;
 }
 
 function photoHtml(photo: PhotoAnnotation, pageIndex: number, photoUrls: Record<string, string>): string {
