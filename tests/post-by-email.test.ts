@@ -20,10 +20,13 @@ function configureEnv() {
   process.env.MICROBLOG_EMAIL_DESTINATION = 'https://example.micro.blog/';
 }
 
-async function signedRequest(payload: object, overrides: Record<string, string> = {}) {
+async function signedRequest(
+  payload: object,
+  overrides: Record<string, string> = {},
+  timestamp = String(Math.floor(Date.now() / 1000)),
+) {
   const body = JSON.stringify(payload);
   const id = 'msg_test';
-  const timestamp = '1787766000';
   const secret = Uint8Array.from(atob('YQ=='), character => character.charCodeAt(0));
   const key = await crypto.subtle.importKey('raw', secret, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const signed = new TextEncoder().encode(`${id}.${timestamp}.${body}`);
@@ -64,6 +67,26 @@ describe('post by email', () => {
       method: 'POST',
       body: JSON.stringify({ type: 'email.received' }),
     }));
+
+    expect(response.status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a correctly signed webhook outside the replay window', async () => {
+    configureEnv();
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const staleTimestamp = String(Math.floor(Date.now() / 1000) - (10 * 60));
+    const request = await signedRequest({
+      type: 'email.received',
+      data: {
+        email_id: 'email_stale',
+        to: ['secret@inbound.resend.app'],
+        subject: 'Replay attempt',
+      },
+    }, {}, staleTimestamp);
+    const response = await handler(request);
 
     expect(response.status).toBe(401);
     expect(fetchMock).not.toHaveBeenCalled();
