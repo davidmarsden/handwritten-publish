@@ -25,6 +25,7 @@ type ReceivedEmailEvent = {
 
 const RESEND_API = 'https://api.resend.com';
 const PNG_MEDIA_TYPE = 'image/png';
+const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
 
 function env(name: string): string {
   return process.env[name]?.trim() ?? '';
@@ -56,6 +57,11 @@ export async function verifyResendWebhook(request: Request, payload: string, sec
   const timestamp = request.headers.get('svix-timestamp') ?? '';
   const signatureHeader = request.headers.get('svix-signature') ?? '';
   if (!id || !timestamp || !signatureHeader || !secret.startsWith('whsec_')) return false;
+
+  const timestampSeconds = Number(timestamp);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (!Number.isFinite(timestampSeconds)
+    || Math.abs(nowSeconds - timestampSeconds) > WEBHOOK_TOLERANCE_SECONDS) return false;
 
   let keyBytes: Uint8Array;
   try {
