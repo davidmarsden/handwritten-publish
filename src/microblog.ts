@@ -180,6 +180,7 @@ function linkHtml(link: LinkAnnotation, pageIndex: number): string {
     `height:${percent(link.height)}`,
     'display:block',
     'z-index:3',
+    'box-sizing:border-box',
     'border:2px solid rgba(29,95,167,.72)',
     'cursor:pointer',
   ].join(';');
