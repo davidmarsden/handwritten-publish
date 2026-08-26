@@ -42,6 +42,7 @@ const RESEND_API = 'https://api.resend.com';
 const PNG_MEDIA_TYPE = 'image/png';
 const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
 const STALE_PROCESSING_MS = 10 * 60 * 1000;
+const REMARKABLE_SUBJECT_PREFIX = 'Document from my reMarkable:';
 
 function env(name: string): string {
   return process.env[name]?.trim() ?? '';
@@ -107,6 +108,21 @@ export async function verifyResendWebhook(request: Request, payload: string, sec
 
 function normalizeRecipient(value: string): string {
   return value.trim().toLowerCase();
+}
+
+export function titleFromEmailSubject(subject?: string): string {
+  const trimmed = subject?.trim() ?? '';
+  const title = trimmed.toLowerCase().startsWith(REMARKABLE_SUBJECT_PREFIX.toLowerCase())
+    ? trimmed.slice(REMARKABLE_SUBJECT_PREFIX.length).trim()
+    : trimmed;
+  return title || 'Handwritten note';
+}
+
+export function stripRemarkableEmailFooter(body: string): string {
+  return body.replace(
+    /\s*--\s*\r?\nSent from my reMarkable paper tablet\r?\nGet yours at www\.remarkable\.com\r?\n\r?\nPS: You cannot reply to this email\s*$/i,
+    '',
+  ).trimEnd();
 }
 
 function configuredRoutes(): EmailRoute[] {
@@ -413,7 +429,7 @@ export default async (request: Request) => {
     }
     await rememberPageCount(emailId, mediaUrls.length);
 
-    const title = event.data?.subject?.trim() || 'Handwritten note';
+    const title = titleFromEmailSubject(event.data?.subject);
     const draft = await createMicroblogEmailDraft(
       microblogToken,
       destination,
