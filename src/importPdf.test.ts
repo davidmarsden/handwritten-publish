@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pdfRenderScale } from './importPdf';
+import { pdfRenderScale } from './pdfRenderScale';
 
 describe('pdfRenderScale', () => {
   it('targets about 2200px on the longest edge for a normal PDF page', () => {
