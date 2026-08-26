@@ -2,17 +2,9 @@ import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import type { HandwrittenPage } from './model';
 import { sha256, type ImportedPage } from './importPng';
+import { pdfRenderScale } from './pdfRenderScale';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-
-const TARGET_LONG_EDGE = 2200;
-const MAX_SCALE = 2.5;
-
-export function pdfRenderScale(width: number, height: number): number {
-  const longEdge = Math.max(width, height);
-  if (!Number.isFinite(longEdge) || longEdge <= 0) return 1;
-  return Math.min(MAX_SCALE, TARGET_LONG_EDGE / longEdge);
-}
 
 function canvasPng(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -32,14 +24,13 @@ export async function importPdfFile(file: File): Promise<ImportedPage[]> {
   if (!isPdf) throw new Error('Choose a PDF file.');
 
   const loadingTask = getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
-  const pdf = await loadingTask.promise;
-
-  if (!pdf.numPages) throw new Error('This PDF contains no pages.');
-
   const imported: ImportedPage[] = [];
   const prefix = baseFilename(file.name);
 
   try {
+    const pdf = await loadingTask.promise;
+    if (!pdf.numPages) throw new Error('This PDF contains no pages.');
+
     for (let index = 0; index < pdf.numPages; index += 1) {
       const pdfPage = await pdf.getPage(index + 1);
       const baseViewport = pdfPage.getViewport({ scale: 1 });
