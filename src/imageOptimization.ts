@@ -54,7 +54,10 @@ function dimensionsForMaxEdge(width: number, height: number, maxEdge: number): [
   return [Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale))];
 }
 
-export async function preparePhotoForMicroblog(file: File): Promise<PreparedMicroblogPhoto> {
+export async function preparePhotoForMicroblog(
+  file: File,
+  mediaType: string = file.type,
+): Promise<PreparedMicroblogPhoto> {
   if (file.size <= MICROBLOG_MAX_MEDIA_BYTES) {
     return {
       file,
@@ -64,7 +67,7 @@ export async function preparePhotoForMicroblog(file: File): Promise<PreparedMicr
     };
   }
 
-  if (!isSupportedPhotoType(file.type)) {
+  if (!isSupportedPhotoType(mediaType)) {
     throw new Error(`${file.name} is too large for Micro.blog and cannot be optimized automatically.`);
   }
 
@@ -77,7 +80,10 @@ export async function preparePhotoForMicroblog(file: File): Promise<PreparedMicr
     let [width, height] = dimensionsForMaxEdge(bitmap.width, bitmap.height, MAX_WEB_EDGE);
     let smallest: { blob: Blob; width: number; height: number } | null = null;
 
-    while (Math.max(width, height) >= MIN_WEB_EDGE) {
+    // Always encode the current dimensions at least once. The 1200 px floor limits
+    // further downscaling; it must not prevent a small-but-bloated photo from being
+    // recompressed at its original dimensions.
+    while (true) {
       const canvas = drawBitmap(bitmap, width, height);
       for (const quality of JPEG_QUALITIES) {
         const blob = await canvasJpeg(canvas, quality);
@@ -95,9 +101,10 @@ export async function preparePhotoForMicroblog(file: File): Promise<PreparedMicr
         }
       }
 
+      if (Math.max(width, height) <= MIN_WEB_EDGE) break;
       const nextWidth = Math.max(1, Math.round(width * 0.82));
       const nextHeight = Math.max(1, Math.round(height * 0.82));
-      if (nextWidth === width && nextHeight === height) break;
+      if (nextWidth === width && nextHeight === height || Math.max(nextWidth, nextHeight) < MIN_WEB_EDGE) break;
       width = nextWidth;
       height = nextHeight;
     }
