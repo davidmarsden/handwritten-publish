@@ -33,6 +33,11 @@ type JobRow = {
   preview: string | null;
 };
 
+type EmailRoute = {
+  address: string;
+  destination: string;
+};
+
 const RESEND_API = 'https://api.resend.com';
 const PNG_MEDIA_TYPE = 'image/png';
 const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
@@ -102,6 +107,39 @@ export async function verifyResendWebhook(request: Request, payload: string, sec
 
 function normalizeRecipient(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function configuredRoutes(): EmailRoute[] {
+  const rawRoutes = env('POST_BY_EMAIL_ROUTES');
+  if (rawRoutes) {
+    try {
+      const parsed = JSON.parse(rawRoutes) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return Object.entries(parsed)
+          .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+          .map(([address, destination]) => ({
+            address: normalizeRecipient(address),
+            destination: destination.trim(),
+          }))
+          .filter(route => route.address && route.destination);
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  const address = normalizeRecipient(env('POST_BY_EMAIL_ADDRESS'));
+  const destination = env('MICROBLOG_EMAIL_DESTINATION');
+  return address && destination ? [{ address, destination }] : [];
+}
+
+function resolveRoute(recipients: string[], routes: EmailRoute[]): { route: EmailRoute | null; ambiguous: boolean } {
+  const recipientSet = new Set(recipients.map(normalizeRecipient));
+  const matches = routes.filter(route => recipientSet.has(route.address));
+  if (!matches.length) return { route: null, ambiguous: false };
+  const destinations = new Set(matches.map(route => route.destination));
+  if (destinations.size > 1) return { route: null, ambiguous: true };
+  return { route: matches[0], ambiguous: false };
 }
 
 function escapeHtml(value: string): string {
@@ -310,10 +348,9 @@ export default async (request: Request) => {
 
   const webhookSecret = env('RESEND_WEBHOOK_SECRET');
   const resendApiKey = env('RESEND_API_KEY');
-  const postingAddress = normalizeRecipient(env('POST_BY_EMAIL_ADDRESS'));
+  const routes = configuredRoutes();
   const microblogToken = env('MICROBLOG_EMAIL_TOKEN');
-  const destination = env('MICROBLOG_EMAIL_DESTINATION');
-  if (!webhookSecret || !resendApiKey || !postingAddress || !microblogToken || !destination) {
+  if (!webhookSecret || !resendApiKey || !routes.length || !microblogToken) {
     return json({ error: 'Post by email is not configured.' }, 503);
   }
 
@@ -328,9 +365,11 @@ export default async (request: Request) => {
   const emailId = event.data?.email_id?.trim() ?? '';
   const recipients = event.data?.to ?? [];
   if (!emailId) return json({ ignored: true, reason: 'missing email id' });
-  if (!recipients.some(recipient => normalizeRecipient(recipient) === postingAddress)) {
-    return json({ ignored: true, reason: 'unknown posting address' });
-  }
+
+  const resolved = resolveRoute(recipients, routes);
+  if (resolved.ambiguous) return json({ ignored: true, reason: 'ambiguous posting addresses' });
+  if (!resolved.route) return json({ ignored: true, reason: 'unknown posting address' });
+  const destination = resolved.route.destination;
 
   let claimed = await claimNewJob(emailId);
   if (!claimed) {
