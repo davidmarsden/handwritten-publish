@@ -68,7 +68,18 @@ A tracked post may later be updated after publication, but only when Micro.blog 
 
 Micro.blog app tokens remain ephemeral. They are not written to IndexedDB, `.hwpublish` bundles or Netlify configuration.
 
+The optional post-by-email mode is a distinct opt-in privacy boundary: unattended publishing requires separately configured, revocable Resend and Micro.blog server credentials. Enabling it does not change the browser token model.
+
 Oversized publishing derivatives never replace the local originals. Unbound or missing photo regions block sync before media upload rather than being silently omitted.
+
+## In progress
+
+- [x] Post-by-email receiver prototype: verify Resend webhook signatures, require an exact private recipient address, retrieve PNG attachments, upload pages to Micro.blog and create a private draft only
+- [ ] Durable retry/idempotency handling before unattended production activation
+- [ ] Activation/setup flow for the revocable posting address and server credentials
+- [ ] PDF attachment support after the PNG email path is proven
+
+See `docs/post-by-email.md` for the current architecture and activation boundary.
 
 ## Next
 
@@ -76,7 +87,7 @@ The immediate direction is to remove friction from getting handwritten material 
 
 Likely next directions:
 
-- [ ] Post by email: private revocable address → PDF/PNG ingestion → Micro.blog private draft
+- [ ] Finish and activate post by email: reMarkable → private revocable address → Micro.blog private draft
 - [ ] Assisted transcription and accessibility metadata
 - [ ] Richer document revision/history support
 - [ ] Deeper native reMarkable or other tablet input/send integration when safely supportable
