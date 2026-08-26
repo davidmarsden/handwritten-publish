@@ -1,4 +1,4 @@
-import { getDeployStore, getStore } from '@netlify/blobs';
+import { getDatabase } from '@netlify/database';
 import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
 
 type ReceivedAttachment = {
@@ -24,25 +24,19 @@ type ReceivedEmailEvent = {
   };
 };
 
-type ProcessingRecord = {
-  status: 'processing';
-  startedAt: string;
+type JobRow = {
+  email_id: string;
+  status: 'processing' | 'completed';
+  started_at: string | Date;
+  pages: number | null;
+  url: string | null;
+  preview: string | null;
 };
-
-type CompletedRecord = {
-  status: 'completed';
-  pages: number;
-  url: string;
-  preview: string;
-};
-
-type IdempotencyRecord = ProcessingRecord | CompletedRecord;
 
 const RESEND_API = 'https://api.resend.com';
 const PNG_MEDIA_TYPE = 'image/png';
 const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
-const PROCESSING_LEASE_MS = 10 * 60 * 1000;
-const IDEMPOTENCY_STORE = 'post-by-email-idempotency';
+const STALE_PROCESSING_MS = 10 * 60 * 1000;
 
 function env(name: string): string {
   return process.env[name]?.trim() ?? '';
@@ -125,20 +119,108 @@ function pageHtml(mediaUrls: string[], emailId: string): string {
   return `<!-- handwritten-publish-email:${escapeHtml(emailId)} -->\n${pages}`;
 }
 
-function idempotencyStore() {
-  return process.env.CONTEXT === 'production'
-    ? getStore(IDEMPOTENCY_STORE, { consistency: 'strong' })
-    : getDeployStore(IDEMPOTENCY_STORE);
+function staleProcessing(job: JobRow): boolean {
+  if (job.status !== 'processing') return false;
+  const startedAt = new Date(job.started_at).getTime();
+  return Number.isFinite(startedAt) && Date.now() - startedAt >= STALE_PROCESSING_MS;
 }
 
-function idempotencyKey(emailId: string): string {
-  return `email/${encodeURIComponent(emailId)}`;
+async function getJob(emailId: string): Promise<JobRow | null> {
+  const db = getDatabase();
+  const rows = await db.sql<JobRow>`
+    SELECT email_id, status, started_at, pages, url, preview
+    FROM post_by_email_jobs
+    WHERE email_id = ${emailId}
+  `;
+  return rows[0] ?? null;
 }
 
-function activeProcessing(record: IdempotencyRecord | null): boolean {
-  if (!record || record.status !== 'processing') return false;
-  const startedAt = Date.parse(record.startedAt);
-  return Number.isFinite(startedAt) && Date.now() - startedAt < PROCESSING_LEASE_MS;
+async function claimNewJob(emailId: string): Promise<boolean> {
+  const db = getDatabase();
+  const rows = await db.sql<{ email_id: string }>`
+    INSERT INTO post_by_email_jobs (email_id, status)
+    VALUES (${emailId}, 'processing')
+    ON CONFLICT (email_id) DO NOTHING
+    RETURNING email_id
+  `;
+  return rows.length === 1;
+}
+
+async function reclaimStaleJob(emailId: string, startedAt: string | Date): Promise<boolean> {
+  const db = getDatabase();
+  const rows = await db.sql<{ email_id: string }>`
+    UPDATE post_by_email_jobs
+    SET started_at = NOW(), pages = NULL, url = NULL, preview = NULL, completed_at = NULL
+    WHERE email_id = ${emailId}
+      AND status = 'processing'
+      AND started_at = ${new Date(startedAt)}
+    RETURNING email_id
+  `;
+  return rows.length === 1;
+}
+
+async function deleteProcessingJob(emailId: string): Promise<void> {
+  const db = getDatabase();
+  await db.sql`
+    DELETE FROM post_by_email_jobs
+    WHERE email_id = ${emailId} AND status = 'processing'
+  `;
+}
+
+async function rememberPageCount(emailId: string, pages: number): Promise<void> {
+  const db = getDatabase();
+  await db.sql`
+    UPDATE post_by_email_jobs
+    SET pages = ${pages}
+    WHERE email_id = ${emailId} AND status = 'processing'
+  `;
+}
+
+async function markCompleted(emailId: string, pages: number, url: string, preview: string): Promise<void> {
+  const db = getDatabase();
+  await db.sql`
+    UPDATE post_by_email_jobs
+    SET status = 'completed', pages = ${pages}, url = ${url}, preview = ${preview}, completed_at = NOW()
+    WHERE email_id = ${emailId} AND status = 'processing'
+  `;
+}
+
+function sourceUrl(item: unknown): string | null {
+  if (!item || typeof item !== 'object') return null;
+  const record = item as { url?: unknown; properties?: Record<string, unknown> };
+  if (typeof record.url === 'string') return record.url;
+  const value = record.properties?.url;
+  if (Array.isArray(value) && typeof value[0] === 'string') return value[0];
+  if (typeof value === 'string') return value;
+  return null;
+}
+
+async function findExistingEmailDraft(
+  token: string,
+  destination: string,
+  emailId: string,
+): Promise<{ url: string; preview: string } | null> {
+  const marker = `handwritten-publish-email:${emailId}`;
+  const matches: unknown[] = [];
+  for (let offset = 0; offset < 500; offset += 100) {
+    const source = new URL(MICROPUB_ENDPOINT);
+    source.searchParams.set('q', 'source');
+    source.searchParams.set('limit', '100');
+    source.searchParams.set('offset', String(offset));
+    source.searchParams.set('mp-destination', destination);
+    const response = await fetch(source, { headers: bearer(token) });
+    if (!response.ok) throw new Error(`Could not reconcile the existing Micro.blog draft (HTTP ${response.status}).`);
+    const payload = await response.json().catch(() => null) as { items?: unknown[] } | null;
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    for (const item of items) {
+      if (JSON.stringify(item).includes(marker)) matches.push(item);
+    }
+    if (items.length < 100 || matches.length > 1) break;
+  }
+  if (matches.length > 1) throw new Error('More than one Micro.blog post contains this email marker, so Handwritten Publish will not guess which one is canonical.');
+  if (matches.length !== 1) return null;
+  const url = sourceUrl(matches[0]);
+  return url ? { url, preview: url } : null;
 }
 
 async function listReceivedAttachments(apiKey: string, emailId: string): Promise<ReceivedAttachment[]> {
@@ -247,34 +329,42 @@ export default async (request: Request) => {
   const recipients = event.data?.to ?? [];
   if (!emailId) return json({ ignored: true, reason: 'missing email id' });
   if (!recipients.some(recipient => normalizeRecipient(recipient) === postingAddress)) {
-    // A rotated/unknown alias is intentionally a no-op. Returning 2xx stops webhook retries.
     return json({ ignored: true, reason: 'unknown posting address' });
   }
 
-  const store = idempotencyStore();
-  const key = idempotencyKey(emailId);
-  const existing = await store.get(key, { type: 'json' }) as IdempotencyRecord | null;
-  if (existing?.status === 'completed') {
-    return json({
-      created: false,
-      duplicate: true,
-      pages: existing.pages,
-      url: existing.url,
-      preview: existing.preview,
-    });
-  }
-  if (activeProcessing(existing)) {
-    // Non-2xx asks the webhook provider to retry later rather than creating an overlapping draft.
-    return json({ error: 'This email is already being processed. Retry later.' }, 409);
+  let claimed = await claimNewJob(emailId);
+  if (!claimed) {
+    const existing = await getJob(emailId);
+    if (existing?.status === 'completed' && existing.url && existing.preview) {
+      return json({
+        created: false,
+        duplicate: true,
+        pages: existing.pages ?? 0,
+        url: existing.url,
+        preview: existing.preview,
+      });
+    }
+    if (!existing || !staleProcessing(existing)) {
+      return json({ error: 'This email is already being processed. Retry later.' }, 409);
+    }
+
+    const reconciled = await findExistingEmailDraft(microblogToken, destination, emailId);
+    if (reconciled) {
+      const pages = existing.pages ?? 0;
+      await markCompleted(emailId, pages, reconciled.url, reconciled.preview);
+      return json({ created: false, duplicate: true, reconciled: true, pages, url: reconciled.url, preview: reconciled.preview });
+    }
+
+    claimed = await reclaimStaleJob(emailId, existing.started_at);
+    if (!claimed) return json({ error: 'Another worker reclaimed this email first. Retry later.' }, 409);
   }
 
-  await store.setJSON(key, { status: 'processing', startedAt: new Date().toISOString() } satisfies ProcessingRecord);
-
+  let draftCreated = false;
   try {
     const attachments = (await listReceivedAttachments(resendApiKey, emailId))
       .filter(attachment => attachment.content_type.toLowerCase() === PNG_MEDIA_TYPE);
     if (!attachments.length) {
-      await store.delete(key);
+      await deleteProcessingJob(emailId);
       return json({ ignored: true, reason: 'no PNG attachments' });
     }
 
@@ -283,6 +373,7 @@ export default async (request: Request) => {
     for (const attachment of attachments) {
       mediaUrls.push(await uploadAttachmentToMicroblog(attachment, mediaEndpoint, microblogToken));
     }
+    await rememberPageCount(emailId, mediaUrls.length);
 
     const title = event.data?.subject?.trim() || 'Handwritten note';
     const draft = await createMicroblogEmailDraft(
@@ -291,16 +382,24 @@ export default async (request: Request) => {
       title,
       pageHtml(mediaUrls, emailId),
     );
-    const completed: CompletedRecord = {
-      status: 'completed',
-      pages: mediaUrls.length,
-      url: draft.url,
-      preview: draft.preview,
-    };
-    await store.setJSON(key, completed);
+    draftCreated = true;
+
+    try {
+      await markCompleted(emailId, mediaUrls.length, draft.url, draft.preview);
+    } catch {
+      // The draft already exists. Keep the processing row intact so a later retry can reconcile by email marker.
+      return json({
+        created: true,
+        persistence: 'pending',
+        pages: mediaUrls.length,
+        url: draft.url,
+        preview: draft.preview,
+      }, 202);
+    }
+
     return json({ created: true, pages: mediaUrls.length, url: draft.url, preview: draft.preview });
   } catch (error) {
-    await store.delete(key).catch(() => undefined);
+    if (!draftCreated) await deleteProcessingJob(emailId).catch(() => undefined);
     return json({ error: error instanceof Error ? error.message : 'Could not create Micro.blog draft from email.' }, 502);
   }
 };
