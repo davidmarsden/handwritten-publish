@@ -3,6 +3,7 @@ import AnnotationEditor from './AnnotationEditor';
 import { annotationStyle } from './annotations';
 import { documentAssets, importPhotoAsset, type ImportedAsset } from './assets';
 import { buildBundle, downloadBlob, readBundle } from './bundle';
+import { importPdfFile } from './importPdf';
 import { documentPages, importPhotoPageFiles, importPngFiles, type ImportedPage } from './importPng';
 import {
   canReuseMicroblogMedia,
@@ -130,6 +131,26 @@ export default function App() {
       setStatus(`${imported.length} PNG page${imported.length === 1 ? '' : 's'} imported.`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Could not import PNG pages.');
+    } finally {
+      setBusy(false);
+      event.target.value = '';
+    }
+  }
+
+  async function onPdf(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setStatus(`Rendering ${file.name} locally…`);
+    try {
+      const imported = await importPdfFile(file);
+      revokePages(pages);
+      setPages(imported);
+      setAnnotationPageId(null);
+      markEdited();
+      setStatus(`${imported.length} PDF page${imported.length === 1 ? '' : 's'} imported from ${file.name}.`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not import PDF.');
     } finally {
       setBusy(false);
       event.target.value = '';
@@ -414,12 +435,13 @@ export default function App() {
       <header className="hero">
         <p className="eyebrow">Handwritten Publish</p>
         <h1>Your handwriting, still handwriting.</h1>
-        <p>Turn reMarkable PNG exports and photos into one portable, web-ready document without flattening away what makes them yours.</p>
+        <p>Turn reMarkable PNG or PDF exports and photos into one portable, web-ready document without flattening away what makes them yours.</p>
       </header>
 
       <section className="panel controls">
         <label><span>Post title</span><input value={title} disabled={controlsDisabled} onChange={event => { setTitle(event.target.value); markEdited(); }} /></label>
         <label className="fileButton">{busy ? 'Reading…' : !hydrated ? 'Restoring local draft…' : pages.length ? 'Replace with PNG pages' : 'Choose PNG pages'}<input type="file" accept="image/png,.png" multiple onChange={onFiles} disabled={controlsDisabled} /></label>
+        <label className="fileButton">{pages.length ? 'Replace with PDF' : 'Choose PDF'}<input type="file" accept="application/pdf,.pdf" onChange={onPdf} disabled={controlsDisabled} /></label>
         <label className="fileButton">Add photo pages<input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple onChange={onPhotoPages} disabled={controlsDisabled} /></label>
         <label className="fileButton">Open .hwpublish<input type="file" accept=".hwpublish,application/zip" onChange={onBundle} disabled={controlsDisabled} /></label>
         <button onClick={exportBundle} disabled={!pages.length || controlsDisabled}>Export .hwpublish</button>
