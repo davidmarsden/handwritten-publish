@@ -88,3 +88,74 @@ describe('Micro.blog published URL recovery', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('Micro.blog post metadata', () => {
+  it('includes a custom summary and normalized categories when creating a draft', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      url: 'https://micro.blog/draft/123',
+      preview: 'https://micro.blog/preview/123',
+    }), {
+      status: 201,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await handler(new Request('https://handwritten-publish.test/api/microblog/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: 'token',
+        destination: 'https://example.micro.blog/',
+        title: 'A handwritten post',
+        summary: '  A short summary.  ',
+        categories: ['Southall', 'Local politics', 'Southall', '  '],
+        html: '<p>Handwritten content</p>',
+      }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const payload = JSON.parse(String(init.body));
+    expect(payload.properties.summary).toEqual(['A short summary.']);
+    expect(payload.properties.category).toEqual(['Southall', 'Local politics']);
+  });
+
+  it('clears summary and categories when updating a tracked draft', async () => {
+    const updateUrl = 'https://micro.blog/draft/123';
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        properties: {
+          'post-status': ['draft'],
+          url: [updateUrl],
+        },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await handler(new Request('https://handwritten-publish.test/api/microblog/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: 'token',
+        destination: 'https://example.micro.blog/',
+        title: 'A handwritten post',
+        summary: '',
+        categories: [],
+        html: '<p>Handwritten content</p>',
+        updateUrl,
+        expectedPostStatus: 'draft',
+      }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const init = fetchMock.mock.calls[1][1] as RequestInit;
+    const payload = JSON.parse(String(init.body));
+    expect(payload.replace.summary).toEqual([]);
+    expect(payload.replace.category).toEqual([]);
+  });
+});
