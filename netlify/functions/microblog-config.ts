@@ -1,5 +1,24 @@
 import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
 
+type CategoryPayload = {
+  categories?: unknown[];
+  'microblog-categories'?: unknown[];
+};
+
+function categoryNames(payload: CategoryPayload | null): string[] {
+  const simple = Array.isArray(payload?.categories)
+    ? payload.categories.filter((category): category is string => typeof category === 'string')
+    : [];
+  const rich = Array.isArray(payload?.['microblog-categories'])
+    ? payload['microblog-categories']
+        .map(category => category && typeof category === 'object' && 'name' in category
+          ? (category as { name?: unknown }).name
+          : null)
+        .filter((name): name is string => typeof name === 'string')
+    : [];
+  return [...new Set([...simple, ...rich].map(name => name.trim()).filter(Boolean))];
+}
+
 export default async (request: Request) => {
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
   const body = await request.json().catch(() => ({})) as { token?: string; destination?: string };
@@ -29,10 +48,8 @@ export default async (request: Request) => {
     categoryUrl.searchParams.set('mp-destination', selectedDestination);
     const categoryResponse = await fetch(categoryUrl, { headers: bearer(token) });
     if (!categoryResponse.ok) return upstreamError(categoryResponse, 'Could not load Micro.blog categories.');
-    const categoryPayload = await categoryResponse.json().catch(() => null) as { categories?: unknown[] } | null;
-    categories = Array.isArray(categoryPayload?.categories)
-      ? categoryPayload.categories.filter((category): category is string => typeof category === 'string')
-      : [];
+    const categoryPayload = await categoryResponse.json().catch(() => null) as CategoryPayload | null;
+    categories = categoryNames(categoryPayload);
   }
 
   return json({ destinations, categories });
