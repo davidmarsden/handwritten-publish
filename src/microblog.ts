@@ -327,10 +327,15 @@ export async function inspectMicroblogPost(token: string, draft: MicroblogDraftS
     }),
   });
   if (!response.ok) throw new Error(await responseError(response, 'Could not verify the existing Micro.blog post.'));
-  const result = await response.json() as { status?: MicroblogPostStatus };
+  const result = await response.json() as { status?: MicroblogPostStatus; url?: string };
   if (result.status !== 'draft' && result.status !== 'published') {
     throw new Error('Micro.blog returned an unknown post status. Handwritten Publish will not update it.');
   }
+  if (result.url) {
+    draft.url = result.url;
+    if (result.status === 'published') draft.preview = result.url;
+  }
+  draft.postStatus = result.status;
   return result.status;
 }
 
