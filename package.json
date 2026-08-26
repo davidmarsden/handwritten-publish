@@ -15,7 +15,8 @@
     "typescript": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "jszip": "latest"
+    "jszip": "latest",
+    "pdfjs-dist": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",
