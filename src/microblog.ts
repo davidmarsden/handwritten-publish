@@ -1,4 +1,5 @@
 import type { ImportedAsset } from './assets';
+import { MICROBLOG_MAX_MEDIA_BYTES, preparePhotoForMicroblog } from './imageOptimization';
 import type { ImportedPage } from './importPng';
 import type {
   HandwrittenAsset,
@@ -25,8 +26,6 @@ type DraftResponse = {
   preview: string;
 };
 
-const MAX_MEDIA_BYTES = 5_000_000;
-
 async function responseError(response: Response, fallback: string): Promise<string> {
   try {
     const payload = await response.json() as { error?: string };
@@ -48,7 +47,7 @@ export async function fetchMicroblogConfig(token: string): Promise<MicroblogConf
 }
 
 async function uploadMicroblogMedia(token: string, file: File, filename: string, mediaType: string): Promise<string> {
-  if (file.size > MAX_MEDIA_BYTES) {
+  if (file.size > MICROBLOG_MAX_MEDIA_BYTES) {
     throw new Error(`${filename} is ${(file.size / 1_000_000).toFixed(1)} MB; the current Micro.blog bridge supports media files up to 5 MB.`);
   }
 
@@ -72,6 +71,10 @@ export async function uploadMicroblogPage(
   token: string,
   page: ImportedPage,
 ): Promise<string> {
+  if (isPhotoPage(page)) {
+    const prepared = await preparePhotoForMicroblog(page.file);
+    return uploadMicroblogMedia(token, prepared.file, prepared.file.name, prepared.file.type);
+  }
   return uploadMicroblogMedia(token, page.file, page.filename, page.mediaType);
 }
 
@@ -80,7 +83,8 @@ export async function uploadMicroblogPhoto(
   token: string,
   asset: ImportedAsset,
 ): Promise<string> {
-  return uploadMicroblogMedia(token, asset.file, asset.filename, asset.mediaType);
+  const prepared = await preparePhotoForMicroblog(asset.file);
+  return uploadMicroblogMedia(token, prepared.file, prepared.file.name, prepared.file.type);
 }
 
 function escapeHtml(value: string): string {
