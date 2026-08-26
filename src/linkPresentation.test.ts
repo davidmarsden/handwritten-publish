@@ -3,7 +3,7 @@ import { createDocument, type MicroblogDraftState } from './model';
 import { isMicroblogDraftStale, microblogContentRevision, microblogHtml } from './microblog';
 
 describe('published handwritten link presentation', () => {
-  it('renders a visible, labelled clickable region without changing link geometry', () => {
+  it('renders a durable visible, labelled clickable region without changing link geometry', () => {
     const document = createDocument('Visible link');
     document.pages = [{
       id: 'page-1',
@@ -30,8 +30,13 @@ describe('published handwritten link presentation', () => {
     expect(html).toContain('top:20%');
     expect(html).toContain('width:30%');
     expect(html).toContain('height:4%');
-    expect(html).toContain('background:rgba(29,95,167,.12)');
-    expect(html).toContain('box-shadow:inset 0 -2px 0 rgba(29,95,167,.8),inset 0 0 0 1px rgba(29,95,167,.28)');
+    expect(html).toContain('class="handwritten-link"');
+    expect(html).toContain('box-sizing:border-box');
+    expect(html).toContain('border:2px solid rgba(29,95,167,.72)');
+    expect(html).toContain('class="handwritten-link-marker"');
+    expect(html).toContain('>↗</span>');
+    expect(html).not.toContain('background:rgba(29,95,167,.12)');
+    expect(html).not.toContain('box-shadow:');
     expect(html).not.toContain('outline:');
     expect(html).toContain('cursor:pointer');
     expect(html).toContain('aria-label="Read more"');
@@ -41,7 +46,7 @@ describe('published handwritten link presentation', () => {
   it('marks drafts rendered by the previous HTML revision stale', () => {
     const document = createDocument('Renderer revision');
     const currentRevision = microblogContentRevision(document);
-    const previousRevision = currentRevision.replace('microblog-html-v2-visible-links', 'microblog-html-v1');
+    const previousRevision = currentRevision.replace('microblog-html-v3-durable-link-marker', 'microblog-html-v2-visible-links');
     const draft: MicroblogDraftState = {
       destination: 'https://example.com/',
       url: 'https://example.com/post.html',
@@ -50,7 +55,7 @@ describe('published handwritten link presentation', () => {
       syncedContentRevision: previousRevision,
     };
 
-    expect(currentRevision).toContain('microblog-html-v2-visible-links');
+    expect(currentRevision).toContain('microblog-html-v3-durable-link-marker');
     expect(isMicroblogDraftStale(document, draft)).toBe(true);
   });
 
