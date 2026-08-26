@@ -57,6 +57,10 @@ export default function App() {
   const lastDragTargetId = useRef<string | null>(null);
 
   const selectedCategories = useMemo(() => categoriesFromText(categoryText), [categoryText]);
+  const unavailableSelectedCategories = useMemo(
+    () => selectedCategories.filter(category => !microblogCategories.includes(category)),
+    [selectedCategories, microblogCategories],
+  );
 
   const document = useMemo(() => ({
     ...baseDocument,
@@ -506,8 +510,19 @@ export default function App() {
         {microblogCategories.length > 0 && (
           <div className="categorySuggestions">
             <span>Existing Micro.blog categories</span>
-            <div>{microblogCategories.map(category => (
-              <button key={category} type="button" className={selectedCategories.includes(category) ? 'active' : ''} onClick={() => toggleCategory(category)} disabled={controlsDisabled}>{category}</button>
+            <div>{microblogCategories.map(category => {
+              const selected = selectedCategories.includes(category);
+              return (
+                <button key={category} type="button" aria-pressed={selected} className={selected ? 'active' : ''} onClick={() => toggleCategory(category)} disabled={controlsDisabled}>{category}</button>
+              );
+            })}</div>
+          </div>
+        )}
+        {microblogConfig && unavailableSelectedCategories.length > 0 && (
+          <div className="categorySuggestions">
+            <span>Selected categories unavailable on this Micro.blog — remove before syncing</span>
+            <div>{unavailableSelectedCategories.map(category => (
+              <button key={category} type="button" aria-pressed="true" className="active" aria-label={`Remove unavailable category ${category}`} onClick={() => toggleCategory(category)} disabled={controlsDisabled}>{category} ×</button>
             ))}</div>
           </div>
         )}
