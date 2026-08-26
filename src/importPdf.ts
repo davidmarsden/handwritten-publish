@@ -76,7 +76,7 @@ export async function importPdfFile(file: File): Promise<ImportedPage[]> {
     imported.forEach(page => URL.revokeObjectURL(page.previewUrl));
     throw error;
   } finally {
-    await pdf.destroy();
+    await loadingTask.destroy();
   }
 
   return imported;
