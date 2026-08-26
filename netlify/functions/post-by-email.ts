@@ -114,15 +114,14 @@ function configuredRoutes(): EmailRoute[] {
   if (rawRoutes) {
     try {
       const parsed = JSON.parse(rawRoutes) as unknown;
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        return Object.entries(parsed)
-          .filter((entry): entry is [string, string] => typeof entry[1] === 'string')
-          .map(([address, destination]) => ({
-            address: normalizeRecipient(address),
-            destination: destination.trim(),
-          }))
-          .filter(route => route.address && route.destination);
-      }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
+      const entries = Object.entries(parsed);
+      if (!entries.length || entries.some(([, destination]) => typeof destination !== 'string')) return [];
+      const routes = entries.map(([address, destination]) => ({
+        address: normalizeRecipient(address),
+        destination: (destination as string).trim(),
+      }));
+      return routes.every(route => route.address && route.destination) ? routes : [];
     } catch {
       return [];
     }
