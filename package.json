@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@netlify/database": "latest",
     "@vitejs/plugin-react": "latest",
     "vite": "latest",
     "typescript": "latest",
