@@ -143,4 +143,22 @@ describe('post-by-email destination aliases', () => {
     await expect(response.json()).resolves.toEqual({ ignored: true, reason: 'unknown posting address' });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it.each(['[]', 'null', '"not-an-object"', '{"david-test@inbound.resend.app":42}']) (
+    'fails closed when POST_BY_EMAIL_ROUTES has the wrong shape: %s',
+    async rawRoutes => {
+      configureEnv();
+      process.env.POST_BY_EMAIL_ROUTES = rawRoutes;
+      process.env.POST_BY_EMAIL_ADDRESS = 'legacy@inbound.resend.app';
+      process.env.MICROBLOG_EMAIL_DESTINATION = 'https://legacy.example/';
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+
+      const response = await handler(await signedRequest('legacy@inbound.resend.app', 'email_invalid_routes'));
+
+      expect(response.status).toBe(503);
+      await expect(response.json()).resolves.toEqual({ error: 'Post by email is not configured.' });
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 });
