@@ -5,13 +5,13 @@ A `.hwpublish` file is an ordinary ZIP archive. Its goal is boring portability: 
 Handwritten Publish currently reads two manifest versions:
 
 - **version 1** — the legacy PNG-only handwritten-page format;
-- **version 2** — the current mixed-media format used by Handwritten Publish v0.1.0.
+- **version 2** — the current mixed-media format used by Handwritten Publish v0.1.0 and later compatible releases.
 
 New producers should write version 2. Version 1 remains supported for backward compatibility and must retain its original PNG-only page shape.
 
 ## Version 2 layout
 
-A version-2 bundle can contain handwritten pages, standalone photo pages, original photo assets used as overlays, and an optional transcript.
+A version-2 bundle can contain handwritten pages, standalone photo pages, original photo assets used as overlays, document metadata such as a post summary/categories, and an optional transcript.
 
 ```text
 post.hwpublish
@@ -46,13 +46,15 @@ Version-1 bundles use the same numbered page-path convention but every page entr
   "title": "Post title",
   "createdAt": "ISO-8601 timestamp",
   "updatedAt": "ISO-8601 timestamp",
+  "summary": "optional post summary",
+  "categories": ["optional", "category names"],
   "transcript": "optional transcript",
   "pages": [],
   "assets": []
 }
 ```
 
-`assets` may be omitted when there are no photo assets.
+`summary`, `categories`, `transcript`, and `assets` may be omitted when empty. `summary` is plain text. `categories` is an array of category-name strings. These are document-level publishing metadata rather than Micro.blog credentials or remote state, so they remain portable with the document.
 
 Each page records stable application identity, display position, original filename, SHA-256 digest, dimensions, media type and page-specific metadata. Handwritten pages can carry annotations. Standalone photo pages carry their own photo-page metadata such as alt text.
 
@@ -83,10 +85,11 @@ Publishing derivatives are not part of the portable source format. For example, 
 
 - Version 1 is the legacy PNG-only schema; its existing fields must not silently change meaning.
 - Version 2 is the current mixed-media schema and should be used by new producers.
+- Backward-compatible optional document metadata may be added within version 2; incompatible schema changes require a new version.
 - Archive entry naming follows the deterministic convention documented above.
 - Unknown manifest fields should be ignored by readers where possible.
 - Future schema changes that cannot be represented compatibly should use a new format version rather than redefining an existing one.
-- Source page images and original photo assets are canonical. Transcripts, annotations and publishing state enrich them; they do not replace them.
+- Source page images and original photo assets are canonical. Summaries, categories, transcripts, annotations and publishing state enrich them; they do not replace them.
 - A document `id` is stable across edits and republishes.
 - Page and asset SHA-256 digests identify source content independently of remote publishing URLs.
 - Publisher-specific state may be recorded as metadata but must not make the core document dependent on one destination.
