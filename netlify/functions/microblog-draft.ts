@@ -38,6 +38,19 @@ function validStatus(status: string | null): PostStatus | null {
   return status === 'draft' || status === 'published' ? status : null;
 }
 
+async function isMissingRequestedPost(response: Response): Promise<boolean> {
+  if (response.status === 404) return true;
+  if (response.status !== 400) return false;
+
+  const payload = await response.clone().json().catch(() => null) as {
+    error?: string;
+    error_description?: string;
+  } | null;
+  const description = payload?.error_description?.toLowerCase() ?? '';
+  return payload?.error === 'invalid_request'
+    && description.includes('post with the requested url was not found');
+}
+
 async function recoverPublishedPostByMedia(
   token: string,
   knownMediaUrls: string[],
@@ -95,7 +108,7 @@ async function inspectPost(
 
   const sourceResponse = await fetch(sourceUrl, { headers: bearer(token) });
   if (!sourceResponse.ok) {
-    if (sourceResponse.status === 404) {
+    if (await isMissingRequestedPost(sourceResponse)) {
       return recoverPublishedPostByMedia(token, knownMediaUrls, destination);
     }
     return { error: upstreamError(sourceResponse, 'Could not verify the existing Micro.blog post.') };
