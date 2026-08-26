@@ -22,9 +22,16 @@ button:disabled { cursor: default; opacity: .45; }
 label span { display: block; margin-bottom: 7px; font-size: .82rem; font-weight: 750; }
 label em { color: #777168; font-weight: 500; }
 input, textarea, select { width: 100%; border: 1px solid rgba(32,32,30,.18); border-radius: 10px; background: #fffdf8; color: inherit; padding: 11px 12px; }
-.fileButton, .controls button, .orderButtons button, .pageActions > button, .annotationHeader button, .annotationToolbar button, .dangerButton, .microblogPublisher button { border: 0; border-radius: 10px; background: #20201e; color: white; padding: 11px 14px; font-weight: 750; }
+.fileButton, .controls button, .orderButtons button, .pageActions > button, .annotationHeader button, .annotationToolbar button, .dangerButton, .microblogPublisher button, .categorySuggestions button { border: 0; border-radius: 10px; background: #20201e; color: white; padding: 11px 14px; font-weight: 750; }
 .fileButton { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; }
 .fileButton input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+.metadata { display: grid; gap: 14px; margin-top: 20px; padding: 18px; }
+.metadata textarea { min-height: 96px; }
+.categorySuggestions > span { display: block; margin-bottom: 8px; font-size: .82rem; font-weight: 750; }
+.categorySuggestions > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.categorySuggestions button { background: #ded7c9; color: #20201e; padding: 8px 11px; }
+.categorySuggestions button.active { background: #20201e; color: white; }
 
 .workspace { margin-top: 20px; padding: 20px; }
 .sectionHeading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 16px; }
