@@ -26,6 +26,8 @@ type DraftResponse = {
   preview: string;
 };
 
+const MICROBLOG_RENDERER_REVISION = 'microblog-html-v2-visible-links';
+
 async function responseError(response: Response, fallback: string): Promise<string> {
   try {
     const payload = await response.json() as { error?: string };
@@ -178,8 +180,14 @@ function linkHtml(link: LinkAnnotation, pageIndex: number): string {
     `height:${percent(link.height)}`,
     'display:block',
     'z-index:3',
+    'background:rgba(29,95,167,.12)',
+    'box-shadow:inset 0 -2px 0 rgba(29,95,167,.8)',
+    'outline:1px solid rgba(29,95,167,.28)',
+    'outline-offset:-1px',
+    'border-radius:2px',
+    'cursor:pointer',
   ].join(';');
-  return `<a href="${escapeHtml(href)}" aria-label="${escapeHtml(label)}" style="${style}"></a>`;
+  return `<a href="${escapeHtml(href)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}" style="${style}"></a>`;
 }
 
 function photoHtml(photo: PhotoAnnotation, pageIndex: number, photoUrls: Record<string, string>): string {
@@ -231,6 +239,7 @@ export function microblogHtml(
 
 export function microblogContentRevision(document: HandwrittenDocument): string {
   return JSON.stringify({
+    renderer: MICROBLOG_RENDERER_REVISION,
     title: document.title.trim(),
     transcript: document.transcript ?? '',
     pages: document.pages.map(page => isPhotoPage(page)
