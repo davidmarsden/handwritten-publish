@@ -181,9 +181,7 @@ function linkHtml(link: LinkAnnotation, pageIndex: number): string {
     'display:block',
     'z-index:3',
     'background:rgba(29,95,167,.12)',
-    'box-shadow:inset 0 -2px 0 rgba(29,95,167,.8)',
-    'outline:1px solid rgba(29,95,167,.28)',
-    'outline-offset:-1px',
+    'box-shadow:inset 0 -2px 0 rgba(29,95,167,.8),inset 0 0 0 1px rgba(29,95,167,.28)',
     'border-radius:2px',
     'cursor:pointer',
   ].join(';');
@@ -294,10 +292,8 @@ function syncedDraftState(
 }
 
 export function isMicroblogDraftStale(document: HandwrittenDocument, draft: MicroblogDraftState): boolean {
-  if (draft.syncedContentRevision) {
-    return draft.syncedContentRevision !== microblogContentRevision(document);
-  }
-  return draft.syncedDocumentUpdatedAt !== document.updatedAt;
+  if (!draft.syncedContentRevision) return true;
+  return draft.syncedContentRevision !== microblogContentRevision(document);
 }
 
 export function canReuseMicroblogMedia(document: HandwrittenDocument, draft: MicroblogDraftState): boolean {
