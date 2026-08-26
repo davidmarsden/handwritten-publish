@@ -90,6 +90,8 @@ export type HandwrittenDocument = {
   title: string;
   createdAt: string;
   updatedAt: string;
+  summary?: string;
+  categories?: string[];
   transcript?: string;
   pages: DocumentPage[];
   assets?: HandwrittenAsset[];
@@ -106,13 +108,47 @@ export function isHandwrittenPage(page: DocumentPage): page is HandwrittenPage {
   return page.kind !== 'photo';
 }
 
+function upgradeMicroblogContentRevision(revision: string | undefined): string | undefined {
+  if (!revision) return revision;
+  try {
+    const value = JSON.parse(revision) as Record<string, unknown>;
+    if (!Object.prototype.hasOwnProperty.call(value, 'summary')
+      && !Object.prototype.hasOwnProperty.call(value, 'categories')
+      && typeof value.renderer === 'string'
+      && typeof value.title === 'string'
+      && Object.prototype.hasOwnProperty.call(value, 'transcript')
+      && Array.isArray(value.pages)) {
+      return JSON.stringify({
+        renderer: value.renderer,
+        title: value.title,
+        summary: '',
+        categories: [],
+        transcript: value.transcript,
+        pages: value.pages,
+      });
+    }
+  } catch {
+    // Preserve unknown/older revision encodings rather than guessing.
+  }
+  return revision;
+}
+
 export function upgradeDocumentFormat(document: HandwrittenDocument): HandwrittenDocument {
+  const microblog = document.publishing?.microblog;
   return {
     ...document,
     version: FORMAT_VERSION,
     pages: document.pages.map(page => page.kind === undefined
       ? { ...page, kind: 'handwritten' as const }
       : page),
+    publishing: document.publishing
+      ? {
+          ...document.publishing,
+          microblog: microblog
+            ? { ...microblog, syncedContentRevision: upgradeMicroblogContentRevision(microblog.syncedContentRevision) }
+            : undefined,
+        }
+      : undefined,
   };
 }
 

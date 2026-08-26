@@ -38,6 +38,14 @@ function validStatus(status: string | null): PostStatus | null {
   return status === 'draft' || status === 'published' ? status : null;
 }
 
+function normalizedCategories(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .filter((category): category is string => typeof category === 'string')
+    .map(category => category.trim())
+    .filter(Boolean))];
+}
+
 async function isMissingRequestedPost(response: Response): Promise<boolean> {
   if (response.status === 404) return true;
   if (response.status !== 400) return false;
@@ -146,6 +154,8 @@ export default async (request: Request) => {
     token?: string;
     destination?: string;
     title?: string;
+    summary?: string;
+    categories?: unknown;
     html?: string;
     updateUrl?: string;
     verifyOnly?: boolean;
@@ -154,6 +164,8 @@ export default async (request: Request) => {
   };
   const token = body.token?.trim();
   if (!token) return json({ error: 'Micro.blog app token is required.' }, 400);
+  const summary = body.summary?.trim() ?? '';
+  const categories = normalizedCategories(body.categories);
   const knownMediaUrls = Array.isArray(body.knownMediaUrls)
     ? body.knownMediaUrls.filter((url): url is string => typeof url === 'string')
     : [];
@@ -182,6 +194,8 @@ export default async (request: Request) => {
       replace: {
         name: [body.title.trim()],
         content: [body.html],
+        summary: summary ? [summary] : [],
+        category: categories,
       },
     };
 
@@ -205,6 +219,8 @@ export default async (request: Request) => {
     properties: {
       name: [body.title.trim()],
       content: richHtmlContent(body.html),
+      ...(summary ? { summary: [summary] } : {}),
+      ...(categories.length ? { category: categories } : {}),
       'post-status': ['draft'],
     },
   };

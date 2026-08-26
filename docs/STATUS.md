@@ -11,6 +11,7 @@ The v0.1.0 boundary is the first complete end-to-end workflow: import and edit h
 ### Documents and local persistence
 
 - [x] Import multiple reMarkable PNG pages
+- [x] Import PDFs locally in the browser and render them into ordinary handwritten pages
 - [x] Import standalone JPEG/PNG/WebP photo pages into the same ordered document sequence
 - [x] Natural filename ordering and manual page reordering
 - [x] Touch/mouse drag page ordering with keyboard-friendly arrow fallbacks
@@ -20,6 +21,7 @@ The v0.1.0 boundary is the first complete end-to-end workflow: import and edit h
 - [x] IndexedDB local draft persistence, including page and photo files
 - [x] Portable `.hwpublish` export and verified round-trip import
 - [x] Backward-compatible import of older PNG-only `.hwpublish` bundles
+- [x] Optional post summary and category metadata in local documents and `.hwpublish`
 - [x] Optional transcript
 
 ### Annotations and mixed media
@@ -38,10 +40,12 @@ The v0.1.0 boundary is the first complete end-to-end workflow: import and edit h
 ### Micro.blog publishing
 
 - [x] Micro.blog account/destination discovery
+- [x] Discover existing categories for the selected Micro.blog destination
+- [x] Sync post summaries and categories through Micropub
 - [x] Micro.blog media upload through a thin Netlify bridge
 - [x] Create private Micro.blog drafts and open private previews
 - [x] Track and update an existing Micro.blog draft
-- [x] Detect Micro.blog-visible changes since the last successful sync
+- [x] Detect Micro.blog-visible changes since the last successful sync, including summary/category edits
 - [x] Reuse unchanged page media across updates
 - [x] Publish responsive clickable handwritten link regions
 - [x] Keep link regions visibly discoverable after Micro.blog HTML/CSS filtering
@@ -53,7 +57,7 @@ The v0.1.0 boundary is the first complete end-to-end workflow: import and edit h
 - [x] Optimise oversized standalone/overlay photos into temporary web JPEG derivatives while preserving local originals
 - [x] Inspect tracked post status before mutation
 - [x] Safely update an already-published tracked Micro.blog post after explicit confirmation
-- [x] Preserve published state while replacing only title/content
+- [x] Preserve published state while replacing title/content/summary/categories
 - [x] Recover a canonical published URL when Micro.blog no longer recognises the original private-draft URL, using tracked media as a unique fingerprint
 
 ## Safety and privacy boundary
@@ -68,13 +72,13 @@ Oversized publishing derivatives never replace the local originals. Unbound or m
 
 ## Next
 
-The v0.1.x line should be treated primarily as hardening/bug-fix territory unless a small change is clearly low-risk.
+The immediate direction is to remove friction from getting handwritten material into Micro.blog while keeping the draft-first safety boundary.
 
-Likely v0.2+ directions:
+Likely next directions:
 
-- [ ] handwritten.blog publisher adapter
+- [ ] Post by email: private revocable address → PDF/PNG ingestion → Micro.blog private draft
 - [ ] Assisted transcription and accessibility metadata
 - [ ] Richer document revision/history support
-- [ ] Native reMarkable or other tablet input/send integration when safely supportable
+- [ ] Deeper native reMarkable or other tablet input/send integration when safely supportable
 
 The core rule remains unchanged: handwritten page images are canonical; destinations and assistance features enrich them rather than replacing them.

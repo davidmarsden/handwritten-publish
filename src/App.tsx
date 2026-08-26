@@ -8,6 +8,7 @@ import { documentPages, importPhotoPageFiles, importPngFiles, type ImportedPage 
 import {
   canReuseMicroblogMedia,
   createMicroblogDraft,
+  fetchMicroblogCategories,
   fetchMicroblogConfig,
   inspectMicroblogPost,
   isMicroblogDraftStale,
@@ -31,8 +32,14 @@ function revokeAssets(assets: ImportedAsset[]) {
   assets.forEach(asset => URL.revokeObjectURL(asset.previewUrl));
 }
 
+function categoriesFromText(value: string): string[] {
+  return [...new Set(value.split(/\r?\n/).map(category => category.trim()).filter(Boolean))];
+}
+
 export default function App() {
   const [title, setTitle] = useState('Untitled handwritten post');
+  const [summary, setSummary] = useState('');
+  const [categoryText, setCategoryText] = useState('');
   const [pages, setPages] = useState<ImportedPage[]>([]);
   const [assets, setAssets] = useState<ImportedAsset[]>([]);
   const [transcript, setTranscript] = useState('');
@@ -44,17 +51,22 @@ export default function App() {
   const [microblogToken, setMicroblogToken] = useState('');
   const [microblogConfig, setMicroblogConfig] = useState<MicroblogConfig | null>(null);
   const [microblogDestination, setMicroblogDestination] = useState('');
+  const [microblogCategories, setMicroblogCategories] = useState<string[]>([]);
   const [draggingPageId, setDraggingPageId] = useState<string | null>(null);
   const dragMoved = useRef(false);
   const lastDragTargetId = useRef<string | null>(null);
 
+  const selectedCategories = useMemo(() => categoriesFromText(categoryText), [categoryText]);
+
   const document = useMemo(() => ({
     ...baseDocument,
     title,
+    summary: summary.trim() || undefined,
+    categories: selectedCategories.length ? selectedCategories : undefined,
     transcript: transcript || undefined,
     pages: documentPages(pages),
     assets: documentAssets(assets),
-  }), [baseDocument, title, transcript, pages, assets]);
+  }), [baseDocument, title, summary, selectedCategories, transcript, pages, assets]);
 
   const annotationPageCandidate = annotationPageId
     ? pages.find(page => page.id === annotationPageId) ?? null
@@ -93,6 +105,8 @@ export default function App() {
         if (saved) {
           setBaseDocument(saved.document);
           setTitle(saved.document.title);
+          setSummary(saved.document.summary ?? '');
+          setCategoryText((saved.document.categories ?? []).join('\n'));
           setTranscript(saved.document.transcript ?? '');
           setPages(saved.pages);
           setAssets(saved.assets);
@@ -184,6 +198,8 @@ export default function App() {
       revokeAssets(assets);
       setBaseDocument(imported.document);
       setTitle(imported.document.title);
+      setSummary(imported.document.summary ?? '');
+      setCategoryText((imported.document.categories ?? []).join('\n'));
       setTranscript(imported.document.transcript ?? '');
       setPages(imported.pages);
       setAssets(imported.assets);
@@ -289,6 +305,28 @@ export default function App() {
     return asset.id;
   }
 
+  function toggleCategory(category: string) {
+    const current = categoriesFromText(categoryText);
+    const next = current.includes(category)
+      ? current.filter(value => value !== category)
+      : [...current, category];
+    setCategoryText(next.join('\n'));
+    markEdited();
+  }
+
+  async function refreshMicroblogCategories(destination: string) {
+    if (!microblogToken.trim() || !destination.trim()) {
+      setMicroblogCategories([]);
+      return;
+    }
+    try {
+      setMicroblogCategories(await fetchMicroblogCategories(microblogToken, destination));
+    } catch (error) {
+      setMicroblogCategories([]);
+      setStatus(error instanceof Error ? error.message : 'Could not load Micro.blog categories.');
+    }
+  }
+
   async function exportBundle() {
     const blob = await buildBundle(document, pages, assets);
     const safeTitle = title.trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'handwritten-post';
@@ -302,6 +340,8 @@ export default function App() {
     const fresh = createDocument('Untitled handwritten post');
     setBaseDocument(fresh);
     setTitle(fresh.title);
+    setSummary('');
+    setCategoryText('');
     setTranscript('');
     setPages([]);
     setAssets([]);
@@ -323,8 +363,18 @@ export default function App() {
       setMicroblogConfig(config);
       const tracked = baseDocument.publishing?.microblog;
       const remembered = tracked?.destination;
-      setMicroblogDestination(remembered && config.destinations.some(destination => destination.uid === remembered)
-        ? remembered : config.destinations[0]?.uid ?? '');
+      const destination = remembered && config.destinations.some(candidate => candidate.uid === remembered)
+        ? remembered : config.destinations[0]?.uid ?? '';
+      setMicroblogDestination(destination);
+      if (destination) {
+        try {
+          setMicroblogCategories(await fetchMicroblogCategories(microblogToken, destination));
+        } catch {
+          setMicroblogCategories([]);
+        }
+      } else {
+        setMicroblogCategories([]);
+      }
       if (tracked) {
         setStatus('Micro.blog connected. Checking the tracked post…');
         const postStatus = await inspectMicroblogPost(microblogToken, tracked);
@@ -335,6 +385,7 @@ export default function App() {
       }
     } catch (error) {
       setMicroblogConfig(null);
+      setMicroblogCategories([]);
       setStatus(error instanceof Error ? error.message : 'Could not connect to Micro.blog.');
     } finally {
       setBusy(false);
@@ -449,6 +500,19 @@ export default function App() {
         <small aria-live="polite">{status}</small>
       </section>
 
+      <section className="panel metadata">
+        <label><span>Post summary <em>optional</em></span><textarea value={summary} disabled={controlsDisabled} onChange={event => { setSummary(event.target.value); markEdited(); }} placeholder="A sentence or two to describe the post in Micro.blog’s timeline and feeds." /></label>
+        <label><span>Categories <em>one per line</em></span><textarea value={categoryText} disabled={controlsDisabled} onChange={event => { setCategoryText(event.target.value); markEdited(); }} placeholder={'Southall\nFood, Drink\nLocal politics'} /></label>
+        {microblogCategories.length > 0 && (
+          <div className="categorySuggestions">
+            <span>Existing Micro.blog categories</span>
+            <div>{microblogCategories.map(category => (
+              <button key={category} type="button" className={selectedCategories.includes(category) ? 'active' : ''} onClick={() => toggleCategory(category)} disabled={controlsDisabled}>{category}</button>
+            ))}</div>
+          </div>
+        )}
+      </section>
+
       {pages.length > 0 && (
         <section className="workspace">
           <div className="sectionHeading">
@@ -521,10 +585,10 @@ export default function App() {
 
       <section className="panel microblogPublisher">
         <div><p className="eyebrow">Publisher</p><h2>Micro.blog</h2><p>Create and revise private server-side drafts. A tracked post that has already been published can also be updated at its existing URL, but only after an explicit live-update confirmation.</p></div>
-        <label><span>App token</span><input type="password" value={microblogToken} disabled={controlsDisabled} onChange={event => { setMicroblogToken(event.target.value); setMicroblogConfig(null); }} autoComplete="off" placeholder="Paste a Micro.blog app token" /></label>
+        <label><span>App token</span><input type="password" value={microblogToken} disabled={controlsDisabled} onChange={event => { setMicroblogToken(event.target.value); setMicroblogConfig(null); setMicroblogCategories([]); }} autoComplete="off" placeholder="Paste a Micro.blog app token" /></label>
         <button onClick={connectMicroblog} disabled={controlsDisabled || !microblogToken.trim()}>{microblogConfig ? 'Reconnect Micro.blog' : 'Connect Micro.blog'}</button>
         {microblogConfig && microblogConfig.destinations.length > 0 && (
-          <label><span>Destination blog</span><select value={microblogDestination} onChange={event => setMicroblogDestination(event.target.value)} disabled={controlsDisabled || Boolean(existingMicroblogDraft)}>{microblogConfig.destinations.map(destination => <option key={destination.uid} value={destination.uid}>{destination.name}</option>)}</select></label>
+          <label><span>Destination blog</span><select value={microblogDestination} onChange={event => { const destination = event.target.value; setMicroblogDestination(destination); void refreshMicroblogCategories(destination); }} disabled={controlsDisabled || Boolean(existingMicroblogDraft)}>{microblogConfig.destinations.map(destination => <option key={destination.uid} value={destination.uid}>{destination.name}</option>)}</select></label>
         )}
         <button onClick={syncMicroblogDraft} disabled={controlsDisabled || !microblogConfig || !pages.length || !hasValidTitle || Boolean(microblogAnnotationIssue) || Boolean(existingMicroblogDraft && !microblogDraftStale)}>
           {!existingMicroblogDraft

@@ -111,9 +111,14 @@ function parseManifest(value: unknown): HandwrittenDocument {
     && (document.version === LEGACY_FORMAT_VERSION
       ? document.pages.every(isLegacyPage)
       : document.pages.every(isPage));
+  const categoriesValid = document.categories === undefined
+    || (Array.isArray(document.categories) && document.categories.every(category => typeof category === 'string'));
 
   if (typeof document.id !== 'string' || typeof document.title !== 'string'
     || typeof document.createdAt !== 'string' || typeof document.updatedAt !== 'string'
+    || (document.summary !== undefined && typeof document.summary !== 'string')
+    || !categoriesValid
+    || (document.transcript !== undefined && typeof document.transcript !== 'string')
     || !pagesValid
     || (document.assets !== undefined && (!Array.isArray(document.assets) || !document.assets.every(isAsset)))) {
     throw new Error('Invalid .hwpublish manifest.');
