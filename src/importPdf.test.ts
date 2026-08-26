@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { pdfRenderScale } from './pdfRenderScale';
 
 describe('pdfRenderScale', () => {
-  it('targets about 2200px on the longest edge for a normal PDF page', () => {
-    const scale = pdfRenderScale(595, 842);
-    expect(scale).toBeCloseTo(2200 / 842, 6);
-    expect(scale).toBeLessThanOrEqual(2.5);
+  it('targets about 2200px on the longest edge when the cap is not reached', () => {
+    const scale = pdfRenderScale(1000, 1200);
+    expect(scale).toBeCloseTo(2200 / 1200, 6);
   });
 
-  it('caps unusually small source pages at 2.5x', () => {
+  it('caps A4-sized and smaller source pages at 2.5x', () => {
+    expect(pdfRenderScale(595, 842)).toBe(2.5);
     expect(pdfRenderScale(200, 300)).toBe(2.5);
   });
 
