@@ -28,10 +28,13 @@ input, textarea, select { width: 100%; border: 1px solid rgba(32,32,30,.18); bor
 
 .metadata { display: grid; gap: 14px; margin-top: 20px; padding: 18px; }
 .metadata textarea { min-height: 96px; }
+.metadata > label:nth-of-type(2) { display: none; }
 .categorySuggestions > span { display: block; margin-bottom: 8px; font-size: .82rem; font-weight: 750; }
 .categorySuggestions > div { display: flex; flex-wrap: wrap; gap: 8px; }
-.categorySuggestions button { background: #ded7c9; color: #20201e; padding: 8px 11px; }
+.categorySuggestions button { display: inline-flex; align-items: center; gap: 8px; background: #fffdf8; color: #20201e; border: 1px solid rgba(32,32,30,.18); padding: 8px 11px; }
+.categorySuggestions button::before { content: '☐'; font-size: 1.05rem; line-height: 1; }
 .categorySuggestions button.active { background: #20201e; color: white; }
+.categorySuggestions button.active::before { content: '☑'; }
 
 .workspace { margin-top: 20px; padding: 20px; }
 .sectionHeading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 16px; }
