@@ -31,6 +31,7 @@ describe('published handwritten link presentation', () => {
     expect(html).toContain('width:30%');
     expect(html).toContain('height:4%');
     expect(html).toContain('class="handwritten-link"');
+    expect(html).toContain('box-sizing:border-box');
     expect(html).toContain('border:2px solid rgba(29,95,167,.72)');
     expect(html).toContain('class="handwritten-link-marker"');
     expect(html).toContain('>↗</span>');
