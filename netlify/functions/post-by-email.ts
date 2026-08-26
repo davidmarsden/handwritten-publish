@@ -1,3 +1,4 @@
+import { getDeployStore, getStore } from '@netlify/blobs';
 import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
 
 type ReceivedAttachment = {
@@ -23,9 +24,25 @@ type ReceivedEmailEvent = {
   };
 };
 
+type ProcessingRecord = {
+  status: 'processing';
+  startedAt: string;
+};
+
+type CompletedRecord = {
+  status: 'completed';
+  pages: number;
+  url: string;
+  preview: string;
+};
+
+type IdempotencyRecord = ProcessingRecord | CompletedRecord;
+
 const RESEND_API = 'https://api.resend.com';
 const PNG_MEDIA_TYPE = 'image/png';
 const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
+const PROCESSING_LEASE_MS = 10 * 60 * 1000;
+const IDEMPOTENCY_STORE = 'post-by-email-idempotency';
 
 function env(name: string): string {
   return process.env[name]?.trim() ?? '';
@@ -106,6 +123,22 @@ function pageHtml(mediaUrls: string[], emailId: string): string {
     `<figure class="handwritten-page" style="margin:0 0 1rem"><img src="${escapeHtml(url)}" alt="Handwritten page ${index + 1}" style="display:block;width:100%;height:auto" /></figure>`
   )).join('\n');
   return `<!-- handwritten-publish-email:${escapeHtml(emailId)} -->\n${pages}`;
+}
+
+function idempotencyStore() {
+  return process.env.CONTEXT === 'production'
+    ? getStore(IDEMPOTENCY_STORE, { consistency: 'strong' })
+    : getDeployStore(IDEMPOTENCY_STORE);
+}
+
+function idempotencyKey(emailId: string): string {
+  return `email/${encodeURIComponent(emailId)}`;
+}
+
+function activeProcessing(record: IdempotencyRecord | null): boolean {
+  if (!record || record.status !== 'processing') return false;
+  const startedAt = Date.parse(record.startedAt);
+  return Number.isFinite(startedAt) && Date.now() - startedAt < PROCESSING_LEASE_MS;
 }
 
 async function listReceivedAttachments(apiKey: string, emailId: string): Promise<ReceivedAttachment[]> {
@@ -218,10 +251,30 @@ export default async (request: Request) => {
     return json({ ignored: true, reason: 'unknown posting address' });
   }
 
+  const store = idempotencyStore();
+  const key = idempotencyKey(emailId);
+  const existing = await store.get(key, { type: 'json' }) as IdempotencyRecord | null;
+  if (existing?.status === 'completed') {
+    return json({
+      created: false,
+      duplicate: true,
+      pages: existing.pages,
+      url: existing.url,
+      preview: existing.preview,
+    });
+  }
+  if (activeProcessing(existing)) {
+    // Non-2xx asks the webhook provider to retry later rather than creating an overlapping draft.
+    return json({ error: 'This email is already being processed. Retry later.' }, 409);
+  }
+
+  await store.setJSON(key, { status: 'processing', startedAt: new Date().toISOString() } satisfies ProcessingRecord);
+
   try {
     const attachments = (await listReceivedAttachments(resendApiKey, emailId))
       .filter(attachment => attachment.content_type.toLowerCase() === PNG_MEDIA_TYPE);
     if (!attachments.length) {
+      await store.delete(key);
       return json({ ignored: true, reason: 'no PNG attachments' });
     }
 
@@ -238,8 +291,16 @@ export default async (request: Request) => {
       title,
       pageHtml(mediaUrls, emailId),
     );
+    const completed: CompletedRecord = {
+      status: 'completed',
+      pages: mediaUrls.length,
+      url: draft.url,
+      preview: draft.preview,
+    };
+    await store.setJSON(key, completed);
     return json({ created: true, pages: mediaUrls.length, url: draft.url, preview: draft.preview });
   } catch (error) {
+    await store.delete(key).catch(() => undefined);
     return json({ error: error instanceof Error ? error.message : 'Could not create Micro.blog draft from email.' }, 502);
   }
 };
