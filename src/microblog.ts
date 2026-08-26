@@ -322,6 +322,7 @@ export async function inspectMicroblogPost(token: string, draft: MicroblogDraftS
       token: token.trim(),
       destination: draft.destination,
       updateUrl: draft.url,
+      knownMediaUrls: draft.mediaUrls ?? [],
       verifyOnly: true,
     }),
   });
@@ -392,6 +393,7 @@ export async function updateMicroblogDraft(
       title: document.title,
       html: microblogHtml(document, mediaUrls, photoUrls),
       updateUrl: draft.url,
+      knownMediaUrls: draft.mediaUrls ?? mediaUrls,
       expectedPostStatus,
     }),
   });
@@ -401,5 +403,11 @@ export async function updateMicroblogDraft(
       : 'Micro.blog could not update the draft.';
     throw new Error(await responseError(response, fallback));
   }
-  return syncedDraftState(draft, document, mediaUrls, photoMedia, expectedPostStatus);
+  const result = await response.json() as { url?: string };
+  const resolvedUrl = result.url || draft.url;
+  return syncedDraftState({
+    ...draft,
+    url: resolvedUrl,
+    preview: expectedPostStatus === 'published' ? resolvedUrl : draft.preview,
+  }, document, mediaUrls, photoMedia, expectedPostStatus);
 }
