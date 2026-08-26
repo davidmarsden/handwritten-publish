@@ -22,14 +22,16 @@ function trackedPost(): MicroblogDraftState {
 }
 
 describe('published Micro.blog URL recovery', () => {
-  it('sends tracked media fingerprints during read-only post inspection', async () => {
+  it('sends tracked media fingerprints and persists a recovered URL during read-only inspection', async () => {
+    const canonicalUrl = 'https://example.com/2026/08/26/published.html';
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       status: 'published',
-      url: 'https://example.com/2026/08/26/published.html',
+      url: canonicalUrl,
     }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(inspectMicroblogPost('token', trackedPost())).resolves.toBe('published');
+    const tracked = trackedPost();
+    await expect(inspectMicroblogPost('token', tracked)).resolves.toBe('published');
 
     const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(request.verifyOnly).toBe(true);
@@ -38,6 +40,9 @@ describe('published Micro.blog URL recovery', () => {
       'https://example.com/uploads/page-1.png',
       'https://example.com/uploads/page-2.png',
     ]);
+    expect(tracked.url).toBe(canonicalUrl);
+    expect(tracked.preview).toBe(canonicalUrl);
+    expect(tracked.postStatus).toBe('published');
   });
 
   it('persists the recovered canonical URL returned by a published update', async () => {
