@@ -31,8 +31,8 @@ describe('published handwritten link presentation', () => {
     expect(html).toContain('width:30%');
     expect(html).toContain('height:4%');
     expect(html).toContain('background:rgba(29,95,167,.12)');
-    expect(html).toContain('box-shadow:inset 0 -2px 0 rgba(29,95,167,.8)');
-    expect(html).toContain('outline:1px solid rgba(29,95,167,.28)');
+    expect(html).toContain('box-shadow:inset 0 -2px 0 rgba(29,95,167,.8),inset 0 0 0 1px rgba(29,95,167,.28)');
+    expect(html).not.toContain('outline:');
     expect(html).toContain('cursor:pointer');
     expect(html).toContain('aria-label="Read more"');
     expect(html).toContain('title="Read more"');
@@ -52,5 +52,20 @@ describe('published handwritten link presentation', () => {
 
     expect(currentRevision).toContain('microblog-html-v2-visible-links');
     expect(isMicroblogDraftStale(document, draft)).toBe(true);
+  });
+
+  it('forces legacy tracked drafts through the renderer migration once', () => {
+    const document = createDocument('Legacy renderer');
+    const draft: MicroblogDraftState = {
+      destination: 'https://example.com/',
+      url: 'https://example.com/post.html',
+      preview: 'https://micro.blog/preview',
+      createdAt: document.createdAt,
+      syncedDocumentUpdatedAt: document.updatedAt,
+    };
+
+    expect(isMicroblogDraftStale(document, draft)).toBe(true);
+    draft.syncedContentRevision = microblogContentRevision(document);
+    expect(isMicroblogDraftStale(document, draft)).toBe(false);
   });
 });
