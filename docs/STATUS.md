@@ -17,6 +17,7 @@ Handwritten Publish is now a working local-first publishing tool, not just a for
 - [x] Optional transcript
 - [x] Micro.blog account/destination discovery
 - [x] Micro.blog media upload through a thin Netlify bridge
+- [x] Automatically optimize oversized standalone/overlay photos into temporary web JPEGs before Micro.blog upload while preserving originals locally
 - [x] Private Micro.blog draft creation and preview
 - [x] Track/update an existing Micro.blog draft
 - [x] Detect Micro.blog-visible changes since the last sync
@@ -47,4 +48,4 @@ Handwritten Publish is now a working local-first publishing tool, not just a for
 - [ ] Assisted transcription and accessibility metadata
 - [ ] Native reMarkable input/send integration when safely supportable
 
-Publishing from Handwritten Publish remains draft-first. A tracked Micro.blog post must still be a draft before the app will update it. Handwritten pages, standalone photo pages, completed HTTP/HTTPS link annotations and bound photo annotations are included in Micro.blog output. Unbound or missing photo regions block sync before media upload rather than being silently omitted.
+Publishing from Handwritten Publish remains draft-first. A tracked Micro.blog post must still be a draft before the app will update it. Handwritten pages, standalone photo pages, completed HTTP/HTTPS link annotations and bound photo annotations are included in Micro.blog output. Oversized standalone and overlay photos are optimized only for the temporary Micro.blog upload derivative; original local files and `.hwpublish` contents remain untouched. Unbound or missing photo regions block sync before media upload rather than being silently omitted.
