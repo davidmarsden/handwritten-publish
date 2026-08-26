@@ -111,7 +111,7 @@ describe('microblogHtml', () => {
 });
 
 describe('Micro.blog draft sync state', () => {
-  it('marks a legacy or older draft stale', () => {
+  it('marks a legacy or older draft stale until it has a content revision', () => {
     const document = createDocument('Test');
     const draft: MicroblogDraftState = {
       destination: 'https://example.com/',
@@ -122,6 +122,8 @@ describe('Micro.blog draft sync state', () => {
 
     expect(isMicroblogDraftStale(document, draft)).toBe(true);
     draft.syncedDocumentUpdatedAt = document.updatedAt;
+    expect(isMicroblogDraftStale(document, draft)).toBe(true);
+    draft.syncedContentRevision = microblogContentRevision(document);
     expect(isMicroblogDraftStale(document, draft)).toBe(false);
   });
 
