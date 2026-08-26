@@ -12,7 +12,8 @@ const ENV_KEYS = [
 const originalEnv = Object.fromEntries(ENV_KEYS.map(key => [key, process.env[key]]));
 
 function configureEnv() {
-  process.env.RESEND_WEBHOOK_SECRET = 'whsec_dGVzdC1zZWNyZXQ=';
+  // Deliberately tiny synthetic key so secret scanners do not mistake this test fixture for a credential.
+  process.env.RESEND_WEBHOOK_SECRET = 'whsec_YQ==';
   process.env.RESEND_API_KEY = 're_test';
   process.env.POST_BY_EMAIL_ADDRESS = 'secret@inbound.resend.app';
   process.env.MICROBLOG_EMAIL_TOKEN = 'microblog-token';
@@ -23,7 +24,7 @@ async function signedRequest(payload: object, overrides: Record<string, string> 
   const body = JSON.stringify(payload);
   const id = 'msg_test';
   const timestamp = '1787766000';
-  const secret = Uint8Array.from(atob('dGVzdC1zZWNyZXQ='), character => character.charCodeAt(0));
+  const secret = Uint8Array.from(atob('YQ=='), character => character.charCodeAt(0));
   const key = await crypto.subtle.importKey('raw', secret, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const signed = new TextEncoder().encode(`${id}.${timestamp}.${body}`);
   const digest = new Uint8Array(await crypto.subtle.sign('HMAC', key, signed));
