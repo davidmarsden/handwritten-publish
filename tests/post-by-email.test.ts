@@ -1,4 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const blobRecords = vi.hoisted(() => new Map<string, unknown>());
+
+vi.mock('@netlify/blobs', () => {
+  const store = {
+    get: vi.fn(async (key: string) => blobRecords.get(key) ?? null),
+    setJSON: vi.fn(async (key: string, value: unknown) => { blobRecords.set(key, value); }),
+    delete: vi.fn(async (key: string) => { blobRecords.delete(key); }),
+  };
+  return {
+    getStore: vi.fn(() => store),
+    getDeployStore: vi.fn(() => store),
+  };
+});
+
 import handler from '../netlify/functions/post-by-email';
 
 const ENV_KEYS = [
@@ -7,6 +22,7 @@ const ENV_KEYS = [
   'POST_BY_EMAIL_ADDRESS',
   'MICROBLOG_EMAIL_TOKEN',
   'MICROBLOG_EMAIL_DESTINATION',
+  'CONTEXT',
 ] as const;
 
 const originalEnv = Object.fromEntries(ENV_KEYS.map(key => [key, process.env[key]]));
@@ -18,6 +34,7 @@ function configureEnv() {
   process.env.POST_BY_EMAIL_ADDRESS = 'secret@inbound.resend.app';
   process.env.MICROBLOG_EMAIL_TOKEN = 'microblog-token';
   process.env.MICROBLOG_EMAIL_DESTINATION = 'https://example.micro.blog/';
+  process.env.CONTEXT = 'production';
 }
 
 async function signedRequest(
@@ -48,8 +65,22 @@ async function signedRequest(
   });
 }
 
+function receivedEvent(emailId = 'email_123') {
+  return {
+    type: 'email.received',
+    data: {
+      email_id: emailId,
+      from: 'my@remarkable.com',
+      to: ['secret@inbound.resend.app'],
+      subject: 'Field notes',
+      attachments: [{ id: 'attachment_1', filename: 'field-notes-1.png', content_type: 'image/png' }],
+    },
+  };
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
+  blobRecords.clear();
   for (const key of ENV_KEYS) {
     const original = originalEnv[key];
     if (original === undefined) delete process.env[key];
@@ -112,7 +143,46 @@ describe('post by email', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('turns ordered PNG attachments into a private Micro.blog draft', async () => {
+  it('returns the original draft without upstream work when the email was already completed', async () => {
+    configureEnv();
+    blobRecords.set('email/email_123', {
+      status: 'completed',
+      pages: 2,
+      url: 'https://example.micro.blog/draft/original',
+      preview: 'https://micro.blog/preview/original',
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await handler(await signedRequest(receivedEvent()));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      created: false,
+      duplicate: true,
+      pages: 2,
+      url: 'https://example.micro.blog/draft/original',
+      preview: 'https://micro.blog/preview/original',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('asks Resend to retry later while the same email has an active processing lease', async () => {
+    configureEnv();
+    blobRecords.set('email/email_123', {
+      status: 'processing',
+      startedAt: new Date().toISOString(),
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await handler(await signedRequest(receivedEvent()));
+
+    expect(response.status).toBe(409);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('turns ordered PNG attachments into a private Micro.blog draft and records completion', async () => {
     configureEnv();
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({
@@ -141,17 +211,7 @@ describe('post by email', () => {
       }), { status: 201, headers: { 'Content-Type': 'application/json' } }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const request = await signedRequest({
-      type: 'email.received',
-      data: {
-        email_id: 'email_123',
-        from: 'my@remarkable.com',
-        to: ['secret@inbound.resend.app'],
-        subject: 'Field notes',
-        attachments: [{ id: 'attachment_1', filename: 'field-notes-1.png', content_type: 'image/png' }],
-      },
-    });
-    const response = await handler(request);
+    const response = await handler(await signedRequest(receivedEvent()));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -172,5 +232,11 @@ describe('post by email', () => {
     expect(draftPayload.properties['post-status']).toEqual(['draft']);
     expect(draftPayload.properties.content[0].html).toContain('https://cdn.uploads.micro.blog/field-notes-1.png');
     expect(draftPayload.properties.content[0].html).toContain('handwritten-publish-email:email_123');
+    expect(blobRecords.get('email/email_123')).toEqual({
+      status: 'completed',
+      pages: 1,
+      url: 'https://example.micro.blog/2026/08/26/field-notes.html',
+      preview: 'https://micro.blog/preview/field-notes',
+    });
   });
 });
