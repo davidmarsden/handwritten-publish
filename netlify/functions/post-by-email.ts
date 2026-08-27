@@ -1,5 +1,10 @@
 import { getDatabase } from '@netlify/database';
 import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
+import {
+  matchExistingCategories,
+  parseRemarkablePostMetadata,
+  transcriptionFromRemarkableEmail,
+} from './_shared/remarkable-email';
 
 type ReceivedAttachment = {
   id: string;
@@ -11,6 +16,7 @@ type ReceivedAttachment = {
 
 type ReceivedEmail = {
   text?: string | null;
+  html?: string | null;
 };
 
 type ReceivedEmailEvent = {
@@ -40,6 +46,11 @@ type JobRow = {
 type EmailRoute = {
   address: string;
   destination: string;
+};
+
+type CategoryPayload = {
+  categories?: unknown[];
+  'microblog-categories'?: unknown[];
 };
 
 const RESEND_API = 'https://api.resend.com';
@@ -174,7 +185,7 @@ function escapeHtml(value: string): string {
 }
 
 function transcriptionHtml(body: string): string {
-  const cleaned = stripRemarkableEmailFooter(body).trim();
+  const cleaned = body.trim();
   if (!cleaned) return '';
   return cleaned
     .split(/\r?\n\s*\r?\n/)
@@ -323,6 +334,30 @@ async function listReceivedAttachments(apiKey: string, emailId: string): Promise
   });
 }
 
+function categoryNames(payload: CategoryPayload | null): string[] {
+  const simple = Array.isArray(payload?.categories)
+    ? payload.categories.filter((category): category is string => typeof category === 'string')
+    : [];
+  const rich = Array.isArray(payload?.['microblog-categories'])
+    ? payload['microblog-categories']
+        .map(category => category && typeof category === 'object' && 'name' in category
+          ? (category as { name?: unknown }).name
+          : null)
+        .filter((name): name is string => typeof name === 'string')
+    : [];
+  return [...new Set([...simple, ...rich].map(name => name.trim()).filter(Boolean))];
+}
+
+async function microblogCategories(token: string, destination: string): Promise<string[]> {
+  const categoryUrl = new URL(MICROPUB_ENDPOINT);
+  categoryUrl.searchParams.set('q', 'category');
+  categoryUrl.searchParams.set('mp-destination', destination);
+  const response = await fetch(categoryUrl, { headers: bearer(token) });
+  if (!response.ok) throw new Error(`Could not load Micro.blog categories (HTTP ${response.status}).`);
+  const payload = await response.json().catch(() => null) as CategoryPayload | null;
+  return categoryNames(payload);
+}
+
 async function microblogMediaEndpoint(token: string): Promise<string> {
   const response = await fetch(`${MICROPUB_ENDPOINT}?q=config`, { headers: bearer(token) });
   if (!response.ok) throw new Error(`Micro.blog media discovery failed (HTTP ${response.status}).`);
@@ -357,17 +392,21 @@ async function uploadAttachmentToMicroblog(
 async function createMicroblogEmailDraft(
   token: string,
   destination: string,
-  title: string,
+  title: string | null,
   html: string,
+  categories: string[],
 ): Promise<{ url: string; preview: string }> {
+  const properties: Record<string, unknown> = {
+    content: [{ html }],
+    'post-status': ['draft'],
+  };
+  if (title) properties.name = [title];
+  if (categories.length) properties.category = categories;
+
   const payload = {
     type: ['h-entry'],
     'mp-destination': destination,
-    properties: {
-      name: [title],
-      content: [{ html }],
-      'post-status': ['draft'],
-    },
+    properties,
   };
   const response = await fetch(MICROPUB_ENDPOINT, {
     method: 'POST',
@@ -445,14 +484,16 @@ export default async (request: Request) => {
 
   let draftCreated = false;
   try {
-    const receivedEmail = isRemarkableEmailSubject(event.data?.subject)
+    const remarkableMessage = isRemarkableEmailSubject(event.data?.subject);
+    const receivedEmail = remarkableMessage
       ? await getReceivedEmail(resendApiKey, emailId)
       : {};
-    const body = stripRemarkableEmailFooter(typeof receivedEmail.text === 'string' ? receivedEmail.text : '').trim();
+    const transcription = remarkableMessage ? transcriptionFromRemarkableEmail(receivedEmail) : '';
+    const metadata = parseRemarkablePostMetadata(transcription);
     const attachments = (await listReceivedAttachments(resendApiKey, emailId))
       .filter(attachment => attachment.content_type.toLowerCase() === PNG_MEDIA_TYPE);
 
-    if (!body && !attachments.length) {
+    if (!metadata.body && !attachments.length) {
       await deleteProcessingJob(emailId);
       return json({ ignored: true, reason: 'no transcription or PNG attachments' });
     }
@@ -466,12 +507,21 @@ export default async (request: Request) => {
     }
     await rememberPageCount(emailId, mediaUrls.length);
 
-    const title = titleFromEmailSubject(event.data?.subject);
+    let categories: string[] = [];
+    if (metadata.requestedCategories.length) {
+      const availableCategories = await microblogCategories(microblogToken, destination);
+      categories = matchExistingCategories(metadata.requestedCategories, availableCategories);
+    }
+
+    const title = metadata.title ?? (metadata.body
+      ? null
+      : titleFromEmailSubject(event.data?.subject));
     const draft = await createMicroblogEmailDraft(
       microblogToken,
       destination,
       title,
-      emailDraftHtml(emailId, body, mediaUrls),
+      emailDraftHtml(emailId, metadata.body, mediaUrls),
+      categories,
     );
     draftCreated = true;
 

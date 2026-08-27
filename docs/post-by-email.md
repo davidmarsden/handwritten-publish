@@ -20,13 +20,40 @@ Nothing received through this endpoint is published live. The Micropub payload a
 
 Handwritten Publish supports the combinations reMarkable can send from a notebook:
 
-- **Transcription only** — edit the converted handwriting on the reMarkable before sending; the cleaned plain-text email body becomes the Micro.blog draft content.
+- **Transcription only** — edit the converted handwriting on the reMarkable before sending; the cleaned transcription becomes the Micro.blog draft content.
 - **Original pages only** — PNG attachments are uploaded to Micro.blog and become the draft content as responsive handwritten-page images.
 - **Transcription + original pages** — the edited transcription appears first, followed by the original handwritten PNG pages.
 
-For reMarkable-generated mail, the receiver strips the standard subject prefix `Document from my reMarkable: ` so the document filename becomes the post title. It also strips the standard reMarkable footer from the transcription body before creating the draft.
+For text posts, the reMarkable notebook/document name is treated as transport metadata rather than a Micro.blog title. Text posts are therefore untitled unless the transcription explicitly contains a `Title:` field. Image-only sends keep the existing filename/notebook-name title fallback.
 
-Plain text is canonical for transcription. Handwritten Publish HTML-escapes the text and preserves paragraph breaks and intentional line breaks; it does not run AI cleanup or reinterpret the edited transcription.
+Handwritten Publish prefers the simple paragraph structure in reMarkable's HTML email body over the plain-text MIME part, because the plain-text version can contain email hard-wraps inside paragraphs. The extracted text is still HTML-escaped before it is sent to Micro.blog; Handwritten Publish does not run AI cleanup or reinterpret the edited transcription.
+
+## Optional post metadata
+
+A transcription can start with a small handwriting-friendly metadata block. Metadata lines are removed from the published post body.
+
+```text
+Title: A proper long-post title
+Categories: reMarkable, micropost
+
+This is the actual post text.
+```
+
+`Title:` is optional. Without it, a transcription post has no Micro.blog title.
+
+`Categories:` accepts a comma-separated list. Requested names are matched case-insensitively against categories that already exist on the selected Micro.blog destination. Unknown names are ignored; post by email never creates new categories automatically.
+
+Leading hashtags are shorthand for categories:
+
+```text
+#reMarkable #micropost
+
+How cool is that?!
+```
+
+Only a leading line made entirely of hashtags is treated as metadata, so ordinary hashtags later in the post remain part of the post text.
+
+reMarkable's own notebook/page tags are not included in Send by email messages, so they cannot currently be mapped automatically to Micro.blog categories.
 
 ## Why PNG for original pages
 
@@ -40,9 +67,10 @@ The first implementation uses Resend Inbound:
 
 - Resend receives the email and emits an `email.received` webhook.
 - The webhook contains message and attachment metadata, not the full message body or attachment bytes.
-- For reMarkable mail, Handwritten Publish fetches the full received email from Resend and uses its plain-text body as the transcription when present.
+- For reMarkable mail, Handwritten Publish fetches the full received email from Resend and extracts the transcription when present.
 - Handwritten Publish retrieves short-lived attachment download URLs from Resend's Receiving API.
 - Each PNG is uploaded directly to the selected Micro.blog destination's media endpoint.
+- If categories are requested, Handwritten Publish fetches that destination's existing Micro.blog categories and applies only exact case-insensitive matches.
 - Handwritten Publish creates a private Micro.blog draft from the cleaned transcription, original pages, or both.
 
 ## Security model
@@ -98,16 +126,15 @@ These values are intentionally separate from the browser workflow. The browser a
 6. Register `https://<site>/api/post-by-email` in Resend for the `email.received` event.
 7. Save the returned Resend webhook signing secret in Netlify as `RESEND_WEBHOOK_SECRET`.
 8. From reMarkable, save each private alias as a recognisable recipient and send a small notebook using transcription, **PNG**, or both.
-9. Confirm a private draft appears in the Micro.blog destination mapped to the chosen recipient, with the filename as title, cleaned transcription when supplied, and original pages in order when supplied.
+9. Confirm a private draft appears in the Micro.blog destination mapped to the chosen recipient, with explicit title/category metadata applied when supplied and original pages in order when supplied.
 
 Do not register the webhook until the deployment and environment configuration are ready.
 
 ## Current limits
 
 - Original handwritten attachments are PNG only.
-- reMarkable transcription is read from the plain-text email body; HTML-only arbitrary email bodies are not converted into post text.
-- Empty subjects fall back to `Handwritten note`.
-- Categories are not yet inferred or supplied by email.
+- reMarkable's own page/notebook tags are not transmitted by Send by email.
+- Categories must already exist on the selected Micro.blog destination.
 - No remotely retrievable `.hwpublish` source document is created yet.
 - The endpoint does not provide a live-publish command.
 
