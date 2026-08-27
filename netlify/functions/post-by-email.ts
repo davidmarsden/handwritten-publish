@@ -9,6 +9,10 @@ type ReceivedAttachment = {
   download_url: string;
 };
 
+type ReceivedEmail = {
+  text?: string | null;
+};
+
 type ReceivedEmailEvent = {
   type?: string;
   data?: {
@@ -110,9 +114,13 @@ function normalizeRecipient(value: string): string {
   return value.trim().toLowerCase();
 }
 
+export function isRemarkableEmailSubject(subject?: string): boolean {
+  return (subject?.trim() ?? '').toLowerCase().startsWith(REMARKABLE_SUBJECT_PREFIX.toLowerCase());
+}
+
 export function titleFromEmailSubject(subject?: string): string {
   const trimmed = subject?.trim() ?? '';
-  const title = trimmed.toLowerCase().startsWith(REMARKABLE_SUBJECT_PREFIX.toLowerCase())
+  const title = isRemarkableEmailSubject(trimmed)
     ? trimmed.slice(REMARKABLE_SUBJECT_PREFIX.length).trim()
     : trimmed;
   return title || 'Handwritten note';
@@ -165,11 +173,24 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;');
 }
 
-function pageHtml(mediaUrls: string[], emailId: string): string {
-  const pages = mediaUrls.map((url, index) => (
+function transcriptionHtml(body: string): string {
+  const cleaned = stripRemarkableEmailFooter(body).trim();
+  if (!cleaned) return '';
+  return cleaned
+    .split(/\r?\n\s*\r?\n/)
+    .map(paragraph => `<p>${escapeHtml(paragraph.trim()).replace(/\r?\n/g, '<br />')}</p>`)
+    .join('\n');
+}
+
+function pageHtml(mediaUrls: string[]): string {
+  return mediaUrls.map((url, index) => (
     `<figure class="handwritten-page" style="margin:0 0 1rem"><img src="${escapeHtml(url)}" alt="Handwritten page ${index + 1}" style="display:block;width:100%;height:auto" /></figure>`
   )).join('\n');
-  return `<!-- handwritten-publish-email:${escapeHtml(emailId)} -->\n${pages}`;
+}
+
+export function emailDraftHtml(emailId: string, body: string, mediaUrls: string[]): string {
+  const marker = `<!-- handwritten-publish-email:${escapeHtml(emailId)} -->`;
+  return [marker, transcriptionHtml(body), pageHtml(mediaUrls)].filter(Boolean).join('\n');
 }
 
 function staleProcessing(job: JobRow): boolean {
@@ -274,6 +295,15 @@ async function findExistingEmailDraft(
   if (matches.length !== 1) return null;
   const url = sourceUrl(matches[0]);
   return url ? { url, preview: url } : null;
+}
+
+async function getReceivedEmail(apiKey: string, emailId: string): Promise<ReceivedEmail> {
+  const response = await fetch(`${RESEND_API}/emails/receiving/${encodeURIComponent(emailId)}`, {
+    headers: bearer(apiKey),
+  });
+  if (!response.ok) throw new Error(`Resend email lookup failed (HTTP ${response.status}).`);
+  const payload = await response.json().catch(() => null) as ReceivedEmail | null;
+  return payload ?? {};
 }
 
 async function listReceivedAttachments(apiKey: string, emailId: string): Promise<ReceivedAttachment[]> {
@@ -415,17 +445,24 @@ export default async (request: Request) => {
 
   let draftCreated = false;
   try {
+    const receivedEmail = isRemarkableEmailSubject(event.data?.subject)
+      ? await getReceivedEmail(resendApiKey, emailId)
+      : {};
+    const body = stripRemarkableEmailFooter(typeof receivedEmail.text === 'string' ? receivedEmail.text : '').trim();
     const attachments = (await listReceivedAttachments(resendApiKey, emailId))
       .filter(attachment => attachment.content_type.toLowerCase() === PNG_MEDIA_TYPE);
-    if (!attachments.length) {
+
+    if (!body && !attachments.length) {
       await deleteProcessingJob(emailId);
-      return json({ ignored: true, reason: 'no PNG attachments' });
+      return json({ ignored: true, reason: 'no transcription or PNG attachments' });
     }
 
-    const mediaEndpoint = await microblogMediaEndpoint(microblogToken);
     const mediaUrls: string[] = [];
-    for (const attachment of attachments) {
-      mediaUrls.push(await uploadAttachmentToMicroblog(attachment, mediaEndpoint, microblogToken));
+    if (attachments.length) {
+      const mediaEndpoint = await microblogMediaEndpoint(microblogToken);
+      for (const attachment of attachments) {
+        mediaUrls.push(await uploadAttachmentToMicroblog(attachment, mediaEndpoint, microblogToken));
+      }
     }
     await rememberPageCount(emailId, mediaUrls.length);
 
@@ -434,7 +471,7 @@ export default async (request: Request) => {
       microblogToken,
       destination,
       title,
-      pageHtml(mediaUrls, emailId),
+      emailDraftHtml(emailId, body, mediaUrls),
     );
     draftCreated = true;
 
