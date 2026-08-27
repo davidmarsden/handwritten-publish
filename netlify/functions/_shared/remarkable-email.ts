@@ -3,9 +3,12 @@ export type ReceivedEmailContent = {
   html?: string | null;
 };
 
+export type RemarkablePostStatus = 'draft' | 'published';
+
 export type RemarkablePostMetadata = {
   title: string | null;
   requestedCategories: string[];
+  status: RemarkablePostStatus;
   body: string;
 };
 
@@ -71,6 +74,7 @@ export function parseRemarkablePostMetadata(transcription: string): RemarkablePo
   const lines = transcription.replace(/\r\n?/g, '\n').split('\n');
   const requestedCategories: string[] = [];
   let title: string | null = null;
+  let status: RemarkablePostStatus = 'draft';
   let index = 0;
   let consumedMetadata = false;
 
@@ -98,6 +102,20 @@ export function parseRemarkablePostMetadata(transcription: string): RemarkablePo
       continue;
     }
 
+    const statusMatch = trimmed.match(/^Status:\s*(.*)$/i);
+    if (statusMatch) {
+      const requestedStatus = statusMatch[1].trim().toLowerCase();
+      if (requestedStatus === 'published') status = 'published';
+      else if (requestedStatus === 'draft') status = 'draft';
+      else {
+        status = 'draft';
+        break;
+      }
+      consumedMetadata = true;
+      index += 1;
+      continue;
+    }
+
     const hashtags = hashtagCategories(trimmed);
     if (hashtags) {
       addCategories(requestedCategories, hashtags.join(','));
@@ -112,6 +130,7 @@ export function parseRemarkablePostMetadata(transcription: string): RemarkablePo
   return {
     title,
     requestedCategories,
+    status,
     body: lines.slice(index).join('\n').trim(),
   };
 }
