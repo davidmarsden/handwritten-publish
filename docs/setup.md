@@ -2,7 +2,7 @@
 
 Handwritten Publish is designed to be useful as a personal, self-hosted publishing tool. You do not need an account on somebody else's Handwritten Publish installation: fork or clone the repository, deploy your own copy, and connect it to your own Micro.blog and Resend accounts.
 
-The browser app works without post-by-email. The email workflow is optional, but it is the part that gives reMarkable the direct **write → send → Micro.blog draft** path.
+The browser app works without post-by-email. The email workflow is optional, but it is the part that gives reMarkable the direct **write → send → Micro.blog** path. Email posts are drafts by default; an explicit `Status: published` metadata line can publish immediately.
 
 ## What you need
 
@@ -64,7 +64,7 @@ Micro.blog app tokens can be created under **Account → App tokens / Edit Apps*
 
 If you have more than one Micro.blog-hosted blog, Handwritten Publish uses Micro.blog's Micropub destinations to choose the target blog.
 
-New posts created by Handwritten Publish are private drafts.
+New posts created by the browser workflow are private drafts.
 
 ## 4. Enable post-by-email (optional)
 
@@ -79,10 +79,11 @@ private Resend address
   ↓ email.received webhook
 Netlify Function
   ↓
-Micro.blog private draft
+Micro.blog draft by default
+  or live post when Status: published is explicit
 ```
 
-Nothing received through this endpoint is published live.
+The safe default is always `draft`. Live publication requires an explicit `Status: published` line in the leading transcription metadata block.
 
 ### Create a private receiving address in Resend
 
@@ -98,7 +99,7 @@ Choose an address that is recognisable to you but contains a high-entropy privat
 blog-f7c2a91d@<id>.resend.app
 ```
 
-Treat this address like a password. Anyone who knows it can create a private draft in the Micro.blog destination mapped to it.
+Treat this address like a password. Anyone who knows it can create a post in the Micro.blog destination mapped to it and, if they know the metadata syntax, could explicitly request live publication.
 
 You can later use your own receiving domain/subdomain if you prefer; the Handwritten Publish side only requires the exact recipient address to match its configured route.
 
@@ -186,20 +187,37 @@ Handwritten Publish currently supports:
 
 For original handwritten pages, choose **PNG** rather than PDF or SVG.
 
-A successful send should create a **private draft** in the configured Micro.blog destination.
+A normal send should create a **private draft** in the configured Micro.blog destination. Test that first before trying live publication.
 
-## Titles and categories from handwriting
+## Titles, categories and status from handwriting
 
 A transcription can begin with a small metadata block:
 
 ```text
 Title: A proper long-post title
 Categories: Notes, reMarkable
+Status: published
 
 This is the post itself.
 ```
 
-Both fields are optional. Without `Title:`, transcription posts remain untitled.
+All three fields are optional. Without `Title:`, transcription posts remain untitled. Without `Status:`, the post is a draft.
+
+`Status:` accepts exactly `draft` or `published`, case-insensitively:
+
+```text
+Status: draft
+```
+
+keeps the post private, while:
+
+```text
+Status: published
+```
+
+publishes it immediately.
+
+Unknown or misspelled status values are left in the post body and the post stays a draft. That fail-safe is intentional: a typo should never accidentally publish something.
 
 You can also use a leading line of hashtags as category shorthand:
 
@@ -219,7 +237,7 @@ reMarkable notebook/page tags are not included in Send by email messages, so the
 | --- | --- | --- | --- |
 | `RESEND_API_KEY` | No | Yes | Fetch received email content and attachment URLs from Resend |
 | `RESEND_WEBHOOK_SECRET` | No | Yes | Verify signed Resend webhooks |
-| `MICROBLOG_EMAIL_TOKEN` | No | Yes | Dedicated Micro.blog token for unattended email drafts |
+| `MICROBLOG_EMAIL_TOKEN` | No | Yes | Dedicated Micro.blog token for unattended email publishing |
 | `POST_BY_EMAIL_ROUTES` | No | Recommended | JSON map of private receiving addresses to Micro.blog destinations |
 | `POST_BY_EMAIL_ADDRESS` | No | Legacy single-route only | Exact private receiving address |
 | `MICROBLOG_EMAIL_DESTINATION` | No | Legacy single-route only | Micro.blog destination for the legacy single route |
@@ -227,12 +245,13 @@ reMarkable notebook/page tags are not included in Send by email messages, so the
 ## Security notes
 
 - Keep private posting addresses private.
+- Treat each posting address as a publishing credential, because explicit metadata can request live publication.
 - Use a dedicated Micro.blog token for email publishing so it can be revoked independently.
 - Do not put tokens into the repository or `.hwpublish` files.
 - The Resend webhook is rejected unless its signature verifies.
 - Email sent to an unknown route is ignored.
 - A message addressed to configured aliases for more than one destination is ignored rather than guessed.
-- Incoming email creates drafts only; there is no live-publish command.
+- Missing status always means draft; only explicit `Status: published` requests live publication.
 
 ## Troubleshooting
 
@@ -240,9 +259,13 @@ reMarkable notebook/page tags are not included in Send by email messages, so the
 
 At least one required environment variable or valid posting route is missing. Check `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `MICROBLOG_EMAIL_TOKEN`, and `POST_BY_EMAIL_ROUTES`.
 
-### The webhook is accepted but no draft appears
+### The webhook is accepted but no post appears
 
 Check that the exact recipient in Resend matches a key in `POST_BY_EMAIL_ROUTES`, including the full domain. Also confirm that the destination value is the correct Micro.blog Micropub destination UID.
+
+### `Status: published` appears in the post instead of publishing
+
+The value must be exactly `published` (case-insensitively) and must appear in the leading metadata block before the ordinary post body. Unknown values deliberately remain body text and default to draft.
 
 ### Transcription works but pages do not
 
@@ -254,7 +277,7 @@ The requested categories must already exist in the selected Micro.blog destinati
 
 ### A webhook is retried
 
-That is safe. Post-by-email records the Resend email ID in Netlify Database and reconciles stale/interrupted jobs before creating a replacement draft.
+That is safe. Post-by-email records the Resend email ID in Netlify Database and reconciles stale/interrupted jobs before creating a replacement post.
 
 ## More detail
 
