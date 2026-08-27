@@ -395,10 +395,11 @@ async function createMicroblogEmailDraft(
   title: string | null,
   html: string,
   categories: string[],
+  status: 'draft' | 'published',
 ): Promise<{ url: string; preview: string }> {
   const properties: Record<string, unknown> = {
     content: [{ html }],
-    'post-status': ['draft'],
+    'post-status': [status],
   };
   if (title) properties.name = [title];
   if (categories.length) properties.category = categories;
@@ -417,13 +418,13 @@ async function createMicroblogEmailDraft(
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    const error = await upstreamError(response, `Micro.blog could not create the email draft (HTTP ${response.status}).`);
+    const error = await upstreamError(response, `Micro.blog could not create the email post (HTTP ${response.status}).`);
     const detail = await error.json().catch(() => null) as { error?: string } | null;
-    throw new Error(detail?.error || 'Micro.blog could not create the email draft.');
+    throw new Error(detail?.error || 'Micro.blog could not create the email post.');
   }
   const result = await response.json().catch(() => ({})) as { url?: string; preview?: string };
   const url = result.url || response.headers.get('Location') || '';
-  if (!url) throw new Error('Micro.blog created the draft but returned no post URL.');
+  if (!url) throw new Error('Micro.blog created the post but returned no post URL.');
   return { url, preview: result.preview || url };
 }
 
@@ -522,13 +523,14 @@ export default async (request: Request) => {
       title,
       emailDraftHtml(emailId, metadata.body, mediaUrls),
       categories,
+      metadata.status,
     );
     draftCreated = true;
 
     try {
       await markCompleted(emailId, mediaUrls.length, draft.url, draft.preview);
     } catch {
-      // The draft already exists. Keep the processing row intact so a later retry can reconcile by email marker.
+      // The remote post already exists. Keep the processing row intact so a later retry can reconcile by email marker.
       return json({
         created: true,
         persistence: 'pending',
@@ -541,7 +543,7 @@ export default async (request: Request) => {
     return json({ created: true, pages: mediaUrls.length, url: draft.url, preview: draft.preview });
   } catch (error) {
     if (!draftCreated) await deleteProcessingJob(emailId).catch(() => undefined);
-    return json({ error: error instanceof Error ? error.message : 'Could not create Micro.blog draft from email.' }, 502);
+    return json({ error: error instanceof Error ? error.message : 'Could not create Micro.blog post from email.' }, 502);
   }
 };
 
