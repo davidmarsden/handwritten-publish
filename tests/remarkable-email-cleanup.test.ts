@@ -47,9 +47,9 @@ describe('reMarkable email cleanup', () => {
     expect(transcription).toBe('A useful bonus feature of handwritten-publish is that if I use the built-in transcription, it works.\n\nHow cool is that?!');
   });
 
-  it('falls back to plain text when no usable HTML body is present', () => {
-    expect(transcriptionFromRemarkableEmail({ text: 'Plain transcription.', html: null }))
-      .toBe('Plain transcription.');
+  it('falls back to plain text and strips the reMarkable footer when no usable HTML body is present', () => {
+    const text = `Plain transcription.\n\n--\nSent from my reMarkable paper tablet\nGet yours at www.remarkable.com\n\nPS: You cannot reply to this email`;
+    expect(transcriptionFromRemarkableEmail({ text, html: null })).toBe('Plain transcription.');
   });
 
   it('parses an explicit title and categories from a handwriting-friendly metadata block', () => {
@@ -57,6 +57,14 @@ describe('reMarkable email cleanup', () => {
       title: 'A proper long-post title',
       requestedCategories: ['reMarkable', 'micropost'],
       body: 'This is the actual post.',
+    });
+  });
+
+  it('preserves an explicit title when the transcription contains metadata only', () => {
+    expect(parseRemarkablePostMetadata('Title: Field notes')).toEqual({
+      title: 'Field notes',
+      requestedCategories: [],
+      body: '',
     });
   });
 
