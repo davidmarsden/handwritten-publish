@@ -513,9 +513,9 @@ export default async (request: Request) => {
       categories = matchExistingCategories(metadata.requestedCategories, availableCategories);
     }
 
-    const title = metadata.body
-      ? metadata.title
-      : titleFromEmailSubject(event.data?.subject);
+    const title = metadata.title ?? (metadata.body
+      ? null
+      : titleFromEmailSubject(event.data?.subject));
     const draft = await createMicroblogEmailDraft(
       microblogToken,
       destination,
