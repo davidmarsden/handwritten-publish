@@ -107,7 +107,10 @@ export function parseRemarkablePostMetadata(transcription: string): RemarkablePo
       const requestedStatus = statusMatch[1].trim().toLowerCase();
       if (requestedStatus === 'published') status = 'published';
       else if (requestedStatus === 'draft') status = 'draft';
-      else break;
+      else {
+        status = 'draft';
+        break;
+      }
       consumedMetadata = true;
       index += 1;
       continue;

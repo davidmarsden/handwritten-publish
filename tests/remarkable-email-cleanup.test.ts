@@ -88,6 +88,15 @@ describe('reMarkable email cleanup', () => {
     });
   });
 
+  it('fails closed when a valid published status is followed by an invalid repeated status', () => {
+    expect(parseRemarkablePostMetadata('Status: published\nStatus: publshed\n\nDo not publish this.')).toEqual({
+      title: null,
+      requestedCategories: [],
+      status: 'draft',
+      body: 'Status: publshed\n\nDo not publish this.',
+    });
+  });
+
   it('preserves an explicit title when the transcription contains metadata only', () => {
     expect(parseRemarkablePostMetadata('Title: Field notes')).toEqual({
       title: 'Field notes',
