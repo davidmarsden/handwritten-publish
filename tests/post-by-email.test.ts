@@ -104,7 +104,6 @@ const ENV_KEYS = [
 const originalEnv = Object.fromEntries(ENV_KEYS.map(key => [key, process.env[key]]));
 
 function configureEnv() {
-  // Deliberately tiny synthetic key so secret scanners do not mistake this test fixture for a credential.
   process.env.RESEND_WEBHOOK_SECRET = 'whsec_YQ==';
   process.env.RESEND_API_KEY = 're_test';
   process.env.POST_BY_EMAIL_ADDRESS = 'secret@inbound.resend.app';
@@ -149,6 +148,16 @@ function receivedEvent(emailId = 'email_123') {
       to: ['secret@inbound.resend.app'],
       subject: 'Field notes',
       attachments: [{ id: 'attachment_1', filename: 'field-notes-1.png', content_type: 'image/png' }],
+    },
+  };
+}
+
+function remarkableEvent(emailId = 'email_published') {
+  return {
+    ...receivedEvent(emailId),
+    data: {
+      ...receivedEvent(emailId).data,
+      subject: 'Document from my reMarkable: Field notes',
     },
   };
 }
@@ -346,6 +355,34 @@ describe('post by email', () => {
       url: 'https://example.micro.blog/2026/08/26/field-notes.html',
       preview: 'https://micro.blog/preview/field-notes',
     });
+  });
+
+  it('publishes immediately only when the transcription explicitly requests Status: published', async () => {
+    configureEnv();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        html: '<html><body><p>Status: published</p><p>This goes live.</p></body></html>',
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        url: 'https://example.micro.blog/2026/08/27/this-goes-live.html',
+        preview: 'https://example.micro.blog/2026/08/27/this-goes-live.html',
+      }), { status: 201, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await handler(await signedRequest(remarkableEvent()));
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const publishCall = fetchMock.mock.calls[2];
+    expect(publishCall[0]).toBe('https://micro.blog/micropub');
+    const payload = JSON.parse(String((publishCall[1] as RequestInit).body));
+    expect(payload.properties['post-status']).toEqual(['published']);
+    expect(payload.properties.content[0].html).toContain('<p>This goes live.</p>');
+    expect(payload.properties.content[0].html).not.toContain('Status: published');
   });
 
   it('does not clear the job when completion persistence fails after Micro.blog created the draft', async () => {
