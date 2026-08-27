@@ -29,6 +29,13 @@ function textFromHtmlFragment(fragment: string): string {
   ).trim();
 }
 
+export function stripRemarkablePlainTextFooter(body: string): string {
+  return body.replace(
+    /\s*--\s*\r?\nSent from my reMarkable paper tablet\r?\nGet yours at www\.remarkable\.com\r?\n\r?\nPS: You cannot reply to this email\s*$/i,
+    '',
+  ).trimEnd();
+}
+
 export function transcriptionFromRemarkableEmail(email: ReceivedEmailContent): string {
   if (typeof email.html === 'string' && email.html.trim()) {
     const bodyMatch = email.html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
@@ -43,7 +50,7 @@ export function transcriptionFromRemarkableEmail(email: ReceivedEmailContent): s
     }
   }
 
-  return typeof email.text === 'string' ? email.text.trim() : '';
+  return typeof email.text === 'string' ? stripRemarkablePlainTextFooter(email.text).trim() : '';
 }
 
 function addCategories(target: string[], raw: string): void {
