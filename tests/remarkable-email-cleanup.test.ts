@@ -52,11 +52,39 @@ describe('reMarkable email cleanup', () => {
     expect(transcriptionFromRemarkableEmail({ text, html: null })).toBe('Plain transcription.');
   });
 
-  it('parses an explicit title and categories from a handwriting-friendly metadata block', () => {
-    expect(parseRemarkablePostMetadata(`Title: A proper long-post title\nCategories: reMarkable, micropost\n\nThis is the actual post.`)).toEqual({
+  it('parses an explicit title, categories and status from a handwriting-friendly metadata block', () => {
+    expect(parseRemarkablePostMetadata(`Title: A proper long-post title\nCategories: reMarkable, micropost\nStatus: published\n\nThis is the actual post.`)).toEqual({
       title: 'A proper long-post title',
       requestedCategories: ['reMarkable', 'micropost'],
+      status: 'published',
       body: 'This is the actual post.',
+    });
+  });
+
+  it('defaults to draft when no status field is present', () => {
+    expect(parseRemarkablePostMetadata('A short micropost from the Blog notebook.')).toEqual({
+      title: null,
+      requestedCategories: [],
+      status: 'draft',
+      body: 'A short micropost from the Blog notebook.',
+    });
+  });
+
+  it('accepts an explicit draft status', () => {
+    expect(parseRemarkablePostMetadata('Status: draft\n\nStill working on this.')).toEqual({
+      title: null,
+      requestedCategories: [],
+      status: 'draft',
+      body: 'Still working on this.',
+    });
+  });
+
+  it('does not interpret an unknown status value as publishing metadata', () => {
+    expect(parseRemarkablePostMetadata('Status: publshed\n\nDo not publish this.')).toEqual({
+      title: null,
+      requestedCategories: [],
+      status: 'draft',
+      body: 'Status: publshed\n\nDo not publish this.',
     });
   });
 
@@ -64,6 +92,7 @@ describe('reMarkable email cleanup', () => {
     expect(parseRemarkablePostMetadata('Title: Field notes')).toEqual({
       title: 'Field notes',
       requestedCategories: [],
+      status: 'draft',
       body: '',
     });
   });
@@ -72,15 +101,8 @@ describe('reMarkable email cleanup', () => {
     expect(parseRemarkablePostMetadata(`#reMarkable #micropost\n\nHow cool is that?!`)).toEqual({
       title: null,
       requestedCategories: ['reMarkable', 'micropost'],
+      status: 'draft',
       body: 'How cool is that?!',
-    });
-  });
-
-  it('leaves a text post untitled when no Title field is present', () => {
-    expect(parseRemarkablePostMetadata('A short micropost from the Blog notebook.')).toEqual({
-      title: null,
-      requestedCategories: [],
-      body: 'A short micropost from the Blog notebook.',
     });
   });
 
