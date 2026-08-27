@@ -11,17 +11,17 @@ Handwritten Publish Netlify Function
   ↓ cleaned transcription and/or ordered PNG pages
 Micro.blog
   ↓
-private draft
+private draft by default, or published when explicitly requested
 ```
 
-Nothing received through this endpoint is published live. The Micropub payload always sets `post-status` to `draft`.
+Post by email is **draft by default**. A message is published live only when its transcription explicitly contains `Status: published` in the leading metadata block.
 
 ## reMarkable publishing modes
 
 Handwritten Publish supports the combinations reMarkable can send from a notebook:
 
-- **Transcription only** — edit the converted handwriting on the reMarkable before sending; the cleaned transcription becomes the Micro.blog draft content.
-- **Original pages only** — PNG attachments are uploaded to Micro.blog and become the draft content as responsive handwritten-page images.
+- **Transcription only** — edit the converted handwriting on the reMarkable before sending; the cleaned transcription becomes the Micro.blog post content.
+- **Original pages only** — PNG attachments are uploaded to Micro.blog and become the post content as responsive handwritten-page images.
 - **Transcription + original pages** — the edited transcription appears first, followed by the original handwritten PNG pages.
 
 For text posts, the reMarkable notebook/document name is treated as transport metadata rather than a Micro.blog title. Text posts are therefore untitled unless the transcription explicitly contains a `Title:` field. Image-only sends keep the existing filename/notebook-name title fallback.
@@ -35,6 +35,7 @@ A transcription can start with a small handwriting-friendly metadata block. Meta
 ```text
 Title: A proper long-post title
 Categories: reMarkable, micropost
+Status: published
 
 This is the actual post text.
 ```
@@ -42,6 +43,22 @@ This is the actual post text.
 `Title:` is optional. Without it, a transcription post has no Micro.blog title.
 
 `Categories:` accepts a comma-separated list. Requested names are matched case-insensitively against categories that already exist on the selected Micro.blog destination. Unknown names are ignored; post by email never creates new categories automatically.
+
+`Status:` accepts exactly `draft` or `published`, case-insensitively:
+
+```text
+Status: draft
+```
+
+keeps the post private, while:
+
+```text
+Status: published
+```
+
+publishes it immediately.
+
+If no `Status:` field is present, the post is a draft. Unknown or misspelled status values are not treated as metadata: they remain in the post body and the post stays a draft. This is intentional so a typo can never accidentally publish a post.
 
 Leading hashtags are shorthand for categories:
 
@@ -71,7 +88,7 @@ The first implementation uses Resend Inbound:
 - Handwritten Publish retrieves short-lived attachment download URLs from Resend's Receiving API.
 - Each PNG is uploaded directly to the selected Micro.blog destination's media endpoint.
 - If categories are requested, Handwritten Publish fetches that destination's existing Micro.blog categories and applies only exact case-insensitive matches.
-- Handwritten Publish creates a private Micro.blog draft from the cleaned transcription, original pages, or both.
+- Handwritten Publish creates a Micro.blog draft unless the cleaned transcription explicitly requests `Status: published`.
 
 ## Security model
 
@@ -86,7 +103,7 @@ Mail sent to another alias is ignored with a successful webhook response. Mail a
 
 Rotating an alias means replacing that address in `POST_BY_EMAIL_ROUTES`; once the old address is removed, it becomes inert from Handwritten Publish's point of view.
 
-Do not expose posting addresses publicly. Anyone who knows one can create a private draft in the destination mapped to that address unless a future optional sender restriction is enabled.
+Do not expose posting addresses publicly. Anyone who knows one can create a draft in the destination mapped to that address and, if they know the metadata syntax, could explicitly request live publication. Treat a posting address as a publishing credential.
 
 ## Required server configuration
 
@@ -126,7 +143,7 @@ These values are intentionally separate from the browser workflow. The browser a
 6. Register `https://<site>/api/post-by-email` in Resend for the `email.received` event.
 7. Save the returned Resend webhook signing secret in Netlify as `RESEND_WEBHOOK_SECRET`.
 8. From reMarkable, save each private alias as a recognisable recipient and send a small notebook using transcription, **PNG**, or both.
-9. Confirm a private draft appears in the Micro.blog destination mapped to the chosen recipient, with explicit title/category metadata applied when supplied and original pages in order when supplied.
+9. Confirm a private draft appears in the Micro.blog destination mapped to the chosen recipient. Then, if wanted, test `Status: published` with a disposable post and confirm that only that explicit value publishes immediately.
 
 Do not register the webhook until the deployment and environment configuration are ready.
 
@@ -136,6 +153,6 @@ Do not register the webhook until the deployment and environment configuration a
 - reMarkable's own page/notebook tags are not transmitted by Send by email.
 - Categories must already exist on the selected Micro.blog destination.
 - No remotely retrievable `.hwpublish` source document is created yet.
-- The endpoint does not provide a live-publish command.
+- Live publishing is available only through an explicit `Status: published` metadata field; draft remains the default.
 
-Webhook retries are protected by durable database-backed idempotency and stale-job reconciliation before any replacement draft is created.
+Webhook retries are protected by durable database-backed idempotency and stale-job reconciliation before any replacement post is created.
