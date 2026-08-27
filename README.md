@@ -4,6 +4,14 @@ Handwritten Publish is a local-first web app for turning handwritten page images
 
 The page image remains canonical. Transcripts, links, photographs and publishing metadata enrich it rather than replace it.
 
+## Set up your own copy
+
+Handwritten Publish is open source and designed to work well as a personal, self-hosted tool. Fork or clone the repository, deploy your own copy to Netlify, and connect it to your own Micro.blog and Resend accounts.
+
+**[Read the complete self-hosted setup guide →](docs/setup.md)**
+
+The browser app works without post-by-email. The optional email workflow adds the direct reMarkable **write → send → private Micro.blog draft** path.
+
 ## v0.1.0
 
 This is the first genuinely usable release.
