@@ -6,25 +6,25 @@ The tools share a publishing core, but each has one clear job and should be usab
 
 ## The family
 
-### Hand Written
+### Writing Hand
 
 **reMarkable → Micro.blog.**
 
-Write on a reMarkable, use the tablet's built-in Send by email workflow, and turn the message into a Micro.blog draft or an explicitly published post. Hand Written owns the Resend inbound-email workflow, reMarkable transcription cleanup, metadata parsing, attachment handling and unattended Micro.blog publishing.
+Write on a reMarkable, use the tablet's built-in Send by email workflow, and turn the message into a Micro.blog draft or an explicitly published post. Writing Hand owns the Resend inbound-email workflow, reMarkable transcription cleanup, metadata parsing, attachment handling and unattended Micro.blog publishing.
 
 Tagline: **From paper to web at the push of a pen.**
 
-### Hand Published
+### Publish Hand
 
 **Handwriting, images and documents → web.**
 
-The browser-based publishing tool. It keeps handwritten page images canonical while allowing transcripts, links, photographs and publishing metadata to enrich them. The current Handwritten Publish web app is the starting point for Hand Published.
+The browser-based publishing tool. It keeps handwritten page images canonical while allowing transcripts, links, photographs and publishing metadata to enrich them. The current Handwritten Publish web app is the starting point for Publish Hand.
 
-Hand Published should remain destination-neutral at the document-model level. Micro.blog is the first publishing adapter, not the definition of the document format.
+Publish Hand should remain destination-neutral at the document-model level. Micro.blog is the first publishing adapter, not the definition of the document format.
 
-### Hand Up
+### BUM Hand
 
-**Batch media uploader for Micro.blog.**
+**Batch Uploader for Micro.blog.**
 
 A focused browser utility for uploading multiple media files to Micro.blog and returning useful URLs/HTML/Markdown. Images are the first use case, but the tool should be designed around media/files rather than "photos" so that supported audio and other uploadable formats can be added cleanly.
 
@@ -36,9 +36,9 @@ Target structure:
 
 ```text
 apps/
-  hand-written/
-  hand-published/
-  hand-up/
+  writing-hand/
+  publish-hand/
+  bum-hand/
 packages/
   publishing-core/
   ui/
@@ -59,15 +59,15 @@ The tools should converge on shared code for:
 
 Product-specific code should stay outside the shared core. In particular:
 
-- reMarkable/Resend email parsing belongs to Hand Written;
-- handwritten document/page models and link-region editing belong to Hand Published;
-- queue/batch-selection and upload-result presentation belong to Hand Up.
+- reMarkable/Resend email parsing belongs to Writing Hand;
+- handwritten document/page models and link-region editing belong to Publish Hand;
+- queue/batch-selection and upload-result presentation belong to BUM Hand.
 
 ## Extraction order
 
-1. **Hand Up** — the smallest and cleanest standalone surface; extract it first using the existing media bridge.
-2. **Hand Published** — move the current browser document publisher behind its own app boundary once shared publishing code exists.
-3. **Hand Written** — give the already mostly server-side reMarkable workflow its own setup/identity after the shared backend has stabilised.
+1. **BUM Hand** — the smallest and cleanest standalone surface; extract it first using the existing media bridge.
+2. **Publish Hand** — move the current browser document publisher behind its own app boundary once shared publishing code exists.
+3. **Writing Hand** — give the already mostly server-side reMarkable workflow its own setup/identity after the shared backend has stabilised.
 4. Replace the root product page with a **Helping Hand** launcher only after all three tools have working routes.
 
 ## Product principle
