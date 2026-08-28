@@ -2,6 +2,8 @@ import { json } from './microblog';
 
 export type PublicUsageAction = 'create' | 'update';
 
+const ALERT_TIMEOUT_MS = 1_500;
+
 function env(name: string): string {
   const netlifyEnv = (globalThis as typeof globalThis & {
     Netlify?: { env?: { get?: (key: string) => string | undefined } };
@@ -39,11 +41,13 @@ export async function recordPublicUsage(action: PublicUsageAction): Promise<void
         subject: `Handwritten Publish public ${action}`,
         text: `A public browser user successfully completed a Micro.blog ${action} through Handwritten Publish at ${timestamp}.\n\nNo Micro.blog token, post title, post content, destination URL or visitor identity was recorded in this alert.`,
       }),
+      signal: AbortSignal.timeout(ALERT_TIMEOUT_MS),
     });
     if (!response.ok) {
       console.warn(`[public-usage] alert failed with HTTP ${response.status}`);
     }
   } catch (error) {
-    console.warn(`[public-usage] alert failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+    const timedOut = error instanceof Error && error.name === 'TimeoutError';
+    console.warn(`[public-usage] alert ${timedOut ? 'timed out' : 'failed'}: ${error instanceof Error ? error.message : 'unknown error'}`);
   }
 }
