@@ -1,44 +1,26 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f3efe6" />
-    <title>Handwritten Publish setup</title>
-    <style>
-      :root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #222; background: #f3efe6; }
-      body { margin: 0; }
-      main { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
-      .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; font-weight: 700; }
-      h1 { font-size: clamp(2rem, 7vw, 4rem); line-height: 1; margin: .35rem 0 1rem; }
-      p { line-height: 1.6; }
-      .links { display: grid; gap: 14px; margin-top: 32px; }
-      a.card { display: block; color: inherit; text-decoration: none; padding: 20px; border: 1px solid rgba(0,0,0,.2); border-radius: 14px; background: rgba(255,255,255,.42); }
-      a.card:hover { background: rgba(255,255,255,.72); }
-      a.card strong { display: block; margin-bottom: 4px; }
-      .back { display: inline-block; margin-top: 32px; color: inherit; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <p class="eyebrow">Handwritten Publish</p>
-      <h1>Setup &amp; configuration</h1>
-      <p>Quick links to the maintained setup notes. These point at the repository documentation so there is only one canonical set of instructions to keep up to date.</p>
-      <div class="links">
-        <a class="card" href="https://github.com/davidmarsden/handwritten-publish/blob/main/docs/setup.md">
-          <strong>Self-hosted setup guide ↗</strong>
-          Fork, deploy to Netlify, connect Micro.blog and configure the optional reMarkable email workflow.
-        </a>
-        <a class="card" href="https://github.com/davidmarsden/handwritten-publish/blob/main/docs/post-by-email.md">
-          <strong>Post-by-email reference ↗</strong>
-          Resend routing, environment variables, titles, categories, status metadata and security details.
-        </a>
-        <a class="card" href="https://github.com/davidmarsden/handwritten-publish/blob/main/docs/public-hosting.md">
-          <strong>Public hosting controls ↗</strong>
-          Usage logs, optional email alerts, rate limits and the emergency browser-publishing switch.
-        </a>
-      </div>
-      <a class="back" href="/">← Back to Handwritten Publish</a>
-    </main>
-  </body>
-</html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="theme-color" content="#f3efe6"><title>Set up Handwritten Publish</title><link rel="stylesheet" href="/setup/styles.css"></head><body><main>
+<p class="eyebrow">Handwritten Publish</p><h1>Set up your own copy</h1>
+<p class="intro">Handwritten Publish is designed to work as a personal, self-hosted publishing tool. Fork or clone it, deploy your own copy, and connect it to your own Micro.blog account. The optional email workflow adds the direct reMarkable <strong>write → send → Micro.blog</strong> path.</p>
+<nav class="nav"><a aria-current="page" href="/setup/">Setup</a><a href="/setup/email/">Post by email</a><a href="/setup/public/">Public hosting</a><a href="/">Open app</a></nav>
+<div class="callout"><strong>Quick reminder:</strong> the browser app works without any email configuration. Post by email is optional. Email posts are drafts by default; only an explicit <code>Status: published</code> line publishes immediately.</div>
+<h2>What you need</h2><p>For the browser app: GitHub, Netlify, and a Micro.blog account if you want to publish. For post by email as well: Resend with inbound email enabled, a private incoming email address, a dedicated Micro.blog app token, and Netlify Database.</p>
+<h2>1. Fork or clone</h2><pre><code>git clone https://github.com/davidmarsden/handwritten-publish.git
+cd handwritten-publish
+npm install
+npm test
+npm run build</code></pre><p>For local development:</p><pre><code>npm run dev</code></pre><p>The app is Vite/React. Production output goes to <code>dist/</code>; server-side bridges live in <code>netlify/functions/</code>.</p>
+<h2>2. Deploy to Netlify</h2><p>Create a Netlify project from your GitHub fork/repository.</p><table><tr><th>Setting</th><th>Value</th></tr><tr><td>Build command</td><td><code>npm run build</code></td></tr><tr><td>Publish directory</td><td><code>dist</code></td></tr></table><p>Netlify recognises the functions in <code>netlify/functions/</code>. The repository also contains a Netlify Database migration; Netlify provisions and applies it during deployment. If you only use the browser app, leave all post-by-email environment variables unset.</p>
+<h2>3. Connect Micro.blog in the browser</h2><p>Paste a Micro.blog app token into the app when you want to publish. The token is kept in browser memory and passed to the Netlify bridge for the requested API calls; Handwritten Publish does not persist it in IndexedDB, <code>.hwpublish</code> files or Netlify configuration.</p><p>Create Micro.blog app tokens under <strong>Account → App tokens / Edit Apps</strong>. If you have several Micro.blog-hosted blogs, Handwritten Publish uses Micropub destinations to let you select one. New browser-created posts start as private drafts.</p>
+<h2>4. Optional: enable post by email</h2><div class="flow">reMarkable
+  ↓ Send by email
+private Resend address
+  ↓ email.received webhook
+Netlify Function
+  ↓
+Micro.blog draft by default
+  or live post when Status: published is explicit</div><p>The detailed configuration is on the <a href="/setup/email/"><strong>Post by email page</strong></a>. That page includes every environment variable, the Resend webhook URL, routing examples and the handwritten title/category/status syntax.</p>
+<h2>5. Optional: public hosting controls</h2><p>If other people use your public Netlify instance with their own Micro.blog tokens, the <a href="/setup/public/"><strong>Public hosting page</strong></a> explains usage logs, optional email alerts, rate limits and the emergency <code>PUBLIC_PUBLISHING_ENABLED=false</code> kill switch.</p>
+<h2>Security summary</h2><ul><li>Never commit Micro.blog or Resend tokens.</li><li>Keep post-by-email recipient addresses private; treat them as publishing credentials.</li><li>Browser users supply their own Micro.blog token.</li><li>Post by email uses a separate dedicated server-side Micro.blog token.</li><li>Missing email <code>Status:</code> always means draft.</li></ul>
+<div class="footer"><a href="/">← Back to app</a><a href="https://github.com/davidmarsden/handwritten-publish/blob/main/docs/setup.md">Source document on GitHub ↗</a></div>
+</main></body></html>
