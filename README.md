@@ -2,21 +2,23 @@
 
 Helping Hand is a family of small, human-first publishing tools for getting material from paper, tablets and local files onto the web with as little machinery in the way as possible.
 
-The suite is being separated into three focused tools:
+The suite is separated into three focused tools:
 
 - **Writing Hand** — reMarkable → Micro.blog. *From paper to web at the push of a pen.*
-- **Publish Hand** — handwriting, images and documents → web. This is the current browser publishing app.
-- **BUM Hand** — **Batch Uploader for Micro.blog**, designed to grow beyond photos to other supported media/files.
+- **Publish Hand** — handwriting, images and documents → web. The browser publishing app lives at `/publish/`.
+- **BUM Hand** — **Batch Uploader for Micro.blog**, currently available at `/bum/` and designed to grow beyond photos to other supported media/files.
 
 The tools share publishing infrastructure but have separate product boundaries. See [`docs/helping-hand.md`](docs/helping-hand.md) for the architecture and extraction plan.
 
-> **Migration note:** the repository and deployed browser app still use the existing Handwritten Publish layout while the suite is split safely. This first restructuring step is additive and does not change production paths or behavior.
+The deployed root route `/` is the **Helping Hand** launcher. Product routes are built as separate Vite entrypoints while continuing to share the same repository, Netlify Functions and publishing core.
 
-## Publish Hand / current browser app
+## Publish Hand
 
-The current browser application is a local-first web app for turning handwritten page images into portable, publishable documents without turning the handwriting itself into disposable input.
+Publish Hand is a local-first web app for turning handwritten page images into portable, publishable documents without turning the handwriting itself into disposable input.
 
 The page image remains canonical. Transcripts, links, photographs and publishing metadata enrich it rather than replace it.
+
+The hosted app lives at `/publish/`.
 
 ## Set up your own copy
 
@@ -24,7 +26,7 @@ The project is open source and designed to work well as a personal, self-hosted 
 
 **[Read the complete self-hosted setup guide →](docs/setup.md)**
 
-The browser app works without post-by-email. The optional email workflow is becoming **Writing Hand** and adds the direct reMarkable **write → send → private Micro.blog draft** path.
+Publish Hand works without post-by-email. The optional email workflow is becoming **Writing Hand** and adds the direct reMarkable **write → send → private Micro.blog draft** path.
 
 ## v0.1.0
 
@@ -73,16 +75,14 @@ npm run build
 npm run dev
 ```
 
-The production app is currently a Vite build at the repository root with Netlify Functions under `netlify/functions/`. The new `apps/` and `packages/` directories establish product boundaries without moving those production entrypoints yet.
+Vite uses multiple entrypoints: the Helping Hand launcher is built from `index.html`, while Publish Hand is built from `publish/index.html` and served at `/publish/`. BUM Hand remains a standalone static surface under `public/bum/`. Shared browser publishing primitives live in `packages/publishing-core/`, with Netlify Functions under `netlify/functions/`.
 
 ## Near-term roadmap
 
-1. extract **BUM Hand** as the first standalone app using the existing media bridge;
-2. extract shared Micro.blog/Micropub primitives into `packages/publishing-core/`;
-3. move the browser publisher behind the **Publish Hand** app boundary;
-4. give the reMarkable email workflow its own **Writing Hand** setup/identity;
-5. replace the root product page with a **Helping Hand** launcher once all three routes are working;
-6. continue destination-neutral publishing work, including handwritten.blog and other suitable endpoints.
+1. give the reMarkable email workflow its own **Writing Hand** setup/identity and route;
+2. continue strengthening shared publisher primitives in `packages/publishing-core/` as more destinations are added;
+3. widen **BUM Hand** beyond images only after accepted file types, size limits and abuse controls are explicitly verified;
+4. continue destination-neutral publishing work, including handwritten.blog and other suitable endpoints.
 
 The destination-neutral document model is intentional: publisher integrations should adapt a `HandwrittenDocument`, not reshape the core format around one service.
 
