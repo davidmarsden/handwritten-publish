@@ -17,6 +17,24 @@ It does not record visitor identity, IP addresses in application logs, Micro.blo
 
 Netlify itself maintains normal platform request/function logs according to the account's plan and retention settings.
 
+## Public monthly counter and demo limit
+
+Every successful browser Micro.blog create/update is also recorded in Netlify Database as a privacy-minimal usage event. The public app reads `/api/public-usage` and displays the current month's total in its footer.
+
+Set an optional positive integer in Netlify:
+
+```text
+PUBLIC_MONTHLY_POST_LIMIT=100
+```
+
+With that example, the footer shows `Public demo · 23 of 100 publishes used this month`. When the count reaches 100, new browser Micro.blog media uploads and create/update requests return HTTP 429 until the next UTC calendar month begins, or until the limit is increased/removed and the deployment is refreshed.
+
+The counter is global, not per-user. It deliberately does not use accounts, cookies or fingerprinting. Your own browser publishing therefore counts toward the same demo allowance.
+
+If `PUBLIC_MONTHLY_POST_LIMIT` is unset, blank, zero or invalid, the counter still reports successful browser publishes but no monthly cap is enforced.
+
+Because the limit is checked immediately before requests rather than holding a database lock open across external Micro.blog calls, a burst of genuinely simultaneous final publish requests could exceed the configured cap by a very small number. The per-IP rate limits remain the first line of defence against automated hammering.
+
 ## See when and how often the public bridge is used
 
 Every successful browser Micro.blog create/update writes a function log entry like:
@@ -47,7 +65,7 @@ PUBLIC_USAGE_ALERT_TO
 
 Use a Resend API key permitted to send mail. `PUBLIC_USAGE_ALERT_FROM` must be an address/domain Resend allows that account to send from, and `PUBLIC_USAGE_ALERT_TO` is the address that should receive alerts.
 
-One alert is sent per successful **post create or update**, not per image upload. Alert delivery is best-effort: a Resend problem never causes an otherwise successful Micro.blog post to fail.
+One alert is sent per successful **post create or update**, not per image upload. Alert delivery is best-effort and bounded: a Resend problem never causes an otherwise successful Micro.blog post to fail.
 
 The alert contains only the action and timestamp.
 
@@ -59,11 +77,11 @@ Set this Netlify environment variable:
 PUBLIC_PUBLISHING_ENABLED=false
 ```
 
-and redeploy/restart the production configuration if Netlify requires it for the change to take effect.
+and redeploy/restart the production configuration so the Functions receive the new environment value. Verify that the browser Micro.blog bridge returns HTTP 503 before treating the switch as active.
 
 The browser Micro.blog config, media and draft endpoints will then return HTTP 503. Local browser document editing/export remains available, and the separate post-by-email endpoint is not affected.
 
-Remove the variable, or set it to `true`, to enable the public Micro.blog bridge again.
+Remove the variable, or set it to `true`, then redeploy and verify again to enable the public Micro.blog bridge.
 
 ## Rate limits
 
