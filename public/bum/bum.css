@@ -150,7 +150,8 @@ input[type="password"], input[type="text"] {
 }
 .item-copy { min-height: 36px; padding: 6px 10px; }
 .status { min-height: 1.5em; margin: 12px 2px 34px; font-weight: 650; }
-footer { padding-top: 18px; border-top: 1px solid rgba(0,0,0,.14); color: #5d5d5d; line-height: 1.5; }
+.suite-footer { display:flex; gap:16px; flex-wrap:wrap; padding-top:18px; border-top:1px solid rgba(0,0,0,.14); color:#5d5d5d; line-height:1.5; font-size:.9rem; }
+.suite-footer a { color:inherit; font-weight:700; text-underline-offset:3px; }
 
 @media (max-width: 640px) {
   .shell { width: min(100% - 22px, 900px); }
@@ -167,13 +168,13 @@ footer { padding-top: 18px; border-top: 1px solid rgba(0,0,0,.14); color: #5d5d5
   :root { color: #f4f1ea; background: #161616; }
   body { background: radial-gradient(circle at top right, rgba(255,255,255,.04), transparent 32rem), #161616; }
   .panel { background: rgba(255,255,255,.045); border-color: rgba(255,255,255,.17); }
-  .hint, .file-meta, .uploaded-url, footer { color: #bab6ad; }
+  .hint, .file-meta, .uploaded-url, .suite-footer { color: #bab6ad; }
   input[type="password"], input[type="text"], .button.secondary { background: #222; color: #f4f1ea; border-color: #807b73; }
   .button.primary { background: #f4f1ea; color: #171717; border-color: #f4f1ea; }
   .button.ghost { color: #f4f1ea; border-color: #77736c; }
   .drop-zone { border-color: #77736c; }
   .drop-zone.dragging { background: #222; border-color: #f4f1ea; }
-  .queue li, .uploaded-list li, footer { border-color: rgba(255,255,255,.11); }
+  .queue li, .uploaded-list li, .suite-footer { border-color: rgba(255,255,255,.11); }
   .file-status.uploaded { color: #7dd49e; }
   .file-status.failed { color: #ff9696; }
 }
