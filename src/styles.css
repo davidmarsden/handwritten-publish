@@ -18,12 +18,15 @@ button:disabled { cursor: default; opacity: .45; }
 .eyebrow { margin: 0; text-transform: uppercase; letter-spacing: .14em; font-size: .75rem; font-weight: 800; }
 
 .panel, .workspace { background: rgba(255,255,255,.68); border: 1px solid rgba(32,32,30,.12); border-radius: 18px; box-shadow: 0 18px 50px rgba(75,64,45,.08); }
-.controls { display: grid; grid-template-columns: minmax(240px, 1fr) auto auto; align-items: end; gap: 14px; padding: 18px; }
+.controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; gap: 14px; padding: 18px; }
+.controls > label:first-child { grid-column: 1 / -1; }
+.controls > small { grid-column: 1 / -1; align-self: center; }
 label span { display: block; margin-bottom: 7px; font-size: .82rem; font-weight: 750; }
 label em { color: #777168; font-weight: 500; }
 input, textarea, select { width: 100%; border: 1px solid rgba(32,32,30,.18); border-radius: 10px; background: #fffdf8; color: inherit; padding: 11px 12px; }
 .fileButton, .controls button, .orderButtons button, .pageActions > button, .annotationHeader button, .annotationToolbar button, .dangerButton, .microblogPublisher button, .categorySuggestions button { border: 0; border-radius: 10px; background: #20201e; color: white; padding: 11px 14px; font-weight: 750; }
-.fileButton { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; }
+.fileButton { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; width: 100%; cursor: pointer; text-align: center; }
+.controls button { min-height: 48px; width: 100%; }
 .fileButton input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
 .metadata { display: grid; gap: 14px; margin-top: 20px; padding: 18px; }
@@ -107,6 +110,7 @@ textarea { min-height: 180px; resize: vertical; line-height: 1.5; }
 @media (max-width: 720px) {
   .shell { width: min(100% - 20px, 1180px); padding-top: 26px; }
   .controls { grid-template-columns: 1fr; }
+  .controls > label:first-child, .controls > small { grid-column: 1; }
   .sectionHeading, .annotationHeader { align-items: start; flex-direction: column; gap: 8px; }
   .pageGrid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
   .pageActions { align-items: center; }
