@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Helping Hand</title>
+  <desc id="desc">An ink-style hand inside an imperfect circle.</desc>
+  <g fill="none" stroke="#191816" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M111 64c0 28-20 50-47 50S16 93 16 65s20-51 48-51c26 0 47 20 47 50Z" stroke-width="7"/>
+    <path d="M47 70 43 40" stroke-width="8"/>
+    <path d="M59 68 58 32" stroke-width="8"/>
+    <path d="M71 68 74 36" stroke-width="8"/>
+    <path d="M82 72 88 46" stroke-width="8"/>
+    <path d="M46 76 72 91" stroke-width="9"/>
+  </g>
+</svg>
