@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "sync:publishing-core": "node scripts/sync-publishing-core.mjs",
+    "predev": "npm run sync:publishing-core",
     "dev": "vite",
+    "prebuild": "npm run sync:publishing-core",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run"

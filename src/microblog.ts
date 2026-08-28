@@ -1,5 +1,5 @@
 import type { ImportedAsset } from './assets';
-import { MICROBLOG_MAX_MEDIA_BYTES, preparePhotoForMicroblog } from './imageOptimization';
+import { preparePhotoForMicroblog } from './imageOptimization';
 import type { ImportedPage } from './importPng';
 import type {
   HandwrittenAsset,
@@ -11,16 +11,14 @@ import type {
   PhotoAnnotation,
 } from './model';
 import { isPhotoPage } from './model';
+import {
+  fetchMicroblogCategories,
+  fetchMicroblogConfig,
+  uploadMicroblogMedia,
+} from '../packages/publishing-core/microblog-client';
 
-export type MicroblogDestination = {
-  uid: string;
-  name: string;
-};
-
-export type MicroblogConfig = {
-  mediaEndpoint: string;
-  destinations: MicroblogDestination[];
-};
+export { fetchMicroblogCategories, fetchMicroblogConfig };
+export type { MicroblogConfig, MicroblogDestination } from '../packages/publishing-core/microblog-client';
 
 type DraftResponse = {
   url: string;
@@ -43,51 +41,6 @@ function normalizedDocumentCategories(document: HandwrittenDocument): string[] {
     .map(category => category.trim())
     .filter(Boolean))]
     .sort((a, b) => a.localeCompare(b));
-}
-
-export async function fetchMicroblogConfig(token: string): Promise<MicroblogConfig> {
-  const response = await fetch('/api/microblog/config', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: token.trim() }),
-  });
-  if (!response.ok) throw new Error(await responseError(response, 'Could not connect to Micro.blog.'));
-  const config = await response.json() as { destinations: MicroblogDestination[] };
-  return { mediaEndpoint: '/api/microblog/media', destinations: config.destinations };
-}
-
-export async function fetchMicroblogCategories(token: string, destination: string): Promise<string[]> {
-  if (!destination.trim()) return [];
-  const response = await fetch('/api/microblog/config', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: token.trim(), destination: destination.trim() }),
-  });
-  if (!response.ok) throw new Error(await responseError(response, 'Could not load Micro.blog categories.'));
-  const config = await response.json() as { categories?: unknown[] };
-  return Array.isArray(config.categories)
-    ? config.categories.filter((category): category is string => typeof category === 'string')
-    : [];
-}
-
-async function uploadMicroblogMedia(token: string, file: File, filename: string, mediaType: string): Promise<string> {
-  if (file.size > MICROBLOG_MAX_MEDIA_BYTES) {
-    throw new Error(`${filename} is ${(file.size / 1_000_000).toFixed(1)} MB; the current Micro.blog bridge supports media files up to 5 MB.`);
-  }
-
-  const response = await fetch('/api/microblog/media', {
-    method: 'POST',
-    headers: {
-      'Content-Type': mediaType,
-      'X-Microblog-Token': token.trim(),
-      'X-File-Name': encodeURIComponent(filename),
-    },
-    body: file,
-  });
-  if (!response.ok) throw new Error(await responseError(response, `Could not upload ${filename}.`));
-  const payload = await response.json() as { url?: string };
-  if (!payload.url) throw new Error(`Micro.blog uploaded ${filename} but returned no media URL.`);
-  return payload.url;
 }
 
 export async function uploadMicroblogPage(
