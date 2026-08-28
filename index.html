@@ -9,8 +9,28 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <footer style="max-width: 1120px; margin: 0 auto; padding: 0 24px 40px; font: 14px/1.5 system-ui, sans-serif;">
+    <footer style="max-width: 1120px; margin: 0 auto; padding: 0 24px 40px; font: 14px/1.5 system-ui, sans-serif; display:flex; gap:18px; flex-wrap:wrap; align-items:center;">
       <a href="/setup/" style="color: inherit;">Setup &amp; email configuration</a>
+      <span id="public-demo-usage" aria-live="polite" style="opacity:.72;">Public demo usage loading…</span>
     </footer>
+    <script>
+      fetch('/api/public-usage')
+        .then(response => response.ok ? response.json() : Promise.reject())
+        .then(status => {
+          const node = document.getElementById('public-demo-usage');
+          if (!node) return;
+          if (!status.publishingEnabled) {
+            node.textContent = 'Public demo publishing is currently paused';
+          } else if (status.limited && status.limit != null) {
+            node.textContent = `Public demo · ${status.used} of ${status.limit} publishes used this month`;
+          } else {
+            node.textContent = `Public demo · ${status.used} publishes this month`;
+          }
+        })
+        .catch(() => {
+          const node = document.getElementById('public-demo-usage');
+          if (node) node.textContent = 'Public demo usage unavailable';
+        });
+    </script>
   </body>
 </html>
