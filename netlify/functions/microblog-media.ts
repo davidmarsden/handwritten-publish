@@ -1,5 +1,5 @@
 import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
-import { publicPublishingDisabledResponse } from './_shared/public-usage';
+import { publicPublishingDisabledResponse, publicUsageLimitResponse } from './_shared/public-usage';
 
 const MAX_MEDIA_BYTES = 5_000_000;
 const SUPPORTED_MEDIA_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
@@ -17,6 +17,8 @@ export default async (request: Request) => {
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
   const disabled = publicPublishingDisabledResponse();
   if (disabled) return disabled;
+  const limitResponse = await publicUsageLimitResponse();
+  if (limitResponse) return limitResponse;
 
   const token = request.headers.get('x-microblog-token')?.trim() ?? '';
   const filename = decodedFilename(request.headers.get('x-file-name'));
