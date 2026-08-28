@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="theme-color" content="#f3efe6"><title>Handwritten Publish — post by email</title><link rel="stylesheet" href="/setup/styles.css"></head><body><main>
+<p class="eyebrow">Handwritten Publish</p><h1>Post by email</h1><p class="intro">The native-feeling reMarkable route: write by hand, optionally edit reMarkable's transcription, send the page, and let Handwritten Publish turn it into a Micro.blog post.</p>
+<nav class="nav"><a href="/setup/">Setup</a><a aria-current="page" href="/setup/email/">Post by email</a><a href="/setup/public/">Public hosting</a><a href="/">Open app</a></nav>
+<div class="flow">reMarkable
+  ↓ Send by email
+private Handwritten Publish address
+  ↓ Resend email.received webhook
+Handwritten Publish Netlify Function
+  ↓ cleaned transcription and/or ordered PNG pages
+Micro.blog
+  ↓
+private draft by default, or published when explicitly requested</div>
+<div class="callout"><strong>Safe default:</strong> email is always a draft unless the transcription explicitly contains <code>Status: published</code> in the leading metadata block.</div>
+<h2>What reMarkable can send</h2><ul><li><strong>Transcription only</strong> — the edited transcription becomes the post content.</li><li><strong>Original pages only</strong> — send PNG; each page is uploaded to Micro.blog and inserted as a responsive image.</li><li><strong>Transcription + original pages</strong> — text first, then the handwritten PNG pages.</li></ul><p>For text posts, the reMarkable notebook/document name is transport metadata, not a Micro.blog title. Text posts stay untitled unless you add <code>Title:</code>. Image-only sends keep the filename/notebook-name fallback.</p>
+<h2>Handwritten metadata</h2><p>Put metadata at the very start of the transcription. These lines are stripped from the final post:</p><pre><code>Title: A proper long-post title
+Categories: reMarkable, micropost
+Status: published
+
+This is the actual post text.</code></pre><p><code>Title:</code> is optional. <code>Categories:</code> is comma-separated and only matches categories that already exist on that Micro.blog destination. <code>Status:</code> accepts exactly <code>draft</code> or <code>published</code>, case-insensitively.</p><p>If <code>Status:</code> is missing, the post is a draft. Unknown or misspelled values stay in the body and force draft behaviour. A typo must never accidentally publish.</p><p>You can also use a leading hashtag-only line as category shorthand:</p><pre><code>#reMarkable #micropost
+
+How cool is that?!</code></pre><p>Ordinary hashtags later in the post remain ordinary post text. reMarkable's own notebook/page tags are not transmitted by Send by email, so they cannot currently map automatically to Micro.blog categories.</p>
+<h2>Why PNG?</h2><p>For original handwritten pages, choose <strong>PNG</strong>. The email path currently supports PNG pages directly; PDF email attachments are not yet supported. Browser PDF import is separate and still works.</p>
+<h2>1. Enable Resend inbound</h2><p>Enable inbound email in Resend. The simplest form is an address on a Resend-managed inbound domain:</p><pre><code>&lt;anything&gt;@&lt;id&gt;.resend.app</code></pre><p>Choose a private, high-entropy local part, for example:</p><pre><code>blog-f7c2a91d@&lt;id&gt;.resend.app</code></pre><div class="callout warning"><strong>Treat the address like a password.</strong> Anyone who knows a configured posting address can create a post and can request live publication if they know the <code>Status: published</code> syntax.</div>
+<h2>2. Create a dedicated Micro.blog token</h2><p>Create a separate Micro.blog app token specifically for unattended email publishing. Add it to Netlify as:</p><pre><code>MICROBLOG_EMAIL_TOKEN</code></pre>
+<h2>3. Add the Resend API key</h2><p>Create a Resend API key that can read received email bodies and attachments, then add it to Netlify as:</p><pre><code>RESEND_API_KEY</code></pre>
+<h2>4. Configure recipient routes</h2><p>Recommended: set <code>POST_BY_EMAIL_ROUTES</code> to a JSON object mapping each exact private receiving address to the Micro.blog Micropub destination UID/blog URL:</p><pre><code>{
+  "blog-f7c2a91d@abc123.resend.app": "https://example.micro.blog/"
+}</code></pre><p>For several blogs:</p><pre><code>{
+  "personal-f7c2a91d@abc123.resend.app": "https://personal.example/",
+  "project-82d4b610@abc123.resend.app": "https://project.example/"
+}</code></pre><p><code>POST_BY_EMAIL_ROUTES</code> is authoritative when present and fails closed if malformed. Older single-destination installs can instead use <code>POST_BY_EMAIL_ADDRESS</code> plus <code>MICROBLOG_EMAIL_DESTINATION</code>.</p>
+<h2>5. Create the Resend webhook</h2><p>Create a Resend webhook for the <code>email.received</code> event using:</p><pre><code>https://YOUR-SITE.example/api/post-by-email</code></pre><p>Copy the webhook signing secret into Netlify as:</p><pre><code>RESEND_WEBHOOK_SECRET</code></pre><p>Then redeploy so the function receives the final configuration.</p>
+<h2>Environment variables</h2><table><tr><th>Variable</th><th>Purpose</th></tr><tr><td><code>RESEND_API_KEY</code></td><td>Fetch received email content and attachment URLs.</td></tr><tr><td><code>RESEND_WEBHOOK_SECRET</code></td><td>Verify signed Resend webhooks.</td></tr><tr><td><code>MICROBLOG_EMAIL_TOKEN</code></td><td>Dedicated Micro.blog token for unattended publishing.</td></tr><tr><td><code>POST_BY_EMAIL_ROUTES</code></td><td>Recommended JSON map of private receiving addresses to Micro.blog destinations.</td></tr><tr><td><code>POST_BY_EMAIL_ADDRESS</code></td><td>Legacy single-route receiving address.</td></tr><tr><td><code>MICROBLOG_EMAIL_DESTINATION</code></td><td>Legacy single-route Micro.blog destination.</td></tr></table>
+<h2>Test sequence</h2><ol><li>Save the private inbound address as a reMarkable recipient.</li><li>Send a tiny transcription or PNG page with no <code>Status:</code> field.</li><li>Confirm a private Micro.blog draft appears.</li><li>Try title/categories metadata.</li><li>Only then test <code>Status: published</code> with a disposable post.</li></ol>
+<h2>Troubleshooting</h2><h3>503 Post by email is not configured</h3><p>Check <code>RESEND_API_KEY</code>, <code>RESEND_WEBHOOK_SECRET</code>, <code>MICROBLOG_EMAIL_TOKEN</code> and the route configuration.</p><h3>Webhook accepted but no post appears</h3><p>Check that the exact recipient in Resend matches a key in <code>POST_BY_EMAIL_ROUTES</code>, and that the destination value is the correct Micropub destination UID.</p><h3>Status: published appears in the post</h3><p>The value must be exactly <code>published</code> and must be in the leading metadata block. Unknown values deliberately remain body text and stay draft.</p><h3>Transcription works but pages do not</h3><p>Send original pages as PNG. PDF email attachments are not yet supported.</p><h3>Categories are missing</h3><p>The category must already exist on the selected Micro.blog destination. Matching is case-insensitive; unknown categories are ignored.</p><h3>Resend retries a webhook</h3><p>That is safe. The email ID is recorded in Netlify Database and stale/interrupted jobs are reconciled before a replacement post is created.</p>
+<div class="footer"><a href="/setup/">← Setup</a><a href="https://github.com/davidmarsden/handwritten-publish/blob/main/docs/post-by-email.md">Source document on GitHub ↗</a></div>
+</main></body></html>
