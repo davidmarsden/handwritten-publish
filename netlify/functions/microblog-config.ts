@@ -1,4 +1,5 @@
 import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
+import { publicPublishingDisabledResponse } from './_shared/public-usage';
 
 type CategoryPayload = {
   categories?: unknown[];
@@ -21,6 +22,9 @@ function categoryNames(payload: CategoryPayload | null): string[] {
 
 export default async (request: Request) => {
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
+  const disabled = publicPublishingDisabledResponse();
+  if (disabled) return disabled;
+
   const body = await request.json().catch(() => ({})) as { token?: string; destination?: string };
   const token = body.token?.trim();
   if (!token) return json({ error: 'Micro.blog app token is required.' }, 400);
@@ -55,4 +59,11 @@ export default async (request: Request) => {
   return json({ destinations, categories });
 };
 
-export const config = { path: '/api/microblog/config' };
+export const config = {
+  path: '/api/microblog/config',
+  rateLimit: {
+    windowLimit: 30,
+    windowSize: 60,
+    aggregateBy: ['ip', 'domain'],
+  },
+};
