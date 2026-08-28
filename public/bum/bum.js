@@ -63,6 +63,10 @@ function failedItems() {
   return items.filter(item => item.state === 'failed');
 }
 
+function retryableFailedItems() {
+  return failedItems().filter(item => item.retryable);
+}
+
 function statusLabel(item) {
   if (item.state === 'uploading') return 'Uploading…';
   if (item.state === 'uploaded') return 'Uploaded';
@@ -72,7 +76,7 @@ function statusLabel(item) {
 
 function render() {
   const queued = queuedItems();
-  const failed = failedItems();
+  const retryable = retryableFailedItems();
   const uploaded = selectedResults();
 
   queueEl.replaceChildren(...items.map(item => {
@@ -103,7 +107,7 @@ function render() {
 
   uploadButton.disabled = busy || !tokenInput.value.trim() || queued.length === 0;
   uploadButton.textContent = busy ? 'Uploading…' : `Upload queued image${queued.length === 1 ? '' : 's'}`;
-  retryButton.hidden = failed.length === 0;
+  retryButton.hidden = retryable.length === 0;
   retryButton.disabled = busy || !tokenInput.value.trim();
   clearButton.disabled = busy || items.length === 0;
   filesInput.disabled = busy;
@@ -152,17 +156,21 @@ function addFiles(fileList) {
   for (const file of accepted) {
     let state = 'queued';
     let error = '';
+    let retryable = true;
     if (!SUPPORTED_TYPES.has(file.type)) {
       state = 'failed';
       error = 'PNG, JPEG or WebP only';
+      retryable = false;
     } else if (!file.size) {
       state = 'failed';
       error = 'Empty file';
+      retryable = false;
     } else if (file.size > MAX_BYTES) {
       state = 'failed';
       error = `Over 5 MB (${formatBytes(file.size)})`;
+      retryable = false;
     }
-    items.push({ id: crypto.randomUUID(), file, state, error, url: '' });
+    items.push({ id: crypto.randomUUID(), file, state, error, url: '', retryable });
   }
 
   if (rejectedCount > 0) {
@@ -186,6 +194,7 @@ async function responseError(response, fallback) {
 async function uploadItem(item, token) {
   item.state = 'uploading';
   item.error = '';
+  item.retryable = true;
   render();
 
   try {
@@ -203,9 +212,11 @@ async function uploadItem(item, token) {
     if (!payload?.url) throw new Error(`Micro.blog accepted ${item.file.name} but returned no media URL.`);
     item.url = payload.url;
     item.state = 'uploaded';
+    item.retryable = false;
   } catch (error) {
     item.state = 'failed';
     item.error = error instanceof Error ? error.message : 'Upload failed';
+    item.retryable = true;
   }
   render();
 }
@@ -231,7 +242,8 @@ async function runUpload(targets) {
   const uploaded = selectedResults().length;
   const failed = failedItems().length;
   if (failed) {
-    setStatus(`${uploaded} uploaded; ${failed} failed. You can retry only the failed items.`);
+    const retryable = retryableFailedItems().length;
+    setStatus(`${uploaded} uploaded; ${failed} failed.${retryable ? ' Retry is available for upload failures.' : ''}`);
   } else {
     setStatus(`${uploaded} image${uploaded === 1 ? '' : 's'} uploaded to Micro.blog.`);
   }
@@ -287,7 +299,7 @@ dropZone.addEventListener('drop', event => {
 
 uploadButton.addEventListener('click', () => runUpload(queuedItems()));
 retryButton.addEventListener('click', () => {
-  const retryable = failedItems().filter(item => SUPPORTED_TYPES.has(item.file.type) && item.file.size > 0 && item.file.size <= MAX_BYTES);
+  const retryable = retryableFailedItems();
   for (const item of retryable) {
     item.state = 'queued';
     item.error = '';
