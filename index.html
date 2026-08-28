@@ -1,70 +1,75 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f3efe6" />
-    <title>Handwritten Publish</title>
-  </head>
-  <body>
-    <aside id="public-demo-banner" aria-live="polite" style="font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#111;color:#fff;padding:18px 24px;">
-      <div style="max-width:1120px;margin:0 auto;display:grid;gap:10px;">
-        <div style="display:flex;justify-content:space-between;gap:24px;align-items:flex-start;flex-wrap:wrap;">
-          <div>
-            <strong style="display:block;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:5px;">Public demo</strong>
-            <span style="font-size:1rem;line-height:1.45;">You can use this hosted copy with your own Micro.blog app token. Your token is not stored by Handwritten Publish. <a href="/setup/" style="color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;">Set up your own copy →</a></span>
-          </div>
-          <strong id="public-demo-count" style="font-size:1.1rem;white-space:nowrap;">Loading monthly allowance…</strong>
-        </div>
-        <div id="public-demo-progress-wrap" style="height:8px;border-radius:999px;background:rgba(255,255,255,.22);overflow:hidden;" hidden>
-          <div id="public-demo-progress" style="height:100%;width:0;background:#fff;border-radius:inherit;transition:width .2s ease;"></div>
-        </div>
-        <small id="public-demo-note" style="opacity:.76;line-height:1.45;">Publishing through this public demo is limited each month. Local editing and export remain available even when the allowance is used up.</small>
-      </div>
-    </aside>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-    <footer style="max-width: 1120px; margin: 0 auto; padding: 0 24px 40px; font: 14px/1.5 system-ui, sans-serif;">
-      <a href="/setup/" style="color: inherit;">Setup &amp; email configuration</a>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f3efe6" />
+  <meta name="description" content="Helping Hand is a small collection of human-first tools for getting handwriting, images and files onto the web." />
+  <title>Helping Hand</title>
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#20201e;background:#f3efe6;font-synthesis:none}
+    *{box-sizing:border-box}
+    body{margin:0}
+    a{color:inherit}
+    .shell{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:64px 0 72px}
+    .eyebrow{margin:0 0 10px;text-transform:uppercase;letter-spacing:.14em;font-size:.75rem;font-weight:800}
+    h1{font-family:Georgia,"Times New Roman",serif;margin:0;font-size:clamp(4rem,13vw,9rem);font-weight:500;line-height:.82;letter-spacing:-.065em}
+    .intro{max-width:760px;margin:28px 0 48px;font-size:clamp(1.12rem,2vw,1.45rem);line-height:1.55;color:#5e5a52}
+    .tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+    .tool{display:flex;min-height:350px;flex-direction:column;padding:24px;border:1px solid rgba(32,32,30,.13);border-radius:18px;background:rgba(255,255,255,.65);box-shadow:0 18px 50px rgba(75,64,45,.07);text-decoration:none;transition:transform .15s ease,box-shadow .15s ease}
+    .tool:hover{transform:translateY(-3px);box-shadow:0 22px 56px rgba(75,64,45,.12)}
+    .number{font-variant-numeric:tabular-nums;font-size:.78rem;font-weight:800;letter-spacing:.12em}
+    .tool h2{font-family:Georgia,"Times New Roman",serif;margin:48px 0 14px;font-size:clamp(2.2rem,4vw,3.6rem);line-height:.95;font-weight:500;letter-spacing:-.045em}
+    .tool p{margin:0;color:#625d54;line-height:1.55}
+    .tool strong{margin-top:auto;padding-top:38px;font-size:.93rem}
+    .tool small{display:block;margin-top:8px;color:#777168;line-height:1.45}
+    .status{display:inline-flex;width:max-content;margin-top:14px;padding:5px 8px;border:1px solid rgba(32,32,30,.16);border-radius:999px;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+    footer{display:flex;gap:20px;flex-wrap:wrap;margin-top:36px;padding-top:24px;border-top:1px solid rgba(32,32,30,.14);font-size:.9rem;color:#625d54}
+    footer a{font-weight:700;text-underline-offset:3px}
+    @media(max-width:800px){.shell{padding-top:42px}.tools{grid-template-columns:1fr}.tool{min-height:280px}.tool h2{margin-top:34px}}
+    @media(prefers-color-scheme:dark){:root{color:#f1ede5;background:#191816}.intro,.tool p,footer,.tool small{color:#bbb3a7}.tool{background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.12);box-shadow:none}.status{border-color:rgba(255,255,255,.18)}footer{border-color:rgba(255,255,255,.13)}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">Small tools for human publishing</p>
+      <h1>Helping<br>Hand</h1>
+      <p class="intro">Three ways to get human-made things onto the web with less machinery in the way. Write by hand, build a post from scans and photos, or just throw a batch of files at Micro.blog.</p>
+    </header>
+
+    <section class="tools" aria-label="Helping Hand tools">
+      <a class="tool" href="/publish/">
+        <span class="number">01</span>
+        <h2>Publish Hand</h2>
+        <p>Build a web-ready post from handwriting, scans, PDFs and photos. Arrange pages, add links and metadata, then publish to Micro.blog.</p>
+        <span class="status">Live</span>
+        <strong>Open Publish Hand →</strong>
+      </a>
+
+      <a class="tool" href="/setup/email/">
+        <span class="number">02</span>
+        <h2>Writing Hand</h2>
+        <p>Write on reMarkable, use its transcription when you want it, and send the result straight to Micro.blog.</p>
+        <span class="status">Live · setup first</span>
+        <strong>Set up Writing Hand →</strong>
+        <small>From paper to web at the push of a pen.</small>
+      </a>
+
+      <a class="tool" href="/bum/">
+        <span class="number">03</span>
+        <h2>BUM Hand</h2>
+        <p>Batch Uploader for Micro.blog. Drop in a bunch of images, upload them in one go, and copy the resulting URLs, Markdown or HTML.</p>
+        <span class="status">Live</span>
+        <strong>Open BUM Hand →</strong>
+      </a>
+    </section>
+
+    <footer>
+      <a href="/setup/">Setup</a>
+      <a href="https://github.com/davidmarsden/handwritten-publish">Source on GitHub</a>
+      <span>Human-first publishing, open source.</span>
     </footer>
-    <script>
-      fetch('/api/public-usage')
-        .then(response => response.ok ? response.json() : Promise.reject())
-        .then(status => {
-          const count = document.getElementById('public-demo-count');
-          const note = document.getElementById('public-demo-note');
-          const progressWrap = document.getElementById('public-demo-progress-wrap');
-          const progress = document.getElementById('public-demo-progress');
-          if (!count || !note || !progressWrap || !progress) return;
-
-          if (!status.publishingEnabled) {
-            count.textContent = 'Publishing paused';
-            note.textContent = 'The public Micro.blog publishing bridge is currently paused. Local editing and export still work.';
-            return;
-          }
-
-          if (status.limited && status.limit != null) {
-            const used = Number(status.used) || 0;
-            const limit = Number(status.limit) || 0;
-            const remaining = Math.max(0, limit - used);
-            count.textContent = `${used} / ${limit} publishes used this month`;
-            note.textContent = remaining > 0
-              ? `${remaining} public demo publish${remaining === 1 ? '' : 'es'} remaining this month. The allowance resets automatically next month.`
-              : 'The public demo publishing allowance has been used up for this month. Local editing and export still work.';
-            progressWrap.hidden = false;
-            progress.style.width = `${limit > 0 ? Math.min(100, (used / limit) * 100) : 100}%`;
-            return;
-          }
-
-          count.textContent = `${status.used ?? 0} publishes this month`;
-          note.textContent = 'This public demo is currently uncapped. Local editing and export remain browser-local.';
-        })
-        .catch(() => {
-          const count = document.getElementById('public-demo-count');
-          const note = document.getElementById('public-demo-note');
-          if (count) count.textContent = 'Usage count unavailable';
-          if (note) note.textContent = 'The demo is still available, but its monthly usage status could not be loaded.';
-        });
-    </script>
-  </body>
+  </main>
+</body>
 </html>
