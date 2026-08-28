@@ -1,22 +1,36 @@
-# Handwritten Publish
+# Helping Hand
 
-Handwritten Publish is a local-first web app for turning handwritten page images into portable, publishable documents without turning the handwriting itself into disposable input.
+Helping Hand is a family of small, human-first publishing tools for getting material from paper, tablets and local files onto the web with as little machinery in the way as possible.
+
+The suite is being separated into three focused tools:
+
+- **Hand Written** — reMarkable → Micro.blog. *From paper to web at the push of a pen.*
+- **Hand Published** — handwriting, images and documents → web. This is the current browser publishing app.
+- **Hand Up** — batch media uploader for Micro.blog, designed to grow beyond photos to other supported media/files.
+
+The tools share publishing infrastructure but have separate product boundaries. See [`docs/helping-hand.md`](docs/helping-hand.md) for the architecture and extraction plan.
+
+> **Migration note:** the repository and deployed browser app still use the existing Handwritten Publish layout while the suite is split safely. This first restructuring step is additive and does not change production paths or behavior.
+
+## Hand Published / current browser app
+
+The current browser application is a local-first web app for turning handwritten page images into portable, publishable documents without turning the handwriting itself into disposable input.
 
 The page image remains canonical. Transcripts, links, photographs and publishing metadata enrich it rather than replace it.
 
 ## Set up your own copy
 
-Handwritten Publish is open source and designed to work well as a personal, self-hosted tool. Fork or clone the repository, deploy your own copy to Netlify, and connect it to your own Micro.blog and Resend accounts.
+The project is open source and designed to work well as a personal, self-hosted tool. Fork or clone the repository, deploy your own copy to Netlify, and connect it to your own Micro.blog and Resend accounts.
 
 **[Read the complete self-hosted setup guide →](docs/setup.md)**
 
-The browser app works without post-by-email. The optional email workflow adds the direct reMarkable **write → send → private Micro.blog draft** path.
+The browser app works without post-by-email. The optional email workflow is becoming **Hand Written** and adds the direct reMarkable **write → send → private Micro.blog draft** path.
 
 ## v0.1.0
 
-This is the first genuinely usable release.
+This is the first genuinely usable release of the browser publisher.
 
-Handwritten Publish can:
+It can:
 
 - import ordered PNG pages exported from reMarkable;
 - mix handwritten pages with standalone JPEG, PNG and WebP photo pages;
@@ -46,7 +60,7 @@ Most document work happens in the browser. Page files, annotations, photo assets
 
 Micro.blog publishing uses small Netlify Functions as request bridges for Micropub configuration, media uploads and post creation/update. Micro.blog app tokens are passed per request and are not stored in IndexedDB, `.hwpublish` files or Netlify configuration.
 
-See [`docs/architecture.md`](docs/architecture.md) and [`docs/STATUS.md`](docs/STATUS.md).
+See [`docs/architecture.md`](docs/architecture.md), [`docs/helping-hand.md`](docs/helping-hand.md) and [`docs/STATUS.md`](docs/STATUS.md).
 
 ## Development
 
@@ -59,29 +73,29 @@ npm run build
 npm run dev
 ```
 
-The production app is a Vite build with Netlify Functions under `netlify/functions/`.
+The production app is currently a Vite build at the repository root with Netlify Functions under `netlify/functions/`. The new `apps/` and `packages/` directories establish product boundaries without moving those production entrypoints yet.
 
-## Roadmap
+## Near-term roadmap
 
-The next major directions are:
-
-1. handwritten.blog publishing support;
-2. assisted transcription and accessibility metadata;
-3. richer revision/history support;
-4. safer direct tablet input/send integrations where platform APIs permit them.
+1. extract **Hand Up** as the first standalone app using the existing media bridge;
+2. extract shared Micro.blog/Micropub primitives into `packages/publishing-core/`;
+3. move the browser publisher behind the **Hand Published** app boundary;
+4. give the reMarkable email workflow its own **Hand Written** setup/identity;
+5. replace the root product page with a **Helping Hand** launcher once all three routes are working;
+6. continue destination-neutral publishing work, including handwritten.blog and other suitable endpoints.
 
 The destination-neutral document model is intentional: publisher integrations should adapt a `HandwrittenDocument`, not reshape the core format around one service.
 
 ## Inspiration and acknowledgements
 
-Handwritten Publish was partly inspired by [handwritten.blog](https://handwritten.blog/) and its simple, appealing idea that handwritten pages can be first-class web publishing content. The ordered mixed handwritten/photo workflow was also informed by looking at that product experience.
+The browser publisher was partly inspired by [handwritten.blog](https://handwritten.blog/) and its simple, appealing idea that handwritten pages can be first-class web publishing content. The ordered mixed handwritten/photo workflow was also informed by looking at that product experience.
 
-No handwritten.blog source code is included or known to have been copied into this repository. The current Handwritten Publish implementation, document format and Micro.blog integration were developed independently. handwritten.blog remains a planned future publishing destination rather than a code dependency.
+No handwritten.blog source code is included or known to have been copied into this repository. The current implementation, document format and Micro.blog integration were developed independently. handwritten.blog remains a planned future publishing destination rather than a code dependency.
 
-Micro.blog integration uses its Micropub and media APIs. reMarkable is a source of exported page images; this project is not affiliated with or endorsed by reMarkable, Micro.blog or handwritten.blog.
+Micro.blog integration uses its Micropub and media APIs. reMarkable is a source of exported page images and email/transcription input; this project is not affiliated with or endorsed by reMarkable, Micro.blog or handwritten.blog.
 
 Third-party npm packages remain subject to their respective licences.
 
 ## Licence
 
-Handwritten Publish is released under the [MIT License](LICENSE).
+Helping Hand and its tools are released under the [MIT License](LICENSE).
