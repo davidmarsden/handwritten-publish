@@ -63,7 +63,7 @@ function killSwitchInstructions(): string {
 }
 
 async function sendOperatorAlert(subject: string, text: string): Promise<boolean> {
-  const apiKey = env('PUBLIC_USAGE_RESEND_API_KEY');
+  const apiKey = env('PUBLIC_USAGE_RESEND_API_KEY') || env('RESEND_API_KEY');
   const from = env('PUBLIC_USAGE_ALERT_FROM');
   const to = env('PUBLIC_USAGE_ALERT_TO');
   if (!apiKey || !from || !to) return false;
