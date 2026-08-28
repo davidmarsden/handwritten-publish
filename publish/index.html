@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f3efe6" />
+    <meta name="description" content="Publish Hand turns handwriting, scans, PDFs and photos into portable, web-ready posts for Micro.blog." />
+    <title>Publish Hand — Helping Hand</title>
+    <style>
+      .product-nav{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:1180px;margin:0 auto;padding:22px 16px 0;display:flex;gap:10px;align-items:center;font-size:.9rem}
+      .product-nav a{color:inherit;text-decoration:none;font-weight:750}
+      .product-nav span{opacity:.45}
+      .product-nav strong{font-weight:800}
+    </style>
+  </head>
+  <body>
+    <aside id="public-demo-banner" aria-live="polite" style="font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#111;color:#fff;padding:18px 24px;">
+      <div style="max-width:1120px;margin:0 auto;display:grid;gap:10px;">
+        <div style="display:flex;justify-content:space-between;gap:24px;align-items:flex-start;flex-wrap:wrap;">
+          <div>
+            <strong style="display:block;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:5px;">Publish Hand · public demo</strong>
+            <span style="font-size:1rem;line-height:1.45;">Use this hosted copy with your own Micro.blog app token. Your token is not stored by Helping Hand. <a href="/setup/" style="color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;">Set up your own copy →</a></span>
+          </div>
+          <strong id="public-demo-count" style="font-size:1.1rem;white-space:nowrap;">Loading monthly allowance…</strong>
+        </div>
+        <div id="public-demo-progress-wrap" style="height:8px;border-radius:999px;background:rgba(255,255,255,.22);overflow:hidden;" hidden>
+          <div id="public-demo-progress" style="height:100%;width:0;background:#fff;border-radius:inherit;transition:width .2s ease;"></div>
+        </div>
+        <small id="public-demo-note" style="opacity:.76;line-height:1.45;">Publishing through this public demo is limited each month. Local editing and export remain available even when the allowance is used up.</small>
+      </div>
+    </aside>
+
+    <nav class="product-nav" aria-label="Helping Hand product navigation">
+      <a href="/">Helping Hand</a><span>→</span><strong>Publish Hand</strong>
+    </nav>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <footer style="max-width:1120px;margin:0 auto;padding:0 24px 40px;font:14px/1.5 system-ui,sans-serif;display:flex;gap:18px;flex-wrap:wrap;">
+      <a href="/" style="color:inherit;">Helping Hand</a>
+      <a href="/bum/" style="color:inherit;">BUM Hand</a>
+      <a href="/setup/" style="color:inherit;">Setup &amp; email configuration</a>
+    </footer>
+    <script>
+      fetch('/api/public-usage')
+        .then(response => response.ok ? response.json() : Promise.reject())
+        .then(status => {
+          const count = document.getElementById('public-demo-count');
+          const note = document.getElementById('public-demo-note');
+          const progressWrap = document.getElementById('public-demo-progress-wrap');
+          const progress = document.getElementById('public-demo-progress');
+          if (!count || !note || !progressWrap || !progress) return;
+
+          if (!status.publishingEnabled) {
+            count.textContent = 'Publishing paused';
+            note.textContent = 'The public Micro.blog publishing bridge is currently paused. Local editing and export still work.';
+            return;
+          }
+
+          if (status.limited && status.limit != null) {
+            const used = Number(status.used) || 0;
+            const limit = Number(status.limit) || 0;
+            const remaining = Math.max(0, limit - used);
+            count.textContent = `${used} / ${limit} publishes used this month`;
+            note.textContent = remaining > 0
+              ? `${remaining} public demo publish${remaining === 1 ? '' : 'es'} remaining this month. The allowance resets automatically next month.`
+              : 'The public demo publishing allowance has been used up for this month. Local editing and export still work.';
+            progressWrap.hidden = false;
+            progress.style.width = `${limit > 0 ? Math.min(100, (used / limit) * 100) : 100}%`;
+            return;
+          }
+
+          count.textContent = `${status.used ?? 0} publishes this month`;
+          note.textContent = 'This public demo is currently uncapped. Local editing and export remain browser-local.';
+        })
+        .catch(() => {
+          const count = document.getElementById('public-demo-count');
+          const note = document.getElementById('public-demo-note');
+          if (count) count.textContent = 'Usage count unavailable';
+          if (note) note.textContent = 'The demo is still available, but its monthly usage status could not be loaded.';
+        });
+    </script>
+  </body>
+</html>
