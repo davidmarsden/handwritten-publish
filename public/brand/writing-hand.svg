@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Writing Hand</title>
+  <desc id="desc">An ink-style hand whose thumb becomes a pen stroke.</desc>
+  <g fill="none" stroke="#264e7a" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M40 64 36 34" stroke-width="8"/>
+    <path d="M53 62 52 25" stroke-width="8"/>
+    <path d="M66 62 69 30" stroke-width="8"/>
+    <path d="M78 66 84 39" stroke-width="8"/>
+    <path d="M40 72 65 88" stroke-width="9"/>
+    <path d="M65 88 99 53" stroke-width="8"/>
+  </g>
+</svg>
