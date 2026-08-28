@@ -38,7 +38,7 @@ It can:
 - mix handwritten pages with standalone JPEG, PNG and WebP photo pages;
 - reorder pages with touch/mouse drag controls or keyboard-friendly arrows;
 - keep a working document locally in IndexedDB;
-- export and re-import portable `.hwpublish` bundles with SHA-256 integrity checks;
+- export and re-import portable `.handpub` bundles with SHA-256 integrity checks;
 - add an optional transcript;
 - draw clickable link regions over handwriting;
 - place original photo assets over handwritten pages with alt text;
@@ -50,9 +50,9 @@ It can:
 
 New Micro.blog posts are always created as private drafts. Published-post updates are available only for posts already tracked by the document and require explicit confirmation.
 
-## Portable `.hwpublish` documents
+## Portable `.handpub` documents
 
-A `.hwpublish` file is an ordinary ZIP archive containing a versioned manifest, page images, optional transcript and original photo assets. The format is deliberately boring and inspectable: if this application disappeared, the handwritten pages would still be ordinary image files.
+A `.handpub` file is an ordinary ZIP archive containing a versioned manifest, page images, optional transcript and original photo assets. The format is deliberately boring and inspectable: if this application disappeared, the handwritten pages would still be ordinary image files.
 
 See [`docs/format.md`](docs/format.md) for the format and compatibility rules.
 
@@ -60,7 +60,7 @@ See [`docs/format.md`](docs/format.md) for the format and compatibility rules.
 
 Most document work happens in the browser. Page files, annotations, photo assets and local draft state remain local unless the user explicitly chooses a publishing operation.
 
-Micro.blog publishing uses small Netlify Functions as request bridges for Micropub configuration, media uploads and post creation/update. Micro.blog app tokens are passed per request and are not stored in IndexedDB, `.hwpublish` files or Netlify configuration.
+Micro.blog publishing uses small Netlify Functions as request bridges for Micropub configuration, media uploads and post creation/update. Micro.blog app tokens are passed per request and are not stored in IndexedDB, `.handpub` files or Netlify configuration.
 
 See [`docs/architecture.md`](docs/architecture.md), [`docs/helping-hand.md`](docs/helping-hand.md) and [`docs/STATUS.md`](docs/STATUS.md).
 
