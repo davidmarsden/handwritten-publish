@@ -1,5 +1,12 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import * as ts from 'typescript';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const ts = require('typescript');
+
+if (!ts?.ScriptTarget?.ES2022 || !ts?.ModuleKind?.ESNext || typeof ts.transpileModule !== 'function') {
+  throw new Error('typescript module failed to load correctly');
+}
 
 const sourcePath = new URL('../packages/publishing-core/microblog-client.ts', import.meta.url);
 const targetDir = new URL('../public/shared/', import.meta.url);
