@@ -2,10 +2,11 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const ts = require('typescript');
+const loadedTypescript = require('typescript');
+const ts = loadedTypescript?.default ?? loadedTypescript;
 
 if (!ts?.ScriptTarget?.ES2022 || !ts?.ModuleKind?.ESNext || typeof ts.transpileModule !== 'function') {
-  throw new Error('typescript module failed to load correctly');
+  throw new Error('typescript compiler API failed to load correctly');
 }
 
 const sourcePath = new URL('../packages/publishing-core/microblog-client.ts', import.meta.url);
