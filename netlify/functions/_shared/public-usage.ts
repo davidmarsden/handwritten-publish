@@ -13,8 +13,10 @@ function env(name: string): string {
 }
 
 function monthlyLimit(): number | null {
-  const configured = Number.parseInt(env('PUBLIC_MONTHLY_POST_LIMIT'), 10);
-  return Number.isFinite(configured) && configured > 0 ? configured : null;
+  const raw = env('PUBLIC_MONTHLY_POST_LIMIT');
+  if (!/^\d+$/.test(raw)) return null;
+  const configured = Number(raw);
+  return Number.isSafeInteger(configured) && configured > 0 ? configured : null;
 }
 
 function monthBounds(now = new Date()) {
