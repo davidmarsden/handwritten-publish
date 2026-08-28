@@ -31,6 +31,15 @@ function basename(filename) {
   return filename.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || 'Uploaded image';
 }
 
+function inferMediaType(file) {
+  if (file.type) return file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  if (name.endsWith('.png')) return 'image/png';
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  if (name.endsWith('.webp')) return 'image/webp';
+  return '';
+}
+
 function escapeHtml(value) {
   return value
     .replaceAll('&', '&amp;')
@@ -39,8 +48,12 @@ function escapeHtml(value) {
     .replaceAll('"', '&quot;');
 }
 
+function escapeMarkdownAlt(value) {
+  return value.replace(/([\\\[\]])/g, '\\$1');
+}
+
 function resultMarkdown(item) {
-  return `![${basename(item.file.name)}](${item.url})`;
+  return `![${escapeMarkdownAlt(basename(item.file.name))}](${item.url})`;
 }
 
 function resultHtml(item) {
@@ -87,7 +100,7 @@ function render() {
     name.textContent = item.file.name;
     const meta = document.createElement('div');
     meta.className = 'file-meta';
-    meta.textContent = `${formatBytes(item.file.size)} · ${item.file.type || 'unknown type'}`;
+    meta.textContent = `${formatBytes(item.file.size)} · ${item.mediaType || 'unknown type'}`;
     details.append(name, meta);
 
     const state = document.createElement('div');
@@ -152,12 +165,14 @@ function addFiles(fileList) {
   const room = Math.max(0, MAX_FILES - items.length);
   const accepted = incoming.slice(0, room);
   const rejectedCount = incoming.length - accepted.length;
+  let invalid = 0;
 
   for (const file of accepted) {
+    const mediaType = inferMediaType(file);
     let state = 'queued';
     let error = '';
     let retryable = true;
-    if (!SUPPORTED_TYPES.has(file.type)) {
+    if (!SUPPORTED_TYPES.has(mediaType)) {
       state = 'failed';
       error = 'PNG, JPEG or WebP only';
       retryable = false;
@@ -170,13 +185,13 @@ function addFiles(fileList) {
       error = `Over 5 MB (${formatBytes(file.size)})`;
       retryable = false;
     }
-    items.push({ id: crypto.randomUUID(), file, state, error, url: '', retryable });
+    if (state === 'failed') invalid += 1;
+    items.push({ id: crypto.randomUUID(), file, mediaType, state, error, url: '', retryable });
   }
 
   if (rejectedCount > 0) {
     setStatus(`Added ${accepted.length}; BUM Hand currently limits a batch to ${MAX_FILES} files.`);
   } else {
-    const invalid = accepted.filter(file => !SUPPORTED_TYPES.has(file.type) || !file.size || file.size > MAX_BYTES).length;
     setStatus(invalid ? `Added ${accepted.length} files; ${invalid} need attention.` : `${accepted.length} image${accepted.length === 1 ? '' : 's'} added.`);
   }
   render();
@@ -201,7 +216,7 @@ async function uploadItem(item, token) {
     const response = await fetch('/api/microblog/media', {
       method: 'POST',
       headers: {
-        'Content-Type': item.file.type,
+        'Content-Type': item.mediaType,
         'X-Microblog-Token': token,
         'X-File-Name': encodeURIComponent(item.file.name),
       },
