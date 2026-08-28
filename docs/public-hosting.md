@@ -39,15 +39,16 @@ Because the limit is checked immediately before requests rather than holding a d
 
 ## Automatic operator alerts
 
-Alerts are disabled unless all three variables are present:
+Configure:
 
 ```text
-PUBLIC_USAGE_RESEND_API_KEY
 PUBLIC_USAGE_ALERT_FROM
 PUBLIC_USAGE_ALERT_TO
 ```
 
-Use a Resend API key permitted to send mail. `PUBLIC_USAGE_ALERT_FROM` must be an address/domain Resend allows that account to send from, and `PUBLIC_USAGE_ALERT_TO` is the operator address that should receive alerts.
+`PUBLIC_USAGE_ALERT_FROM` must be an address Resend allows the account to send from, and `PUBLIC_USAGE_ALERT_TO` is the operator address that should receive alerts.
+
+By default these alerts reuse the deployment's existing `RESEND_API_KEY`. If you prefer stricter credential separation, set a sending-only key as `PUBLIC_USAGE_RESEND_API_KEY`; it takes precedence over `RESEND_API_KEY`.
 
 The app does **not** email on every successful public post. Instead it sends at most two deduplicated usage alerts per UTC month:
 
