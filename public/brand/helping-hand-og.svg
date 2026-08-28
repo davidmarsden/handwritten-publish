@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Helping Hand</title>
+  <desc id="desc">Helping Hand social card with the suite mark and product names.</desc>
+  <rect width="1200" height="630" fill="#f5f2ec"/>
+  <rect x="810" width="390" height="630" fill="#191816"/>
+  <g fill="#191816" font-family="Arial,Helvetica,sans-serif">
+    <text x="72" y="92" font-size="22" font-weight="700" letter-spacing="4">SMALL TOOLS FOR HUMAN PUBLISHING</text>
+  </g>
+  <g fill="#191816" font-family="Georgia,'Times New Roman',serif">
+    <text x="68" y="225" font-size="112">Helping</text>
+    <text x="68" y="335" font-size="112">Hand</text>
+    <text x="72" y="458" font-size="34" font-style="italic">From paper to web at the push of a pen.</text>
+  </g>
+  <path d="M72 390H560" stroke="#191816" stroke-width="3"/>
+  <text x="72" y="545" fill="#191816" font-family="Arial,Helvetica,sans-serif" font-size="20">Writing Hand  ·  Publish Hand  ·  BUM Hand</text>
+  <g transform="translate(850 95) scale(2.65)" fill="none" stroke="#f5f2ec" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M111 64c0 28-20 50-47 50S16 93 16 65s20-51 48-51c26 0 47 20 47 50Z" stroke-width="7"/>
+    <path d="M47 70 43 40" stroke-width="8"/>
+    <path d="M59 68 58 32" stroke-width="8"/>
+    <path d="M71 68 74 36" stroke-width="8"/>
+    <path d="M82 72 88 46" stroke-width="8"/>
+    <path d="M46 76 72 91" stroke-width="9"/>
+  </g>
+  <text x="868" y="500" fill="#f5f2ec" font-family="Arial,Helvetica,sans-serif" font-size="25" font-weight="700" letter-spacing="2">HELPING HAND</text>
+  <text x="868" y="538" fill="#c4bcb1" font-family="Arial,Helvetica,sans-serif" font-size="18">human-first · open source</text>
+</svg>
