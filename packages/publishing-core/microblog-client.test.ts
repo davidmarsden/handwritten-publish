@@ -34,6 +34,22 @@ describe('publishing core Micro.blog client', () => {
     vi.unstubAllGlobals();
   });
 
+  it('infers the upload Content-Type when File.type is empty', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ url: 'https://example.com/scan.png' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const file = new File(['abc'], 'scan.PNG', { type: '' });
+    await expect(uploadMicroblogMedia('token', file)).resolves.toBe('https://example.com/scan.png');
+    expect(fetchMock).toHaveBeenCalledWith('/api/microblog/media', expect.objectContaining({
+      headers: expect.objectContaining({ 'Content-Type': 'image/png' }),
+      body: file,
+    }));
+    vi.unstubAllGlobals();
+  });
+
   it('rejects files over the bridge limit before fetching', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
