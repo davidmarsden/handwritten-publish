@@ -4,6 +4,8 @@ The browser app can be publicly hosted while each visitor supplies their own Mic
 
 Post-by-email is separate: it uses the deployment owner's server-side Resend and Micro.blog configuration and is not opened up to public browser users.
 
+This file is the operator runbook. It is deliberately kept in the repository rather than published as part of the public setup website.
+
 ## What the public bridge can see
 
 The Netlify functions necessarily receive a visitor's Micro.blog token long enough to make the requested Micro.blog API call. Handwritten Publish does not persist or log that token.
@@ -19,21 +21,58 @@ Netlify itself maintains normal platform request/function logs according to the 
 
 ## Public monthly counter and demo limit
 
-Every successful browser Micro.blog create/update is also recorded in Netlify Database as a privacy-minimal usage event. The public app reads `/api/public-usage` and displays the current month's total in its footer.
+Every successful browser Micro.blog create/update is recorded in Netlify Database as a privacy-minimal usage event. The public app reads `/api/public-usage` and displays the current month's total and allowance in its PUBLIC DEMO banner.
 
-Set an optional positive integer in Netlify:
+Set a positive integer in Netlify, for example:
 
 ```text
 PUBLIC_MONTHLY_POST_LIMIT=100
 ```
 
-With that example, the footer shows `Public demo · 23 of 100 publishes used this month`. When the count reaches 100, new browser Micro.blog media uploads and create/update requests return HTTP 429 until the next UTC calendar month begins, or until the limit is increased/removed and the deployment is refreshed.
+When the count reaches the limit, new browser Micro.blog media uploads and create/update requests return HTTP 429 until the next UTC calendar month begins, or until the limit is increased/removed and the deployment is refreshed.
 
 The counter is global, not per-user. It deliberately does not use accounts, cookies or fingerprinting. Your own browser publishing therefore counts toward the same demo allowance.
 
 If `PUBLIC_MONTHLY_POST_LIMIT` is unset, blank, zero or invalid, the counter still reports successful browser publishes but no monthly cap is enforced.
 
 Because the limit is checked immediately before requests rather than holding a database lock open across external Micro.blog calls, a burst of genuinely simultaneous final publish requests could exceed the configured cap by a very small number. The per-IP rate limits remain the first line of defence against automated hammering.
+
+## Automatic operator alerts
+
+Configure:
+
+```text
+PUBLIC_USAGE_ALERT_FROM
+PUBLIC_USAGE_ALERT_TO
+```
+
+`PUBLIC_USAGE_ALERT_FROM` must be an address Resend allows the account to send from, and `PUBLIC_USAGE_ALERT_TO` is the operator address that should receive alerts.
+
+By default these alerts reuse the deployment's existing `RESEND_API_KEY`. If you prefer stricter credential separation, set a sending-only key as `PUBLIC_USAGE_RESEND_API_KEY`; it takes precedence over `RESEND_API_KEY`.
+
+The app does **not** email on every successful public post. Instead it sends at most two deduplicated usage alerts per UTC month:
+
+- one warning when the demo reaches 80% of its configured monthly allowance;
+- one alert when the monthly limit is reached.
+
+Each alert includes the current count, reset time and a copy of the emergency kill-switch instructions below. Alerts are deduplicated in Netlify Database so concurrent requests do not produce a burst of duplicate mail. If alert delivery fails, the reservation is removed so a later request can retry.
+
+Alert delivery is best-effort and bounded: an alert problem never turns an otherwise successful Micro.blog publish into an apparent failure.
+
+## Emergency public-publishing switch
+
+1. In Netlify, set this production environment variable:
+
+   ```text
+   PUBLIC_PUBLISHING_ENABLED=false
+   ```
+
+2. Trigger a fresh production deploy so the Functions receive the new value.
+3. Verify that a browser Micro.blog bridge request returns HTTP 503 before treating the switch as active.
+
+The browser Micro.blog config, media and draft endpoints will then return HTTP 503. Local browser document editing/export remains available, and the separate post-by-email endpoint is not affected.
+
+To re-enable browser publishing, remove the variable or set it to `true`, trigger another production deploy, and verify the bridge again.
 
 ## See when and how often the public bridge is used
 
@@ -43,45 +82,9 @@ Every successful browser Micro.blog create/update writes a function log entry li
 [public-usage] create 2026-08-28T08:00:00.000Z
 ```
 
-or:
-
-```text
-[public-usage] update 2026-08-28T08:05:00.000Z
-```
-
 In Netlify, open the project's function logs and filter for `public-usage`. Function metrics/Observability can also show invocation volume for the Micro.blog bridge functions.
 
 These entries include your own browser publishing too. Handwritten Publish deliberately does not fingerprint or identify visitors merely to distinguish the owner from everybody else.
-
-## Optional email alert for every successful browser post
-
-Alerts are disabled unless all three of these environment variables are present:
-
-```text
-PUBLIC_USAGE_RESEND_API_KEY
-PUBLIC_USAGE_ALERT_FROM
-PUBLIC_USAGE_ALERT_TO
-```
-
-Use a Resend API key permitted to send mail. `PUBLIC_USAGE_ALERT_FROM` must be an address/domain Resend allows that account to send from, and `PUBLIC_USAGE_ALERT_TO` is the address that should receive alerts.
-
-One alert is sent per successful **post create or update**, not per image upload. Alert delivery is best-effort and bounded: a Resend problem never causes an otherwise successful Micro.blog post to fail.
-
-The alert contains only the action and timestamp.
-
-## Emergency public-publishing switch
-
-Set this Netlify environment variable:
-
-```text
-PUBLIC_PUBLISHING_ENABLED=false
-```
-
-and redeploy/restart the production configuration so the Functions receive the new environment value. Verify that the browser Micro.blog bridge returns HTTP 503 before treating the switch as active.
-
-The browser Micro.blog config, media and draft endpoints will then return HTTP 503. Local browser document editing/export remains available, and the separate post-by-email endpoint is not affected.
-
-Remove the variable, or set it to `true`, then redeploy and verify again to enable the public Micro.blog bridge.
 
 ## Rate limits
 
