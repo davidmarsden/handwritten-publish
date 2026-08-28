@@ -41,6 +41,7 @@ export async function publicUsageStatus() {
       used,
       limit,
       remaining: limit === null ? null : Math.max(0, limit - used),
+      periodStart: start.toISOString(),
       resetAt: end.toISOString(),
       limited: limit !== null,
     };
@@ -97,7 +98,7 @@ async function maybeSendUsageAlert(status: Awaited<ReturnType<typeof publicUsage
   const severity = status.used >= status.limit ? 'limit' : status.used >= warningAt ? 'warning' : null;
   if (!severity) return;
 
-  const monthKey = new Date().toISOString().slice(0, 7);
+  const monthKey = status.periodStart.slice(0, 7);
   const alertKey = `${monthKey}:${severity}`;
   const db = getDatabase();
   const reserved = await db.sql`
