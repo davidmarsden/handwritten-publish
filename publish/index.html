@@ -5,15 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#191816" />
     <meta name="description" content="Publish Hand turns handwriting, scans, PDFs and photos into portable, web-ready posts for Micro.blog." />
+    <meta property="og:title" content="Publish Hand — Helping Hand" />
+    <meta property="og:description" content="Build a web-ready post from what you made." />
+    <meta property="og:image" content="/brand/helping-hand-og.svg" />
+    <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
     <title>Publish Hand — Helping Hand</title>
     <style>
       .publish-product{margin:0}
       .publish-cover{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#191816;color:#f1ede5;border-top:1px solid rgba(255,255,255,.05)}
-      .publish-cover-inner{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:28px 0 58px}
+      .publish-cover-inner{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:28px 0 58px;position:relative}
       .product-nav{display:flex;gap:10px;align-items:center;margin-bottom:54px;font-size:.9rem}
       .product-nav a{color:inherit;text-decoration:none;font-weight:750}
       .product-nav span{opacity:.38}
       .product-nav strong{font-weight:800}
+      .cover-mark{position:absolute;right:0;top:86px;width:124px;height:124px;filter:brightness(1.38) saturate(.85)}
       .publish-cover .eyebrow{margin:0 0 12px;text-transform:uppercase;letter-spacing:.14em;font-size:.75rem;font-weight:800}
       .publish-cover h1{font-family:Georgia,"Times New Roman",serif;margin:0;font-size:clamp(4rem,12vw,8.5rem);font-weight:500;line-height:.82;letter-spacing:-.065em}
       .publish-cover .lede{max-width:760px;margin:28px 0 0;color:#c4bcb1;font-size:clamp(1.12rem,2vw,1.42rem);line-height:1.55}
@@ -23,7 +28,7 @@
       .publish-product #root .shell{padding-top:42px}
       .suite-footer{max-width:1120px;margin:0 auto;padding:0 24px 40px;font:14px/1.5 system-ui,sans-serif;display:flex;gap:18px;flex-wrap:wrap}
       .suite-footer a{color:inherit;font-weight:700;text-underline-offset:3px}
-      @media(max-width:700px){.publish-cover-inner{padding-bottom:44px}.product-nav{margin-bottom:38px}.publish-cover .promise{gap:7px}}
+      @media(max-width:820px){.cover-mark{position:static;width:82px;height:82px;margin-bottom:24px}.publish-cover-inner{padding-bottom:44px}.product-nav{margin-bottom:38px}.publish-cover .promise{gap:7px}}
     </style>
   </head>
   <body class="publish-product">
@@ -48,6 +53,7 @@
         <nav class="product-nav" aria-label="Helping Hand product navigation">
           <a href="/">Helping Hand</a><span>→</span><strong>Publish Hand</strong>
         </nav>
+        <img class="cover-mark" src="/brand/publish-hand.svg" alt="" aria-hidden="true" />
         <p class="eyebrow">Build a post from what you made</p>
         <h1>Publish<br>Hand</h1>
         <p class="lede">Turn handwriting, scans, PDFs and photographs into one web-ready post. Arrange the pieces, add context where it helps, then publish without flattening away the original work.</p>
