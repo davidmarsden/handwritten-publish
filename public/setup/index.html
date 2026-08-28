@@ -1,25 +1,92 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="theme-color" content="#f3efe6"><title>Set up Handwritten Publish</title><link rel="stylesheet" href="/setup/styles.css"></head><body><main>
-<p class="eyebrow">Handwritten Publish</p><h1>Set up your own copy</h1>
-<p class="intro">Handwritten Publish is designed to work as a personal, self-hosted publishing tool. Fork or clone it, deploy your own copy, and connect it to your own Micro.blog account. The optional email workflow adds the direct reMarkable <strong>write → send → Micro.blog</strong> path.</p>
-<nav class="nav"><a aria-current="page" href="/setup/">Setup</a><a href="/setup/email/">Post by email</a><a href="/">Open app</a></nav>
-<div class="callout"><strong>Quick reminder:</strong> the browser app works without any email configuration. Post by email is optional. Email posts are drafts by default; only an explicit <code>Status: published</code> line publishes immediately.</div>
-<h2>What you need</h2><p>For the browser app: GitHub, Netlify, and a Micro.blog account if you want to publish. For post by email as well: Resend with inbound email enabled, a private incoming email address, a dedicated Micro.blog app token, and Netlify Database.</p>
-<h2>1. Fork or clone</h2><pre><code>git clone https://github.com/davidmarsden/handwritten-publish.git
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="theme-color" content="#191816">
+  <meta name="description" content="Set up your own self-hosted Helping Hand publishing tools.">
+  <title>Setup — Helping Hand</title>
+  <link rel="stylesheet" href="/setup/styles.css">
+</head>
+<body class="setup-page">
+<header class="setup-cover">
+  <div class="setup-cover-inner">
+    <nav class="writing-product-nav" aria-label="Helping Hand navigation"><a href="/">Helping Hand</a><span>→</span><strong>Setup</strong></nav>
+    <p class="eyebrow">Your tools. Your accounts. Your deployment.</p>
+    <h1>Set up<br>Helping Hand</h1>
+    <p class="intro">Helping Hand is designed to work as a personal, self-hosted publishing kit. Fork it, deploy your own copy, connect your own Micro.blog account, and add Writing Hand only if you want the direct reMarkable email route.</p>
+  </div>
+</header>
+
+<main>
+  <section class="setup-options" aria-label="Setup options">
+    <article>
+      <span class="step">01</span>
+      <h2>Browser tools</h2>
+      <p>Publish Hand and BUM Hand work with your own Micro.blog app token. No inbound email configuration required.</p>
+      <a href="#self-host">Set up the shared deployment ↓</a>
+    </article>
+    <article>
+      <span class="step">02</span>
+      <h2>Writing Hand</h2>
+      <p>Add the reMarkable write → send → Micro.blog path with Resend inbound email and a dedicated server-side token.</p>
+      <a href="/setup/email/">Set up Writing Hand →</a>
+    </article>
+  </section>
+
+  <section class="setup-docs" id="self-host">
+    <p class="section-kicker">Self-hosting</p>
+    <h2 class="section-title">Make it yours.</h2>
+    <p class="intro">The browser tools are local-first. Your token is supplied when you publish and is not persisted by Helping Hand. Writing Hand is optional and adds server-side credentials only to your own deployment.</p>
+
+    <div class="callout"><strong>Quick reminder:</strong> Publish Hand and BUM Hand work without any email configuration. Writing Hand posts are drafts by default; only an explicit <code>Status: published</code> line publishes immediately.</div>
+
+    <h2>What you need</h2>
+    <p>For the browser tools: GitHub, Netlify, and a Micro.blog account if you want to publish. For Writing Hand as well: Resend with inbound email enabled, a private incoming email address, a dedicated Micro.blog app token, and Netlify Database.</p>
+
+    <h2>1. Fork or clone</h2>
+    <pre><code>git clone https://github.com/davidmarsden/handwritten-publish.git
 cd handwritten-publish
 npm install
 npm test
-npm run build</code></pre><p>For local development:</p><pre><code>npm run dev</code></pre><p>The app is Vite/React. Production output goes to <code>dist/</code>; server-side bridges live in <code>netlify/functions/</code>.</p>
-<h2>2. Deploy to Netlify</h2><p>Create a Netlify project from your GitHub fork/repository.</p><table><tr><th>Setting</th><th>Value</th></tr><tr><td>Build command</td><td><code>npm run build</code></td></tr><tr><td>Publish directory</td><td><code>dist</code></td></tr></table><p>Netlify recognises the functions in <code>netlify/functions/</code>. The repository also contains a Netlify Database migration; Netlify provisions and applies it during deployment. If you only use the browser app, leave all post-by-email environment variables unset.</p>
-<h2>3. Connect Micro.blog in the browser</h2><p>Paste a Micro.blog app token into the app when you want to publish. The token is kept in browser memory and passed to the Netlify bridge for the requested API calls; Handwritten Publish does not persist it in IndexedDB, <code>.hwpublish</code> files or Netlify configuration.</p><p>Create Micro.blog app tokens under <strong>Account → App tokens / Edit Apps</strong>. If you have several Micro.blog-hosted blogs, Handwritten Publish uses Micropub destinations to let you select one. New browser-created posts start as private drafts.</p>
-<h2>4. Optional: enable post by email</h2><div class="flow">reMarkable
+npm run build</code></pre>
+    <p>For local development:</p>
+    <pre><code>npm run dev</code></pre>
+    <p>The suite uses Vite/React plus static product pages. Production output goes to <code>dist/</code>; server-side bridges live in <code>netlify/functions/</code>.</p>
+
+    <h2>2. Deploy to Netlify</h2>
+    <p>Create a Netlify project from your GitHub fork/repository.</p>
+    <table><tr><th>Setting</th><th>Value</th></tr><tr><td>Build command</td><td><code>npm run build</code></td></tr><tr><td>Publish directory</td><td><code>dist</code></td></tr></table>
+    <p>Netlify recognises the functions in <code>netlify/functions/</code>. The repository also contains a Netlify Database migration; Netlify provisions and applies it during deployment. If you only use the browser tools, leave all post-by-email environment variables unset.</p>
+
+    <h2>3. Connect Micro.blog in the browser</h2>
+    <p>Paste a Micro.blog app token into Publish Hand or BUM Hand when you want to publish or upload. The token is kept in browser memory and passed to the Netlify bridge only for the requested API calls; Helping Hand does not persist it in IndexedDB, portable documents or Netlify configuration.</p>
+    <p>Create Micro.blog app tokens under <strong>Account → App tokens / Edit Apps</strong>. If you have several Micro.blog-hosted blogs, Publish Hand uses Micropub destinations to let you select one. New browser-created posts start as private drafts.</p>
+
+    <h2>4. Optional: enable Writing Hand</h2>
+    <div class="flow">reMarkable
   ↓ Send by email
 private Resend address
   ↓ email.received webhook
 Netlify Function
   ↓
 Micro.blog draft by default
-  or live post when Status: published is explicit</div><p>The detailed configuration is on the <a href="/setup/email/"><strong>Post by email page</strong></a>. That page includes every environment variable, the Resend webhook URL, routing examples and the handwritten title/category/status syntax.</p>
-<h2>Security summary</h2><ul><li>Never commit Micro.blog or Resend tokens.</li><li>Keep post-by-email recipient addresses private; treat them as publishing credentials.</li><li>Browser users supply their own Micro.blog token.</li><li>Post by email uses a separate dedicated server-side Micro.blog token.</li><li>Missing email <code>Status:</code> always means draft.</li></ul>
-<div class="footer"><a href="/">← Back to app</a><a href="https://github.com/davidmarsden/handwritten-publish/blob/main/docs/setup.md">Source document on GitHub ↗</a></div>
-</main></body></html>
+  or live post when Status: published is explicit</div>
+    <p>The detailed configuration is on the <a href="/setup/email/"><strong>Writing Hand page</strong></a>. It includes every environment variable, the Resend webhook URL, routing examples and the handwritten title/category/status syntax.</p>
+
+    <h2>Security summary</h2>
+    <ul><li>Never commit Micro.blog or Resend tokens.</li><li>Keep Writing Hand recipient addresses private; treat them as publishing credentials.</li><li>Browser users supply their own Micro.blog token.</li><li>Writing Hand uses a separate dedicated server-side Micro.blog token.</li><li>Missing email <code>Status:</code> always means draft.</li></ul>
+
+    <footer class="suite-footer">
+      <a href="/">Helping Hand</a>
+      <a href="/setup/email/">Writing Hand</a>
+      <a href="/publish/">Publish Hand</a>
+      <a href="/bum/">BUM Hand</a>
+      <a href="/setup/">Setup</a>
+      <a href="https://davidmarsden.info/">davidmarsden.info</a>
+      <a href="https://github.com/davidmarsden/handwritten-publish">GitHub</a>
+    </footer>
+  </section>
+</main>
+</body>
+</html>
