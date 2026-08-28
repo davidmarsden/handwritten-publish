@@ -22,7 +22,7 @@
       .publish-product #root .hero{display:none}
       .publish-product #root .shell{padding-top:42px}
       .suite-footer{max-width:1120px;margin:0 auto;padding:0 24px 40px;font:14px/1.5 system-ui,sans-serif;display:flex;gap:18px;flex-wrap:wrap}
-      .suite-footer a{color:inherit}
+      .suite-footer a{color:inherit;font-weight:700;text-underline-offset:3px}
       @media(max-width:700px){.publish-cover-inner{padding-bottom:44px}.product-nav{margin-bottom:38px}.publish-cover .promise{gap:7px}}
     </style>
   </head>
@@ -54,7 +54,7 @@
         <div class="promise" aria-label="Publish Hand principles">
           <span>Handwriting stays handwriting</span>
           <span>Local-first editing</span>
-          <span>Portable .hwpublish files</span>
+          <span>Portable documents</span>
         </div>
       </div>
     </header>
@@ -64,8 +64,11 @@
     <footer class="suite-footer">
       <a href="/">Helping Hand</a>
       <a href="/setup/email/">Writing Hand</a>
+      <a href="/publish/">Publish Hand</a>
       <a href="/bum/">BUM Hand</a>
-      <a href="/setup/">Setup &amp; configuration</a>
+      <a href="/setup/">Setup</a>
+      <a href="https://davidmarsden.info/">davidmarsden.info</a>
+      <a href="https://github.com/davidmarsden/handwritten-publish">GitHub</a>
     </footer>
     <script>
       fetch('/api/public-usage')
