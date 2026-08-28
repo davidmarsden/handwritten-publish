@@ -1,5 +1,5 @@
 import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
-import { publicPublishingDisabledResponse, recordPublicUsage } from './_shared/public-usage';
+import { publicPublishingDisabledResponse, publicUsageLimitResponse, recordPublicUsage } from './_shared/public-usage';
 
 type PostStatus = 'draft' | 'published';
 
@@ -183,6 +183,9 @@ export default async (request: Request) => {
 
   if (!body.title?.trim()) return json({ error: 'Post title is required.' }, 400);
   if (!body.html?.trim()) return json({ error: 'Handwritten post content is required.' }, 400);
+
+  const limitResponse = await publicUsageLimitResponse();
+  if (limitResponse) return limitResponse;
 
   if (body.updateUrl) {
     // Backward-safe default: callers must explicitly opt into published updates.
