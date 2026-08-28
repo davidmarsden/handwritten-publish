@@ -24,10 +24,10 @@
     .tool strong{margin-top:auto;padding-top:38px;font-size:.93rem}
     .tool small{display:block;margin-top:8px;color:#777168;line-height:1.45}
     .status{display:inline-flex;width:max-content;margin-top:14px;padding:5px 8px;border:1px solid rgba(32,32,30,.16);border-radius:999px;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
-    footer{display:flex;gap:20px;flex-wrap:wrap;margin-top:36px;padding-top:24px;border-top:1px solid rgba(32,32,30,.14);font-size:.9rem;color:#625d54}
-    footer a{font-weight:700;text-underline-offset:3px}
+    .suite-footer{display:flex;gap:18px;flex-wrap:wrap;margin-top:36px;padding-top:24px;border-top:1px solid rgba(32,32,30,.14);font-size:.9rem;color:#625d54}
+    .suite-footer a{font-weight:700;text-underline-offset:3px}
     @media(max-width:800px){.shell{padding-top:42px}.tools{grid-template-columns:1fr}.tool{min-height:280px}.tool h2{margin-top:34px}}
-    @media(prefers-color-scheme:dark){:root{color:#f1ede5;background:#191816}.intro,.tool p,footer,.tool small{color:#bbb3a7}.tool{background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.12);box-shadow:none}.status{border-color:rgba(255,255,255,.18)}footer{border-color:rgba(255,255,255,.13)}}
+    @media(prefers-color-scheme:dark){:root{color:#f1ede5;background:#191816}.intro,.tool p,.suite-footer,.tool small{color:#bbb3a7}.tool{background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.12);box-shadow:none}.status{border-color:rgba(255,255,255,.18)}.suite-footer{border-color:rgba(255,255,255,.13)}}
   </style>
 </head>
 <body>
@@ -65,10 +65,14 @@
       </a>
     </section>
 
-    <footer>
+    <footer class="suite-footer">
+      <a href="/">Helping Hand</a>
+      <a href="/setup/email/">Writing Hand</a>
+      <a href="/publish/">Publish Hand</a>
+      <a href="/bum/">BUM Hand</a>
       <a href="/setup/">Setup</a>
-      <a href="https://github.com/davidmarsden/handwritten-publish">Source on GitHub</a>
-      <span>Human-first publishing, open source.</span>
+      <a href="https://davidmarsden.info/">davidmarsden.info</a>
+      <a href="https://github.com/davidmarsden/handwritten-publish">GitHub</a>
     </footer>
   </main>
 </body>
