@@ -57,7 +57,7 @@ export async function uploadMicroblogMedia(
   token: string,
   file: File,
   filename: string = file.name,
-  mediaType: string = file.type,
+  mediaType: string = inferImageMediaType(file),
 ): Promise<string> {
   if (file.size > MICROBLOG_MAX_MEDIA_BYTES) {
     throw new Error(`${filename} is ${(file.size / 1_000_000).toFixed(1)} MB; the current Micro.blog bridge supports media files up to 5 MB.`);
