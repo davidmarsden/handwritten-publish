@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">BUM Hand</title>
+  <desc id="desc">An ink-style hand above an upload tray.</desc>
+  <g fill="none" stroke="#5c6f3a" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M38 55 34 31" stroke-width="8"/>
+    <path d="M51 53 50 23" stroke-width="8"/>
+    <path d="M64 54 67 27" stroke-width="8"/>
+    <path d="M38 62 57 73" stroke-width="9"/>
+    <path d="M76 76V47" stroke-width="8"/>
+    <path d="m64 58 12-12 12 12" stroke-width="8"/>
+    <path d="M25 77v22h78V77" stroke-width="8"/>
+  </g>
+</svg>
