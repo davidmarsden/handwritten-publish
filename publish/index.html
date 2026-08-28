@@ -3,17 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f3efe6" />
+    <meta name="theme-color" content="#191816" />
     <meta name="description" content="Publish Hand turns handwriting, scans, PDFs and photos into portable, web-ready posts for Micro.blog." />
     <title>Publish Hand — Helping Hand</title>
     <style>
-      .product-nav{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:1180px;margin:0 auto;padding:22px 16px 0;display:flex;gap:10px;align-items:center;font-size:.9rem}
+      .publish-product{margin:0}
+      .publish-cover{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#191816;color:#f1ede5;border-top:1px solid rgba(255,255,255,.05)}
+      .publish-cover-inner{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:28px 0 58px}
+      .product-nav{display:flex;gap:10px;align-items:center;margin-bottom:54px;font-size:.9rem}
       .product-nav a{color:inherit;text-decoration:none;font-weight:750}
-      .product-nav span{opacity:.45}
+      .product-nav span{opacity:.38}
       .product-nav strong{font-weight:800}
+      .publish-cover .eyebrow{margin:0 0 12px;text-transform:uppercase;letter-spacing:.14em;font-size:.75rem;font-weight:800}
+      .publish-cover h1{font-family:Georgia,"Times New Roman",serif;margin:0;font-size:clamp(4rem,12vw,8.5rem);font-weight:500;line-height:.82;letter-spacing:-.065em}
+      .publish-cover .lede{max-width:760px;margin:28px 0 0;color:#c4bcb1;font-size:clamp(1.12rem,2vw,1.42rem);line-height:1.55}
+      .publish-cover .promise{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px;color:#aaa196;font-size:.86rem}
+      .publish-cover .promise span{padding:7px 10px;border:1px solid rgba(255,255,255,.14);border-radius:999px}
+      .publish-product #root .hero{display:none}
+      .publish-product #root .shell{padding-top:42px}
+      .suite-footer{max-width:1120px;margin:0 auto;padding:0 24px 40px;font:14px/1.5 system-ui,sans-serif;display:flex;gap:18px;flex-wrap:wrap}
+      .suite-footer a{color:inherit}
+      @media(max-width:700px){.publish-cover-inner{padding-bottom:44px}.product-nav{margin-bottom:38px}.publish-cover .promise{gap:7px}}
     </style>
   </head>
-  <body>
+  <body class="publish-product">
     <aside id="public-demo-banner" aria-live="polite" style="font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#111;color:#fff;padding:18px 24px;">
       <div style="max-width:1120px;margin:0 auto;display:grid;gap:10px;">
         <div style="display:flex;justify-content:space-between;gap:24px;align-items:flex-start;flex-wrap:wrap;">
@@ -30,16 +43,29 @@
       </div>
     </aside>
 
-    <nav class="product-nav" aria-label="Helping Hand product navigation">
-      <a href="/">Helping Hand</a><span>→</span><strong>Publish Hand</strong>
-    </nav>
+    <header class="publish-cover">
+      <div class="publish-cover-inner">
+        <nav class="product-nav" aria-label="Helping Hand product navigation">
+          <a href="/">Helping Hand</a><span>→</span><strong>Publish Hand</strong>
+        </nav>
+        <p class="eyebrow">Build a post from what you made</p>
+        <h1>Publish<br>Hand</h1>
+        <p class="lede">Turn handwriting, scans, PDFs and photographs into one web-ready post. Arrange the pieces, add context where it helps, then publish without flattening away the original work.</p>
+        <div class="promise" aria-label="Publish Hand principles">
+          <span>Handwriting stays handwriting</span>
+          <span>Local-first editing</span>
+          <span>Portable .hwpublish files</span>
+        </div>
+      </div>
+    </header>
 
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <footer style="max-width:1120px;margin:0 auto;padding:0 24px 40px;font:14px/1.5 system-ui,sans-serif;display:flex;gap:18px;flex-wrap:wrap;">
-      <a href="/" style="color:inherit;">Helping Hand</a>
-      <a href="/bum/" style="color:inherit;">BUM Hand</a>
-      <a href="/setup/" style="color:inherit;">Setup &amp; email configuration</a>
+    <footer class="suite-footer">
+      <a href="/">Helping Hand</a>
+      <a href="/setup/email/">Writing Hand</a>
+      <a href="/bum/">BUM Hand</a>
+      <a href="/setup/">Setup &amp; configuration</a>
     </footer>
     <script>
       fetch('/api/public-usage')
