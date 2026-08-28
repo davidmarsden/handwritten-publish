@@ -1,3 +1,4 @@
+import { getDatabase } from '@netlify/database';
 import { json } from './microblog';
 
 export type PublicUsageAction = 'create' | 'update';
@@ -11,6 +12,58 @@ function env(name: string): string {
   return (netlifyEnv ?? process.env[name] ?? '').trim();
 }
 
+function monthlyLimit(): number | null {
+  const configured = Number.parseInt(env('PUBLIC_MONTHLY_POST_LIMIT'), 10);
+  return Number.isFinite(configured) && configured > 0 ? configured : null;
+}
+
+function monthBounds(now = new Date()) {
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  return { start, end };
+}
+
+export async function publicUsageStatus() {
+  const limit = monthlyLimit();
+  const { start, end } = monthBounds();
+  try {
+    const db = getDatabase();
+    const [row] = await db.sql`
+      SELECT COUNT(*)::int AS used
+      FROM public_usage_events
+      WHERE created_at >= ${start.toISOString()} AND created_at < ${end.toISOString()}
+    ` as Array<{ used: number }>;
+    const used = Number(row?.used ?? 0);
+    return {
+      used,
+      limit,
+      remaining: limit === null ? null : Math.max(0, limit - used),
+      resetAt: end.toISOString(),
+      limited: limit !== null,
+    };
+  } catch (error) {
+    console.warn(`[public-usage] counter read failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+    throw error;
+  }
+}
+
+export async function publicUsageLimitResponse(): Promise<Response | null> {
+  const limit = monthlyLimit();
+  if (limit === null) return null;
+  try {
+    const status = await publicUsageStatus();
+    if (status.used < limit) return null;
+    return json({
+      error: 'This public Handwritten Publish demo has reached its monthly publishing limit. You can still use the local document tools or run your own copy.',
+      ...status,
+    }, 429);
+  } catch {
+    return json({
+      error: 'Public demo usage could not be checked safely, so browser publishing is temporarily unavailable.',
+    }, 503);
+  }
+}
+
 export function publicPublishingDisabledResponse(): Response | null {
   const configured = env('PUBLIC_PUBLISHING_ENABLED').toLowerCase();
   if (configured !== 'false' && configured !== '0' && configured !== 'off') return null;
@@ -22,6 +75,14 @@ export function publicPublishingDisabledResponse(): Response | null {
 export async function recordPublicUsage(action: PublicUsageAction): Promise<void> {
   const timestamp = new Date().toISOString();
   console.info(`[public-usage] ${action} ${timestamp}`);
+
+  try {
+    const db = getDatabase();
+    await db.sql`INSERT INTO public_usage_events (action, created_at) VALUES (${action}, ${timestamp})`;
+  } catch (error) {
+    // The Micro.blog mutation has already succeeded. Counter failures must never turn that into an apparent publish failure.
+    console.warn(`[public-usage] counter write failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+  }
 
   const apiKey = env('PUBLIC_USAGE_RESEND_API_KEY');
   const from = env('PUBLIC_USAGE_ALERT_FROM');
