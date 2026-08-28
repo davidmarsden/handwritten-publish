@@ -4,15 +4,15 @@ Helping Hand is a family of small, human-first publishing tools for getting mate
 
 The suite is being separated into three focused tools:
 
-- **Hand Written** — reMarkable → Micro.blog. *From paper to web at the push of a pen.*
-- **Hand Published** — handwriting, images and documents → web. This is the current browser publishing app.
-- **Hand Up** — batch media uploader for Micro.blog, designed to grow beyond photos to other supported media/files.
+- **Writing Hand** — reMarkable → Micro.blog. *From paper to web at the push of a pen.*
+- **Publish Hand** — handwriting, images and documents → web. This is the current browser publishing app.
+- **BUM Hand** — **Batch Uploader for Micro.blog**, designed to grow beyond photos to other supported media/files.
 
 The tools share publishing infrastructure but have separate product boundaries. See [`docs/helping-hand.md`](docs/helping-hand.md) for the architecture and extraction plan.
 
 > **Migration note:** the repository and deployed browser app still use the existing Handwritten Publish layout while the suite is split safely. This first restructuring step is additive and does not change production paths or behavior.
 
-## Hand Published / current browser app
+## Publish Hand / current browser app
 
 The current browser application is a local-first web app for turning handwritten page images into portable, publishable documents without turning the handwriting itself into disposable input.
 
@@ -24,7 +24,7 @@ The project is open source and designed to work well as a personal, self-hosted 
 
 **[Read the complete self-hosted setup guide →](docs/setup.md)**
 
-The browser app works without post-by-email. The optional email workflow is becoming **Hand Written** and adds the direct reMarkable **write → send → private Micro.blog draft** path.
+The browser app works without post-by-email. The optional email workflow is becoming **Writing Hand** and adds the direct reMarkable **write → send → private Micro.blog draft** path.
 
 ## v0.1.0
 
@@ -77,10 +77,10 @@ The production app is currently a Vite build at the repository root with Netlify
 
 ## Near-term roadmap
 
-1. extract **Hand Up** as the first standalone app using the existing media bridge;
+1. extract **BUM Hand** as the first standalone app using the existing media bridge;
 2. extract shared Micro.blog/Micropub primitives into `packages/publishing-core/`;
-3. move the browser publisher behind the **Hand Published** app boundary;
-4. give the reMarkable email workflow its own **Hand Written** setup/identity;
+3. move the browser publisher behind the **Publish Hand** app boundary;
+4. give the reMarkable email workflow its own **Writing Hand** setup/identity;
 5. replace the root product page with a **Helping Hand** launcher once all three routes are working;
 6. continue destination-neutral publishing work, including handwritten.blog and other suitable endpoints.
 
