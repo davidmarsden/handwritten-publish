@@ -1,4 +1,5 @@
 import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
+import { publicPublishingDisabledResponse, recordPublicUsage } from './_shared/public-usage';
 
 type PostStatus = 'draft' | 'published';
 
@@ -150,6 +151,9 @@ async function verifyExpectedStatus(
 
 export default async (request: Request) => {
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
+  const disabled = publicPublishingDisabledResponse();
+  if (disabled) return disabled;
+
   const body = await request.json().catch(() => ({})) as {
     token?: string;
     destination?: string;
@@ -210,6 +214,7 @@ export default async (request: Request) => {
     if (!response.ok) {
       return upstreamError(response, `Micro.blog could not update the ${expectedStatus === 'published' ? 'published post' : 'draft'} (HTTP ${response.status}).`);
     }
+    await recordPublicUsage('update');
     return json({ updated: true, status: expectedStatus, url: resolvedUrl });
   }
 
@@ -243,7 +248,15 @@ export default async (request: Request) => {
   }
   const url = result.url || response.headers.get('Location');
   if (!url) return json({ error: 'Micro.blog created the draft but returned no post URL.' }, 502);
+  await recordPublicUsage('create');
   return json({ url, preview: result.preview || url });
 };
 
-export const config = { path: '/api/microblog/draft' };
+export const config = {
+  path: '/api/microblog/draft',
+  rateLimit: {
+    windowLimit: 12,
+    windowSize: 60,
+    aggregateBy: ['ip', 'domain'],
+  },
+};
