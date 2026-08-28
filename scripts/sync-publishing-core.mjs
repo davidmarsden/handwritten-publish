@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import ts from 'typescript';
+import * as ts from 'typescript';
 
 const sourcePath = new URL('../packages/publishing-core/microblog-client.ts', import.meta.url);
 const targetDir = new URL('../public/shared/', import.meta.url);
