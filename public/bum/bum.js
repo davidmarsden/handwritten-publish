@@ -1,4 +1,9 @@
-const MAX_BYTES = 5_000_000;
+import {
+  MICROBLOG_MAX_MEDIA_BYTES as MAX_BYTES,
+  inferImageMediaType,
+  uploadMicroblogMedia,
+} from '/shared/microblog-client.js';
+
 const SUPPORTED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const MAX_FILES = 30;
 
@@ -29,15 +34,6 @@ function formatBytes(bytes) {
 
 function basename(filename) {
   return filename.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || 'Uploaded image';
-}
-
-function inferMediaType(file) {
-  if (file.type) return file.type.toLowerCase();
-  const name = file.name.toLowerCase();
-  if (name.endsWith('.png')) return 'image/png';
-  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
-  if (name.endsWith('.webp')) return 'image/webp';
-  return '';
 }
 
 function escapeHtml(value) {
@@ -168,7 +164,7 @@ function addFiles(fileList) {
   let invalid = 0;
 
   for (const file of accepted) {
-    const mediaType = inferMediaType(file);
+    const mediaType = inferImageMediaType(file);
     let state = 'queued';
     let error = '';
     let retryable = true;
@@ -197,15 +193,6 @@ function addFiles(fileList) {
   render();
 }
 
-async function responseError(response, fallback) {
-  try {
-    const payload = await response.json();
-    return payload?.error || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 async function uploadItem(item, token) {
   item.state = 'uploading';
   item.error = '';
@@ -213,19 +200,7 @@ async function uploadItem(item, token) {
   render();
 
   try {
-    const response = await fetch('/api/microblog/media', {
-      method: 'POST',
-      headers: {
-        'Content-Type': item.mediaType,
-        'X-Microblog-Token': token,
-        'X-File-Name': encodeURIComponent(item.file.name),
-      },
-      body: item.file,
-    });
-    if (!response.ok) throw new Error(await responseError(response, `Could not upload ${item.file.name}.`));
-    const payload = await response.json();
-    if (!payload?.url) throw new Error(`Micro.blog accepted ${item.file.name} but returned no media URL.`);
-    item.url = payload.url;
+    item.url = await uploadMicroblogMedia(token, item.file, item.file.name, item.mediaType);
     item.state = 'uploaded';
     item.retryable = false;
   } catch (error) {
