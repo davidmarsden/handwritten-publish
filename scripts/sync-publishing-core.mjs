@@ -1,25 +1,32 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import { mkdir } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const require = createRequire(import.meta.url);
-const loadedTypescript = require('typescript');
-const ts = loadedTypescript?.default ?? loadedTypescript;
-
-if (!ts?.ScriptTarget?.ES2022 || !ts?.ModuleKind?.ESNext || typeof ts.transpileModule !== 'function') {
-  throw new Error('typescript compiler API failed to load correctly');
-}
-
-const sourcePath = new URL('../packages/publishing-core/microblog-client.ts', import.meta.url);
+const rootDir = new URL('../', import.meta.url);
 const targetDir = new URL('../public/shared/', import.meta.url);
-const targetPath = new URL('../public/shared/microblog-client.js', import.meta.url);
-
-const source = await readFile(sourcePath, 'utf8');
-const { outputText } = ts.transpileModule(source, {
-  compilerOptions: {
-    target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.ESNext,
-  },
-});
+const tscPath = new URL('../node_modules/typescript/bin/tsc', import.meta.url);
 
 await mkdir(targetDir, { recursive: true });
-await writeFile(targetPath, `// Generated from packages/publishing-core/microblog-client.ts. Do not edit directly.\n${outputText}`, 'utf8');
+
+const result = spawnSync(process.execPath, [
+  fileURLToPath(tscPath),
+  'packages/publishing-core/microblog-client.ts',
+  '--target', 'ES2022',
+  '--module', 'ESNext',
+  '--moduleResolution', 'Bundler',
+  '--lib', 'ES2022,DOM',
+  '--skipLibCheck',
+  '--rootDir', 'packages/publishing-core',
+  '--outDir', 'public/shared',
+  '--declaration', 'false',
+  '--sourceMap', 'false',
+  '--pretty', 'false',
+], {
+  cwd: fileURLToPath(rootDir),
+  stdio: 'inherit',
+});
+
+if (result.error) throw result.error;
+if (result.status !== 0) {
+  throw new Error(`publishing-core TypeScript sync failed with exit code ${result.status ?? 'unknown'}`);
+}
