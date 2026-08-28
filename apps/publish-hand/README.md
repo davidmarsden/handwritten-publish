@@ -2,9 +2,9 @@
 
 **Handwriting, images and documents → web**
 
-This directory is the future product boundary for the current browser publishing app.
+Publish Hand is the browser publishing tool in the Helping Hand family. The live hosted surface is `/publish/`.
 
-The existing production Vite app remains at the repository root until it can be moved without changing deployment behavior. Publish Hand will own:
+It owns:
 
 - handwritten page/document models;
 - PNG/JPEG/WebP/PDF import;
@@ -14,4 +14,6 @@ The existing production Vite app remains at the repository root until it can be 
 - `.hwpublish` import/export;
 - browser publishing orchestration.
 
-Publisher-specific primitives should live in `packages/publishing-core/` so Publish Hand can add destinations without reshaping its document model around any one service.
+The root `/` route is the Helping Hand launcher rather than a second copy of Publish Hand.
+
+Publisher-specific transport primitives live in `packages/publishing-core/` so Publish Hand can add destinations without reshaping its document model around any one service.
