@@ -11,6 +11,7 @@ await mkdir(targetDir, { recursive: true });
 const result = spawnSync(process.execPath, [
   fileURLToPath(tscPath),
   'packages/publishing-core/microblog-client.ts',
+  'packages/publishing-core/image-optimization.ts',
   '--ignoreConfig',
   '--target', 'ES2022',
   '--module', 'ESNext',

@@ -7,6 +7,7 @@ import {
   inferImageMediaType,
   uploadMicroblogMedia,
 } from '/shared/microblog-client.js';
+import { preparePhotoForMicroblog } from '/shared/image-optimization.js';
 
 const SUPPORTED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const MAX_FILES = 30;
@@ -60,13 +61,23 @@ function retryableFailedItems() { return failedItems().filter(item => item.retry
 function selectedCollection() { return collections.find(collection => collection.url === collectionSelect.value) || null; }
 
 function statusLabel(item) {
+  if (item.state === 'optimizing') return 'Optimizing…';
   if (item.state === 'uploading') return 'Uploading…';
   if (item.state === 'uploaded' && item.collectionState === 'adding') return 'Adding to collection…';
-  if (item.state === 'uploaded' && item.collectionState === 'added') return 'Uploaded · collected';
-  if (item.state === 'uploaded' && item.collectionState === 'failed') return 'Uploaded · collection failed';
-  if (item.state === 'uploaded') return 'Uploaded';
+  if (item.state === 'uploaded' && item.collectionState === 'added') return item.optimizedBytes ? 'Uploaded · optimized · collected' : 'Uploaded · collected';
+  if (item.state === 'uploaded' && item.collectionState === 'failed') return item.optimizedBytes ? 'Uploaded · optimized · collection failed' : 'Uploaded · collection failed';
+  if (item.state === 'uploaded') return item.optimizedBytes ? 'Uploaded · optimized' : 'Uploaded';
   if (item.state === 'failed') return item.error || 'Failed';
+  if (item.needsOptimization) return 'Queued · will optimize';
   return 'Queued';
+}
+
+function itemMeta(item) {
+  const size = item.optimizedBytes
+    ? `${formatBytes(item.file.size)} → ${formatBytes(item.optimizedBytes)}`
+    : formatBytes(item.file.size);
+  const note = item.needsOptimization && !item.optimizedBytes ? ' · auto-optimize before upload' : '';
+  return `${size} · ${item.mediaType || 'unknown type'}${note}`;
 }
 
 function renderCollections() {
@@ -98,7 +109,7 @@ function render() {
     name.textContent = item.file.name;
     const meta = document.createElement('div');
     meta.className = 'file-meta';
-    meta.textContent = `${formatBytes(item.file.size)} · ${item.mediaType || 'unknown type'}`;
+    meta.textContent = itemMeta(item);
     details.append(name, meta);
     const state = document.createElement('div');
     state.className = `file-status ${item.state}`;
@@ -201,22 +212,55 @@ function addFiles(fileList) {
     let state = 'queued', error = '', retryable = true;
     if (!SUPPORTED_TYPES.has(mediaType)) { state = 'failed'; error = 'PNG, JPEG or WebP only'; retryable = false; }
     else if (!file.size) { state = 'failed'; error = 'Empty file'; retryable = false; }
-    else if (file.size > MAX_BYTES) { state = 'failed'; error = `Over 5 MB (${formatBytes(file.size)})`; retryable = false; }
     if (state === 'failed') invalid += 1;
-    items.push({ id: crypto.randomUUID(), file, mediaType, state, error, url: '', retryable, collectionState: 'none' });
+    items.push({
+      id: crypto.randomUUID(),
+      file,
+      mediaType,
+      state,
+      error,
+      url: '',
+      retryable,
+      collectionState: 'none',
+      needsOptimization: file.size > MAX_BYTES,
+      optimizedBytes: null,
+    });
   }
   const rejected = incoming.length - accepted.length;
-  setStatus(rejected ? `Added ${accepted.length}; batches are limited to ${MAX_FILES} files.` : invalid ? `Added ${accepted.length} files; ${invalid} need attention.` : `${accepted.length} image${accepted.length === 1 ? '' : 's'} added.`);
+  const oversized = accepted.filter(file => file.size > MAX_BYTES && SUPPORTED_TYPES.has(inferImageMediaType(file))).length;
+  if (rejected) setStatus(`Added ${accepted.length}; batches are limited to ${MAX_FILES} files.`);
+  else if (invalid) setStatus(`Added ${accepted.length} files; ${invalid} need attention.${oversized ? ` ${oversized} oversized photo${oversized === 1 ? '' : 's'} will be optimized automatically.` : ''}`);
+  else if (oversized) setStatus(`Added ${accepted.length} images. ${oversized} oversized photo${oversized === 1 ? '' : 's'} will be optimized automatically before upload.`);
+  else setStatus(`${accepted.length} image${accepted.length === 1 ? '' : 's'} added.`);
   render();
 }
 
 async function uploadItem(item, token) {
-  item.state = 'uploading'; item.error = ''; item.retryable = true; render();
+  item.error = '';
+  item.retryable = true;
+  item.optimizedBytes = null;
   try {
-    item.url = await uploadMicroblogMedia(token, item.file, item.file.name, item.mediaType);
-    item.state = 'uploaded'; item.retryable = false; item.collectionState = 'none';
+    if (item.needsOptimization) {
+      item.state = 'optimizing';
+      render();
+    }
+    const prepared = await preparePhotoForMicroblog(item.file, item.mediaType);
+    item.optimizedBytes = prepared.optimized ? prepared.uploadBytes : null;
+    item.state = 'uploading';
+    render();
+    item.url = await uploadMicroblogMedia(
+      token,
+      prepared.file,
+      prepared.file.name,
+      prepared.optimized ? prepared.file.type : item.mediaType,
+    );
+    item.state = 'uploaded';
+    item.retryable = false;
+    item.collectionState = 'none';
   } catch (error) {
-    item.state = 'failed'; item.error = error instanceof Error ? error.message : 'Upload failed'; item.retryable = true;
+    item.state = 'failed';
+    item.error = error instanceof Error ? error.message : 'Upload failed';
+    item.retryable = true;
   }
   render();
 }
