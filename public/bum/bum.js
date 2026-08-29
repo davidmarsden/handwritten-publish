@@ -203,37 +203,67 @@ async function connect() {
   } finally { busy = false; render(); }
 }
 
-function addFiles(fileList) {
+async function stableBrowserFile(file, mediaType) {
+  const bytes = await file.arrayBuffer();
+  return new File([bytes], file.name, {
+    type: mediaType || file.type,
+    lastModified: file.lastModified,
+  });
+}
+
+async function addFiles(fileList) {
   const incoming = Array.from(fileList ?? []);
-  if (!incoming.length) return;
+  if (!incoming.length || busy) return;
   const room = Math.max(0, MAX_FILES - items.length);
   const accepted = incoming.slice(0, room);
-  let invalid = 0;
-  for (const file of accepted) {
+  const rejected = incoming.length - accepted.length;
+
+  busy = true;
+  setStatus(`Preparing ${accepted.length} selected image${accepted.length === 1 ? '' : 's'}…`);
+  render();
+
+  const staged = await Promise.all(accepted.map(async file => {
     const mediaType = inferImageMediaType(file);
     let state = 'queued', error = '', retryable = true;
-    if (!SUPPORTED_TYPES.has(mediaType)) { state = 'failed'; error = 'PNG, JPEG or WebP only'; retryable = false; }
-    else if (!file.size) { state = 'failed'; error = 'Empty file'; retryable = false; }
-    if (state === 'failed') invalid += 1;
-    items.push({
+    let stableFile = file;
+
+    if (!SUPPORTED_TYPES.has(mediaType)) {
+      state = 'failed'; error = 'PNG, JPEG or WebP only'; retryable = false;
+    } else if (!file.size) {
+      state = 'failed'; error = 'Empty file'; retryable = false;
+    } else {
+      try {
+        stableFile = await stableBrowserFile(file, mediaType);
+      } catch {
+        state = 'failed';
+        error = 'Could not read this photo from the selected provider. Select it again or save it to the device first.';
+        retryable = false;
+      }
+    }
+
+    return {
       id: crypto.randomUUID(),
-      file,
+      file: stableFile,
       mediaType,
       state,
       error,
       url: '',
       retryable,
       collectionState: 'none',
-      needsOptimization: file.size > SAFE_UPLOAD_BYTES,
+      needsOptimization: stableFile.size > SAFE_UPLOAD_BYTES,
       optimizedBytes: null,
-    });
-  }
-  const rejected = incoming.length - accepted.length;
-  const oversized = accepted.filter(file => file.size > SAFE_UPLOAD_BYTES && SUPPORTED_TYPES.has(inferImageMediaType(file))).length;
-  if (rejected) setStatus(`Added ${accepted.length}; batches are limited to ${MAX_FILES} files.`);
-  else if (invalid) setStatus(`Added ${accepted.length} files; ${invalid} need attention.${oversized ? ` ${oversized} oversized photo${oversized === 1 ? '' : 's'} will be optimized automatically.` : ''}`);
-  else if (oversized) setStatus(`Added ${accepted.length} images. ${oversized} oversized photo${oversized === 1 ? '' : 's'} will be optimized automatically before upload.`);
-  else setStatus(`${accepted.length} image${accepted.length === 1 ? '' : 's'} added.`);
+    };
+  }));
+
+  items.push(...staged);
+  busy = false;
+
+  const invalid = staged.filter(item => item.state === 'failed').length;
+  const oversized = staged.filter(item => item.state === 'queued' && item.needsOptimization).length;
+  if (rejected) setStatus(`Added ${staged.length}; batches are limited to ${MAX_FILES} files.`);
+  else if (invalid) setStatus(`Added ${staged.length} files; ${invalid} need attention.${oversized ? ` ${oversized} oversized photo${oversized === 1 ? '' : 's'} will be optimized automatically.` : ''}`);
+  else if (oversized) setStatus(`Added ${staged.length} images. ${oversized} oversized photo${oversized === 1 ? '' : 's'} will be optimized automatically before upload.`);
+  else setStatus(`${staged.length} image${staged.length === 1 ? '' : 's'} added.`);
   render();
 }
 
@@ -333,10 +363,14 @@ createCollectionButton.addEventListener('click', async () => {
   } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not create collection.'); }
   finally { busy = false; render(); }
 });
-filesInput.addEventListener('change', event => { addFiles(event.target.files); event.target.value = ''; });
+filesInput.addEventListener('change', async event => {
+  const selected = event.target.files;
+  await addFiles(selected);
+  event.target.value = '';
+});
 for (const eventName of ['dragenter', 'dragover']) dropZone.addEventListener(eventName, event => { event.preventDefault(); if (!busy) dropZone.classList.add('dragging'); });
 for (const eventName of ['dragleave', 'drop']) dropZone.addEventListener(eventName, event => { event.preventDefault(); dropZone.classList.remove('dragging'); });
-dropZone.addEventListener('drop', event => { if (!busy) addFiles(event.dataTransfer?.files); });
+dropZone.addEventListener('drop', async event => { if (!busy) await addFiles(event.dataTransfer?.files); });
 uploadButton.addEventListener('click', () => runUpload(queuedItems()));
 retryButton.addEventListener('click', () => { const retryable = retryableFailedItems(); for (const item of retryable) { item.state = 'queued'; item.error = ''; } render(); return runUpload(retryable); });
 retryCollectionButton.addEventListener('click', async () => { const targets = selectedResults().filter(item => item.collectionState === 'failed'); if (!targets.length) return; busy = true; render(); await addToSelectedCollection(targets); busy = false; render(); });
