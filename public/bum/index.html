@@ -4,13 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="BUM Hand — Batch Uploader for Micro.blog. Upload multiple images, add them to photo collections and copy their Micro.blog URLs, Markdown or HTML.">
+  <meta name="description" content="BUM Hand — Batch Uploader for Micro.blog. Upload batches of photos and audio without creating posts.">
   <meta property="og:title" content="BUM Hand — Helping Hand">
   <meta property="og:description" content="Batch Uploader for Micro.blog.">
   <meta property="og:image" content="/.netlify/images?url=/brand/helping-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png">
   <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
   <title>BUM Hand — Batch Uploader for Micro.blog</title>
   <link rel="stylesheet" href="/bum/bum.css">
+  <link rel="stylesheet" href="/bum/audio.css">
 </head>
 <body>
   <main class="shell">
@@ -20,7 +21,7 @@
       <img class="hero-mark" src="/brand/bum-hand.svg" alt="" aria-hidden="true">
       <p class="eyebrow">Batch Uploader for Micro.blog</p>
       <h1>BUM Hand</h1>
-      <p class="lede">Throw a bunch of images at Micro.blog. Keep the URLs, or drop the whole batch straight into a photo collection. No post required.</p>
+      <p class="lede">Throw batches of photos or audio at Micro.blog. Keep the URLs, or drop photos straight into a collection. No post required.</p>
     </header>
 
     <section class="panel" aria-labelledby="token-heading">
@@ -44,9 +45,9 @@
       <div class="section-heading">
         <div>
           <p class="step">02</p>
-          <h2 id="collection-heading">Photo collection</h2>
+          <h2 id="collection-heading">Blog &amp; photo collection</h2>
         </div>
-        <p class="hint">Optional. Choose a blog and collection to add every successful upload to it automatically.</p>
+        <p class="hint">Choose the destination blog. Photo collection assignment is optional and applies only to image uploads.</p>
       </div>
 
       <div class="field-grid">
@@ -55,7 +56,7 @@
           <select id="destination"></select>
         </div>
         <div>
-          <label class="field-label" for="collection">Collection</label>
+          <label class="field-label" for="collection">Photo collection</label>
           <select id="collection">
             <option value="">Upload only — no collection</option>
           </select>
@@ -91,7 +92,7 @@
       <ol id="queue" class="queue" aria-live="polite"></ol>
     </section>
 
-    <section class="actions" aria-label="Upload actions">
+    <section class="actions" aria-label="Image upload actions">
       <button id="upload" class="button primary" type="button" disabled>Upload queued images</button>
       <button id="retry" class="button secondary" type="button" hidden>Retry failed</button>
       <button id="retry-collection" class="button secondary" type="button" hidden>Retry collection</button>
@@ -102,7 +103,7 @@
       <div class="section-heading results-heading">
         <div>
           <p class="step">04</p>
-          <h2 id="results-heading">Uploaded</h2>
+          <h2 id="results-heading">Uploaded images</h2>
         </div>
         <p id="results-summary" class="hint"></p>
       </div>
@@ -116,7 +117,51 @@
       <ul id="uploaded-list" class="uploaded-list"></ul>
     </section>
 
+    <section class="panel" aria-labelledby="audio-heading">
+      <div class="section-heading">
+        <div>
+          <p class="step">Audio</p>
+          <h2 id="audio-heading">Choose audio <span class="audio-beta">Beta</span></h2>
+        </div>
+        <p class="hint">MP3 or M4A, up to Micro.blog’s current 75 MB upload limit per file.</p>
+      </div>
+
+      <label class="drop-zone" for="audio-files">
+        <strong>Choose audio</strong>
+        <span>MP3 or M4A</span>
+        <input id="audio-files" type="file" accept="audio/mpeg,audio/mp4,.mp3,.m4a" multiple>
+      </label>
+
+      <p class="audio-note">Audio goes directly from your browser to Micro.blog’s media endpoint, so full-size tracks do not pass through the smaller photo upload bridge. Connect above and choose the destination blog first.</p>
+      <div id="audio-selection-summary" class="selection-summary" hidden></div>
+      <ol id="audio-queue" class="queue" aria-live="polite"></ol>
+
+      <div class="actions" aria-label="Audio upload actions">
+        <button id="audio-upload" class="button primary" type="button" disabled>Upload queued audio</button>
+        <button id="audio-clear" class="button ghost" type="button" disabled>Clear audio</button>
+      </div>
+    </section>
+
+    <section id="audio-results" class="panel" aria-labelledby="audio-results-heading" hidden>
+      <div class="section-heading results-heading">
+        <div>
+          <p class="step">Audio</p>
+          <h2 id="audio-results-heading">Uploaded audio</h2>
+        </div>
+        <p id="audio-results-summary" class="hint"></p>
+      </div>
+
+      <div class="copy-actions">
+        <button id="copy-audio-urls" class="button secondary" type="button">Copy URLs</button>
+        <button id="copy-audio-markdown" class="button secondary" type="button">Copy Markdown</button>
+        <button id="copy-audio-html" class="button secondary" type="button">Copy audio HTML</button>
+      </div>
+
+      <ul id="audio-uploaded-list" class="uploaded-list"></ul>
+    </section>
+
     <p id="status" class="status" role="status">Ready.</p>
+    <p id="audio-status" class="status" role="status">Audio ready.</p>
 
     <footer class="suite-footer">
       <a href="/">Helping Hand</a>
@@ -131,5 +176,6 @@
   </main>
 
   <script type="module" src="/bum/bum.js"></script>
+  <script type="module" src="/bum/audio.js"></script>
 </body>
 </html>
