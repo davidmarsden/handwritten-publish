@@ -54,6 +54,18 @@ function drawSource(source: BrowserImageSource, width: number, height: number): 
   return canvas;
 }
 
+async function materializeBrowserFile(file: File, mediaType: string): Promise<File> {
+  try {
+    const bytes = await file.arrayBuffer();
+    return new File([bytes], file.name, {
+      type: mediaType || file.type,
+      lastModified: file.lastModified,
+    });
+  } catch {
+    throw new Error(`${file.name} could not be read from the selected photo provider. Try selecting it again or saving it to the device first.`);
+  }
+}
+
 async function htmlImage(file: File): Promise<{ source: HTMLImageElement; cleanup: () => void }> {
   const objectUrl = URL.createObjectURL(file);
   const image = new Image();
@@ -97,14 +109,22 @@ export async function preparePhotoForMicroblog(
   file: File,
   mediaType: string = file.type,
 ): Promise<PreparedMicroblogPhoto> {
+  const originalBytes = file.size;
+
+  // Android/Google Photos and other document providers can hand the browser a
+  // provider-backed File whose bytes become unreliable when read later by a
+  // different API. Copy it once into a browser-owned File, then use that stable
+  // copy for both image decoding and the eventual upload request.
+  const stableFile = await materializeBrowserFile(file, mediaType);
+
   // The Micro.blog endpoint accepts 5 MB, but the Netlify function transport has
   // its own payload ceiling. Leave a generous margin for request encoding/metadata.
-  if (file.size <= MICROBLOG_BRIDGE_SAFE_BYTES) {
+  if (stableFile.size <= MICROBLOG_BRIDGE_SAFE_BYTES) {
     return {
-      file,
+      file: stableFile,
       optimized: false,
-      originalBytes: file.size,
-      uploadBytes: file.size,
+      originalBytes,
+      uploadBytes: stableFile.size,
     };
   }
 
@@ -112,7 +132,7 @@ export async function preparePhotoForMicroblog(
     throw new Error(`${file.name} is too large for the upload bridge and cannot be optimized automatically.`);
   }
 
-  const loaded = await loadImage(file);
+  const loaded = await loadImage(stableFile);
   try {
     const [sourceWidth, sourceHeight] = sourceDimensions(loaded.source);
     let [width, height] = dimensionsForMaxEdge(sourceWidth, sourceHeight, MAX_WEB_EDGE);
@@ -124,11 +144,11 @@ export async function preparePhotoForMicroblog(
         const blob = await canvasJpeg(canvas, quality);
         if (!smallest || blob.size < smallest.blob.size) smallest = { blob, width, height };
         if (blob.size <= MICROBLOG_TARGET_MEDIA_BYTES) {
-          const optimized = new File([blob], webJpegFilename(file.name), { type: 'image/jpeg' });
+          const optimized = new File([blob], webJpegFilename(stableFile.name), { type: 'image/jpeg' });
           return {
             file: optimized,
             optimized: true,
-            originalBytes: file.size,
+            originalBytes,
             uploadBytes: optimized.size,
             width,
             height,
@@ -145,11 +165,11 @@ export async function preparePhotoForMicroblog(
     }
 
     if (smallest && smallest.blob.size <= MICROBLOG_BRIDGE_SAFE_BYTES) {
-      const optimized = new File([smallest.blob], webJpegFilename(file.name), { type: 'image/jpeg' });
+      const optimized = new File([smallest.blob], webJpegFilename(stableFile.name), { type: 'image/jpeg' });
       return {
         file: optimized,
         optimized: true,
-        originalBytes: file.size,
+        originalBytes,
         uploadBytes: optimized.size,
         width: smallest.width,
         height: smallest.height,
