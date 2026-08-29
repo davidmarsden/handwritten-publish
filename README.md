@@ -6,7 +6,7 @@ The suite is separated into three focused tools:
 
 - **Writing Hand** — reMarkable → Micro.blog. *From paper to web at the push of a pen.*
 - **Publish Hand** — handwriting, images and documents → web. The browser publishing app lives at `/publish/`.
-- **BUM Hand** — **Batch Uploader for Micro.blog**, currently available at `/bum/` and designed to grow beyond photos to other supported media/files.
+- **BUM Hand** — **Batch Uploader for Micro.blog**, currently available at `/bum/`. It can upload batches of photos without creating posts, copy the resulting URLs/Markdown/HTML, and optionally add the successful uploads straight to an existing or newly-created Micro.blog photo collection.
 
 The tools share publishing infrastructure but have separate product boundaries. See [`docs/helping-hand.md`](docs/helping-hand.md) for the architecture and extraction plan.
 
@@ -60,7 +60,7 @@ See [`docs/format.md`](docs/format.md) for the format and compatibility rules.
 
 Most document work happens in the browser. Page files, annotations, photo assets and local draft state remain local unless the user explicitly chooses a publishing operation.
 
-Micro.blog publishing uses small Netlify Functions as request bridges for Micropub configuration, media uploads and post creation/update. Micro.blog app tokens are passed per request and are not stored in IndexedDB, `.handpub` files or Netlify configuration.
+Micro.blog publishing uses small Netlify Functions as request bridges for Micropub configuration, media uploads, photo collections and post creation/update. Micro.blog app tokens are passed per request and are not stored in IndexedDB, `.handpub` files or Netlify configuration.
 
 See [`docs/architecture.md`](docs/architecture.md), [`docs/helping-hand.md`](docs/helping-hand.md) and [`docs/STATUS.md`](docs/STATUS.md).
 
