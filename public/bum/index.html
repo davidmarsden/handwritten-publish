@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="BUM Hand — Batch Uploader for Micro.blog. Upload multiple images and copy their Micro.blog URLs, Markdown or HTML.">
+  <meta name="description" content="BUM Hand — Batch Uploader for Micro.blog. Upload multiple images, add them to photo collections and copy their Micro.blog URLs, Markdown or HTML.">
   <meta property="og:title" content="BUM Hand — Helping Hand">
   <meta property="og:description" content="Batch Uploader for Micro.blog.">
   <meta property="og:image" content="/.netlify/images?url=/brand/helping-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png">
@@ -20,7 +20,7 @@
       <img class="hero-mark" src="/brand/bum-hand.svg" alt="" aria-hidden="true">
       <p class="eyebrow">Batch Uploader for Micro.blog</p>
       <h1>BUM Hand</h1>
-      <p class="lede">Throw a bunch of images at Micro.blog. Get the URLs back. No post required.</p>
+      <p class="lede">Throw a bunch of images at Micro.blog. Keep the URLs, or drop the whole batch straight into a photo collection. No post required.</p>
     </header>
 
     <section class="panel" aria-labelledby="token-heading">
@@ -29,20 +29,53 @@
           <p class="step">01</p>
           <h2 id="token-heading">Micro.blog token</h2>
         </div>
-        <p class="hint">Used only for these upload requests. It is not stored by BUM Hand.</p>
+        <p class="hint">Used only for these requests. It is not stored by BUM Hand.</p>
       </div>
 
       <label class="field-label" for="token">App token</label>
       <div class="token-row">
         <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Micro.blog app token">
         <button id="toggle-token" class="button secondary" type="button" aria-pressed="false">Show</button>
+        <button id="connect" class="button secondary" type="button">Connect</button>
       </div>
+    </section>
+
+    <section id="collection-panel" class="panel" aria-labelledby="collection-heading" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="step">02</p>
+          <h2 id="collection-heading">Photo collection</h2>
+        </div>
+        <p class="hint">Optional. Choose a blog and collection to add every successful upload to it automatically.</p>
+      </div>
+
+      <div class="field-grid">
+        <div>
+          <label class="field-label" for="destination">Blog</label>
+          <select id="destination"></select>
+        </div>
+        <div>
+          <label class="field-label" for="collection">Collection</label>
+          <select id="collection">
+            <option value="">Upload only — no collection</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="new-collection-row">
+        <div>
+          <label class="field-label" for="new-collection-name">New collection</label>
+          <input id="new-collection-name" type="text" maxlength="120" placeholder="e.g. Favourite Photos">
+        </div>
+        <button id="create-collection" class="button secondary" type="button">Create collection</button>
+      </div>
+      <p id="collection-summary" class="collection-summary"></p>
     </section>
 
     <section class="panel" aria-labelledby="files-heading">
       <div class="section-heading">
         <div>
-          <p class="step">02</p>
+          <p class="step">03</p>
           <h2 id="files-heading">Choose images</h2>
         </div>
         <p class="hint">PNG, JPEG or WebP. Up to 5 MB each.</p>
@@ -61,13 +94,14 @@
     <section class="actions" aria-label="Upload actions">
       <button id="upload" class="button primary" type="button" disabled>Upload queued images</button>
       <button id="retry" class="button secondary" type="button" hidden>Retry failed</button>
+      <button id="retry-collection" class="button secondary" type="button" hidden>Retry collection</button>
       <button id="clear" class="button ghost" type="button" disabled>Clear</button>
     </section>
 
     <section id="results" class="panel" aria-labelledby="results-heading" hidden>
       <div class="section-heading results-heading">
         <div>
-          <p class="step">03</p>
+          <p class="step">04</p>
           <h2 id="results-heading">Uploaded</h2>
         </div>
         <p id="results-summary" class="hint"></p>
