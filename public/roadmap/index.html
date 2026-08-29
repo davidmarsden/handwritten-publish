@@ -81,39 +81,68 @@
           <div class="feature-head">
             <div>
               <h2 class="section-title" id="bum-heading">BUM Hand</h2>
-              <p class="section-intro">Batch Uploader for Micro.blog is the smallest tool in the suite and probably the one with the biggest obvious runway. Its job should stay gloriously simple: give it files, put them on Micro.blog, give you useful things back.</p>
+              <p class="section-intro">Batch Uploader for Micro.blog has moved beyond the original image-only proof of concept. The current baseline is a reliable photo batch workflow with local optimisation and direct Photo Collections support; the next job is to broaden the same simple model to audio.</p>
             </div>
             <img class="feature-mark" src="/brand/bum-hand.svg" alt="" aria-hidden="true">
           </div>
-          <p class="promise">The rule: make batch work less tedious without turning BUM Hand into a media library of its own.</p>
+          <p class="promise">The rule: give it files, put them on Micro.blog, give useful things back. No second media library, no post required.</p>
           <div class="principles" aria-label="BUM Hand principles"><span>Fast in, useful out</span><span>No post required</span><span>Your Micro.blog account</span><span>No token storage</span></div>
         </div>
         <aside class="now-card">
           <p class="phase">Live now</p>
-          <h4>The useful first cut</h4>
-          <p>BUM Hand currently handles the common image-upload job cleanly.</p>
-          <ul><li>PNG, JPEG and WebP</li><li>Up to 5 MB per file</li><li>Up to 30 files in a batch</li><li>Queued uploads with retry</li><li>Copy URLs, Markdown or HTML</li></ul>
+          <h4>Images + Photo Collections</h4>
+          <p>The image workflow is now the stable BUM Hand baseline.</p>
+          <ul>
+            <li>JPEG, PNG and WebP batches</li>
+            <li>Up to 30 selected images</li>
+            <li>Browser-side optimisation for larger photos</li>
+            <li>Android / Google Photos eager batch staging</li>
+            <li>Choose a Micro.blog blog and Photo Collection</li>
+            <li>Create a collection from BUM Hand</li>
+            <li>Upload-only mode with no post</li>
+            <li>Per-file status, retry and collection retry</li>
+            <li>Copy canonical URLs, Markdown or HTML</li>
+          </ul>
         </aside>
       </div>
 
       <div class="roadmap-grid" aria-label="BUM Hand roadmap">
         <article class="roadmap-card next">
           <p class="phase">Next</p>
-          <h3>Better batches</h3>
-          <p>Polish the workflow that already exists before adding breadth.</p>
-          <ul><li>Clearer per-file progress and failure states</li><li>Better handling of large or mixed batches</li><li>More useful result selection and copying</li><li>Small quality-of-life improvements discovered through real use</li></ul>
+          <h3>Audio</h3>
+          <p>Make audio the next first-class BUM Hand media type, beginning with formats Micro.blog explicitly supports.</p>
+          <ul>
+            <li>Start with MP3 and M4A</li>
+            <li>Verify current Micro.blog API behaviour and file limits before implementation</li>
+            <li>Design for realistically sized tracks, not the photo bridge's request-size assumptions</li>
+            <li>Preserve upload-only mode and canonical URL output</li>
+            <li>Keep explicit per-file validation, progress and retry</li>
+            <li>Explore useful audio HTML/Markdown and optional post/podcast output later</li>
+          </ul>
         </article>
         <article class="roadmap-card soon">
-          <p class="phase">After that</p>
-          <h3>More media</h3>
-          <p>Broaden beyond the first image-only allow-list where Micro.blog supports it safely.</p>
-          <ul><li>Additional Micro.blog-supported media types</li><li>Audio and other useful file uploads where the API permits them</li><li>Keep validation explicit rather than accepting arbitrary files</li><li>Reuse the same upload core in Publish Hand where it makes sense</li></ul>
+          <p class="phase">After audio</p>
+          <h3>Documents</h3>
+          <p>Broaden BUM Hand to useful document uploads once the audio path is solid.</p>
+          <ul>
+            <li>PDF first</li>
+            <li>Preserve original filenames and file semantics</li>
+            <li>Return canonical URLs and useful link/Markdown/HTML snippets</li>
+            <li>Validate only explicitly supported file types</li>
+            <li>Reuse shared upload plumbing where it genuinely fits</li>
+          </ul>
         </article>
         <article class="roadmap-card later">
           <p class="phase">Explore</p>
-          <h3>Useful destinations</h3>
-          <p>Make uploaded media easier to do something with, without inventing another CMS.</p>
-          <ul><li>Output formats tailored to common publishing jobs</li><li>Faster paths from a batch into a post or photo workflow</li><li>Explore Micro.blog collection/favourite-photo workflows where the platform API makes that practical</li><li>Portable results rather than lock-in</li></ul>
+          <h3>Useful outputs</h3>
+          <p>Help uploaded media move into publishing jobs without turning BUM Hand into another CMS.</p>
+          <ul>
+            <li>Output formats tailored to images, audio and documents</li>
+            <li>Optional shortcuts from uploaded media into posts or podcast workflows</li>
+            <li>Mixed-media batches where the experience remains understandable</li>
+            <li>Video only when Micro.blog's API and a real use case make it worth the complexity</li>
+            <li>Portable results rather than lock-in</li>
+          </ul>
         </article>
       </div>
     </section>
