@@ -10,6 +10,13 @@ export type MicroblogConfig = {
   destinations: MicroblogDestination[];
 };
 
+export type MicroblogCollection = {
+  uid: string | number | null;
+  url: string;
+  name: string;
+  uploadCount: number;
+};
+
 async function responseError(response: Response, fallback: string): Promise<string> {
   try {
     const payload = await response.json() as { error?: string };
@@ -17,6 +24,16 @@ async function responseError(response: Response, fallback: string): Promise<stri
   } catch {
     return fallback;
   }
+}
+
+async function postJson<T>(path: string, body: unknown, fallback: string): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(await responseError(response, fallback));
+  return response.json() as Promise<T>;
 }
 
 export function inferImageMediaType(file: Pick<File, 'name' | 'type'>): string {
@@ -51,6 +68,49 @@ export async function fetchMicroblogCategories(token: string, destination: strin
   return Array.isArray(config.categories)
     ? config.categories.filter((category): category is string => typeof category === 'string')
     : [];
+}
+
+export async function fetchMicroblogCollections(token: string, destination: string): Promise<MicroblogCollection[]> {
+  if (!destination.trim()) return [];
+  const payload = await postJson<{ collections?: MicroblogCollection[] }>(
+    '/api/microblog/collections',
+    { token: token.trim(), destination: destination.trim(), action: 'list' },
+    'Could not load Micro.blog photo collections.',
+  );
+  return Array.isArray(payload.collections) ? payload.collections : [];
+}
+
+export async function createMicroblogCollection(
+  token: string,
+  destination: string,
+  name: string,
+): Promise<{ url: string | null; name: string }> {
+  return postJson(
+    '/api/microblog/collections',
+    { token: token.trim(), destination: destination.trim(), action: 'create', name: name.trim() },
+    'Could not create the Micro.blog photo collection.',
+  );
+}
+
+export async function addPhotosToMicroblogCollection(
+  token: string,
+  destination: string,
+  collectionUrl: string,
+  photoUrls: string[],
+): Promise<number> {
+  if (!photoUrls.length) return 0;
+  const payload = await postJson<{ added?: number }>(
+    '/api/microblog/collections',
+    {
+      token: token.trim(),
+      destination: destination.trim(),
+      action: 'add',
+      collectionUrl: collectionUrl.trim(),
+      photoUrls,
+    },
+    'Could not add the uploaded photos to the Micro.blog collection.',
+  );
+  return typeof payload.added === 'number' ? payload.added : photoUrls.length;
 }
 
 export async function uploadMicroblogMedia(
