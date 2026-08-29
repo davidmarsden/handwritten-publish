@@ -1,92 +1,91 @@
 import {
   MICROBLOG_MAX_MEDIA_BYTES as MAX_BYTES,
+  addPhotosToMicroblogCollection,
+  createMicroblogCollection,
+  fetchMicroblogCollections,
+  fetchMicroblogConfig,
   inferImageMediaType,
   uploadMicroblogMedia,
 } from '/shared/microblog-client.js';
 
 const SUPPORTED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const MAX_FILES = 30;
+const $ = selector => document.querySelector(selector);
 
-const tokenInput = document.querySelector('#token');
-const toggleToken = document.querySelector('#toggle-token');
-const filesInput = document.querySelector('#files');
-const dropZone = document.querySelector('#drop-zone');
-const selectionSummary = document.querySelector('#selection-summary');
-const queueEl = document.querySelector('#queue');
-const uploadButton = document.querySelector('#upload');
-const retryButton = document.querySelector('#retry');
-const clearButton = document.querySelector('#clear');
-const resultsSection = document.querySelector('#results');
-const resultsSummary = document.querySelector('#results-summary');
-const uploadedList = document.querySelector('#uploaded-list');
-const statusEl = document.querySelector('#status');
-const copyUrlsButton = document.querySelector('#copy-urls');
-const copyMarkdownButton = document.querySelector('#copy-markdown');
-const copyHtmlButton = document.querySelector('#copy-html');
+const tokenInput = $('#token');
+const toggleToken = $('#toggle-token');
+const connectButton = $('#connect');
+const collectionPanel = $('#collection-panel');
+const destinationSelect = $('#destination');
+const collectionSelect = $('#collection');
+const newCollectionName = $('#new-collection-name');
+const createCollectionButton = $('#create-collection');
+const collectionSummary = $('#collection-summary');
+const filesInput = $('#files');
+const dropZone = $('#drop-zone');
+const selectionSummary = $('#selection-summary');
+const queueEl = $('#queue');
+const uploadButton = $('#upload');
+const retryButton = $('#retry');
+const retryCollectionButton = $('#retry-collection');
+const clearButton = $('#clear');
+const resultsSection = $('#results');
+const resultsSummary = $('#results-summary');
+const uploadedList = $('#uploaded-list');
+const statusEl = $('#status');
+const copyUrlsButton = $('#copy-urls');
+const copyMarkdownButton = $('#copy-markdown');
+const copyHtmlButton = $('#copy-html');
 
 let items = [];
 let busy = false;
+let connectedToken = '';
+let collections = [];
 
 function formatBytes(bytes) {
   if (bytes < 1_000_000) return `${Math.max(1, Math.round(bytes / 1000))} KB`;
   return `${(bytes / 1_000_000).toFixed(1)} MB`;
 }
-
-function basename(filename) {
-  return filename.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || 'Uploaded image';
-}
-
-function escapeHtml(value) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
-
-function escapeMarkdownAlt(value) {
-  return value.replace(/([\\\[\]])/g, '\\$1');
-}
-
-function resultMarkdown(item) {
-  return `![${escapeMarkdownAlt(basename(item.file.name))}](${item.url})`;
-}
-
-function resultHtml(item) {
-  return `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(basename(item.file.name))}">`;
-}
-
-function setStatus(message) {
-  statusEl.textContent = message;
-}
-
-function selectedResults() {
-  return items.filter(item => item.state === 'uploaded' && item.url);
-}
-
-function queuedItems() {
-  return items.filter(item => item.state === 'queued');
-}
-
-function failedItems() {
-  return items.filter(item => item.state === 'failed');
-}
-
-function retryableFailedItems() {
-  return failedItems().filter(item => item.retryable);
-}
+function basename(filename) { return filename.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || 'Uploaded image'; }
+function escapeHtml(value) { return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;'); }
+function escapeMarkdownAlt(value) { return value.replace(/([\\\[\]])/g, '\\$1'); }
+function resultMarkdown(item) { return `![${escapeMarkdownAlt(basename(item.file.name))}](${item.url})`; }
+function resultHtml(item) { return `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(basename(item.file.name))}">`; }
+function setStatus(message) { statusEl.textContent = message; }
+function selectedResults() { return items.filter(item => item.state === 'uploaded' && item.url); }
+function queuedItems() { return items.filter(item => item.state === 'queued'); }
+function failedItems() { return items.filter(item => item.state === 'failed'); }
+function retryableFailedItems() { return failedItems().filter(item => item.retryable); }
+function selectedCollection() { return collections.find(collection => collection.url === collectionSelect.value) || null; }
 
 function statusLabel(item) {
   if (item.state === 'uploading') return 'Uploading…';
+  if (item.state === 'uploaded' && item.collectionState === 'adding') return 'Adding to collection…';
+  if (item.state === 'uploaded' && item.collectionState === 'added') return 'Uploaded · collected';
+  if (item.state === 'uploaded' && item.collectionState === 'failed') return 'Uploaded · collection failed';
   if (item.state === 'uploaded') return 'Uploaded';
   if (item.state === 'failed') return item.error || 'Failed';
   return 'Queued';
+}
+
+function renderCollections() {
+  const selected = collectionSelect.value;
+  collectionSelect.replaceChildren(new Option('Upload only — no collection', ''));
+  for (const collection of collections) {
+    collectionSelect.add(new Option(`${collection.name} (${collection.uploadCount})`, collection.url));
+  }
+  if (collections.some(collection => collection.url === selected)) collectionSelect.value = selected;
+  const destination = destinationSelect.selectedOptions[0]?.textContent || '';
+  collectionSummary.textContent = collections.length
+    ? `${collections.length} collection${collections.length === 1 ? '' : 's'} on ${destination}.`
+    : destination ? `No photo collections yet on ${destination}. Create one here if you like.` : '';
 }
 
 function render() {
   const queued = queuedItems();
   const retryable = retryableFailedItems();
   const uploaded = selectedResults();
+  const collectionFailures = uploaded.filter(item => item.collectionState === 'failed');
 
   queueEl.replaceChildren(...items.map(item => {
     const li = document.createElement('li');
@@ -98,7 +97,6 @@ function render() {
     meta.className = 'file-meta';
     meta.textContent = `${formatBytes(item.file.size)} · ${item.mediaType || 'unknown type'}`;
     details.append(name, meta);
-
     const state = document.createElement('div');
     state.className = `file-status ${item.state}`;
     state.textContent = statusLabel(item);
@@ -106,28 +104,26 @@ function render() {
     return li;
   }));
 
-  if (items.length) {
-    selectionSummary.hidden = false;
-    selectionSummary.textContent = `${items.length} image${items.length === 1 ? '' : 's'} selected.`;
-  } else {
-    selectionSummary.hidden = true;
-    selectionSummary.textContent = '';
-  }
-
-  uploadButton.disabled = busy || !tokenInput.value.trim() || queued.length === 0;
-  uploadButton.textContent = busy ? 'Uploading…' : `Upload queued image${queued.length === 1 ? '' : 's'}`;
-  retryButton.hidden = retryable.length === 0;
+  selectionSummary.hidden = !items.length;
+  selectionSummary.textContent = items.length ? `${items.length} image${items.length === 1 ? '' : 's'} selected.` : '';
+  uploadButton.disabled = busy || !tokenInput.value.trim() || !queued.length;
+  uploadButton.textContent = busy ? 'Working…' : `Upload queued image${queued.length === 1 ? '' : 's'}`;
+  retryButton.hidden = !retryable.length;
   retryButton.disabled = busy || !tokenInput.value.trim();
-  clearButton.disabled = busy || items.length === 0;
+  retryCollectionButton.hidden = !collectionFailures.length;
+  retryCollectionButton.disabled = busy || !selectedCollection();
+  clearButton.disabled = busy || !items.length;
   filesInput.disabled = busy;
   tokenInput.disabled = busy;
   toggleToken.disabled = busy;
+  connectButton.disabled = busy || !tokenInput.value.trim();
+  destinationSelect.disabled = busy;
+  collectionSelect.disabled = busy;
+  newCollectionName.disabled = busy;
+  createCollectionButton.disabled = busy || !destinationSelect.value || !newCollectionName.value.trim();
 
-  resultsSection.hidden = uploaded.length === 0;
-  resultsSummary.textContent = uploaded.length
-    ? `${uploaded.length} successful upload${uploaded.length === 1 ? '' : 's'}.`
-    : '';
-
+  resultsSection.hidden = !uploaded.length;
+  resultsSummary.textContent = uploaded.length ? `${uploaded.length} successful upload${uploaded.length === 1 ? '' : 's'}.` : '';
   uploadedList.replaceChildren(...uploaded.map(item => {
     const li = document.createElement('li');
     const details = document.createElement('div');
@@ -141,180 +137,149 @@ function render() {
     url.rel = 'noreferrer';
     url.textContent = item.url;
     details.append(name, url);
-
     const copy = document.createElement('button');
     copy.className = 'button secondary item-copy';
     copy.type = 'button';
     copy.textContent = 'Copy URL';
-    copy.addEventListener('click', async () => {
-      await copyText(item.url, `Copied URL for ${item.file.name}.`);
-    });
+    copy.addEventListener('click', () => copyText(item.url, `Copied URL for ${item.file.name}.`));
     li.append(details, copy);
     return li;
   }));
 }
 
+async function loadCollections() {
+  const token = tokenInput.value.trim();
+  const destination = destinationSelect.value;
+  if (!token || !destination) return;
+  collectionSummary.textContent = 'Loading collections…';
+  collections = await fetchMicroblogCollections(token, destination);
+  renderCollections();
+}
+
+async function connect() {
+  const token = tokenInput.value.trim();
+  if (!token) return;
+  busy = true; setStatus('Connecting to Micro.blog…'); render();
+  try {
+    const config = await fetchMicroblogConfig(token);
+    if (!config.destinations.length) throw new Error('Micro.blog returned no blogs for this token.');
+    destinationSelect.replaceChildren(...config.destinations.map(destination => new Option(destination.name, destination.uid)));
+    connectedToken = token;
+    collectionPanel.hidden = false;
+    await loadCollections();
+    setStatus('Connected. Collection assignment is optional.');
+  } catch (error) {
+    collectionPanel.hidden = true;
+    setStatus(error instanceof Error ? error.message : 'Could not connect to Micro.blog.');
+  } finally { busy = false; render(); }
+}
+
 function addFiles(fileList) {
   const incoming = Array.from(fileList ?? []);
   if (!incoming.length) return;
-
   const room = Math.max(0, MAX_FILES - items.length);
   const accepted = incoming.slice(0, room);
-  const rejectedCount = incoming.length - accepted.length;
   let invalid = 0;
-
   for (const file of accepted) {
     const mediaType = inferImageMediaType(file);
-    let state = 'queued';
-    let error = '';
-    let retryable = true;
-    if (!SUPPORTED_TYPES.has(mediaType)) {
-      state = 'failed';
-      error = 'PNG, JPEG or WebP only';
-      retryable = false;
-    } else if (!file.size) {
-      state = 'failed';
-      error = 'Empty file';
-      retryable = false;
-    } else if (file.size > MAX_BYTES) {
-      state = 'failed';
-      error = `Over 5 MB (${formatBytes(file.size)})`;
-      retryable = false;
-    }
+    let state = 'queued', error = '', retryable = true;
+    if (!SUPPORTED_TYPES.has(mediaType)) { state = 'failed'; error = 'PNG, JPEG or WebP only'; retryable = false; }
+    else if (!file.size) { state = 'failed'; error = 'Empty file'; retryable = false; }
+    else if (file.size > MAX_BYTES) { state = 'failed'; error = `Over 5 MB (${formatBytes(file.size)})`; retryable = false; }
     if (state === 'failed') invalid += 1;
-    items.push({ id: crypto.randomUUID(), file, mediaType, state, error, url: '', retryable });
+    items.push({ id: crypto.randomUUID(), file, mediaType, state, error, url: '', retryable, collectionState: 'none' });
   }
-
-  if (rejectedCount > 0) {
-    setStatus(`Added ${accepted.length}; BUM Hand currently limits a batch to ${MAX_FILES} files.`);
-  } else {
-    setStatus(invalid ? `Added ${accepted.length} files; ${invalid} need attention.` : `${accepted.length} image${accepted.length === 1 ? '' : 's'} added.`);
-  }
+  const rejected = incoming.length - accepted.length;
+  setStatus(rejected ? `Added ${accepted.length}; batches are limited to ${MAX_FILES} files.` : invalid ? `Added ${accepted.length} files; ${invalid} need attention.` : `${accepted.length} image${accepted.length === 1 ? '' : 's'} added.`);
   render();
 }
 
 async function uploadItem(item, token) {
-  item.state = 'uploading';
-  item.error = '';
-  item.retryable = true;
-  render();
-
+  item.state = 'uploading'; item.error = ''; item.retryable = true; render();
   try {
     item.url = await uploadMicroblogMedia(token, item.file, item.file.name, item.mediaType);
-    item.state = 'uploaded';
-    item.retryable = false;
+    item.state = 'uploaded'; item.retryable = false; item.collectionState = 'none';
   } catch (error) {
-    item.state = 'failed';
-    item.error = error instanceof Error ? error.message : 'Upload failed';
-    item.retryable = true;
+    item.state = 'failed'; item.error = error instanceof Error ? error.message : 'Upload failed'; item.retryable = true;
   }
   render();
 }
 
+async function addToSelectedCollection(targets) {
+  const collection = selectedCollection();
+  const destination = destinationSelect.value;
+  if (!collection || !destination || !targets.length) return true;
+  for (const item of targets) item.collectionState = 'adding';
+  render();
+  try {
+    await addPhotosToMicroblogCollection(tokenInput.value.trim(), destination, collection.url, targets.map(item => item.url));
+    for (const item of targets) item.collectionState = 'added';
+    const fresh = collections.find(entry => entry.url === collection.url);
+    if (fresh) fresh.uploadCount += targets.length;
+    renderCollections();
+    setStatus(`${targets.length} photo${targets.length === 1 ? '' : 's'} added to “${collection.name}”.`);
+    return true;
+  } catch (error) {
+    for (const item of targets) item.collectionState = 'failed';
+    setStatus(`${targets.length} photo${targets.length === 1 ? '' : 's'} uploaded, but collection assignment failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+    return false;
+  } finally { render(); }
+}
+
 async function runUpload(targets) {
   const token = tokenInput.value.trim();
-  if (!token) {
-    setStatus('Paste your Micro.blog app token first.');
-    tokenInput.focus();
-    return;
-  }
+  if (!token) { setStatus('Paste your Micro.blog app token first.'); tokenInput.focus(); return; }
   if (!targets.length) return;
-
-  busy = true;
-  setStatus(`Uploading ${targets.length} image${targets.length === 1 ? '' : 's'}…`);
-  render();
-
-  for (const item of targets) {
-    await uploadItem(item, token);
-  }
-
+  busy = true; setStatus(`Uploading ${targets.length} image${targets.length === 1 ? '' : 's'}…`); render();
+  for (const item of targets) await uploadItem(item, token);
+  const uploadedNow = targets.filter(item => item.state === 'uploaded');
+  let collectionOk = true;
+  if (selectedCollection() && uploadedNow.length) collectionOk = await addToSelectedCollection(uploadedNow);
   busy = false;
-  const uploaded = selectedResults().length;
   const failed = failedItems().length;
-  if (failed) {
-    const retryable = retryableFailedItems().length;
-    setStatus(`${uploaded} uploaded; ${failed} failed.${retryable ? ' Retry is available for upload failures.' : ''}`);
-  } else {
-    setStatus(`${uploaded} image${uploaded === 1 ? '' : 's'} uploaded to Micro.blog.`);
+  if (collectionOk) {
+    if (failed) setStatus(`${selectedResults().length} uploaded; ${failed} failed.${retryableFailedItems().length ? ' Retry is available.' : ''}`);
+    else if (!selectedCollection()) setStatus(`${selectedResults().length} image${selectedResults().length === 1 ? '' : 's'} uploaded to Micro.blog.`);
   }
   render();
 }
 
 async function copyText(text, successMessage) {
+  try { await navigator.clipboard.writeText(text); setStatus(successMessage); }
+  catch {
+    const textarea = document.createElement('textarea'); textarea.value = text; textarea.setAttribute('readonly', ''); textarea.style.position = 'fixed'; textarea.style.opacity = '0'; document.body.append(textarea); textarea.select();
+    const copied = document.execCommand('copy'); textarea.remove(); setStatus(copied ? successMessage : 'Could not copy automatically.');
+  }
+}
+
+toggleToken.addEventListener('click', () => { const showing = tokenInput.type === 'text'; tokenInput.type = showing ? 'password' : 'text'; toggleToken.textContent = showing ? 'Show' : 'Hide'; toggleToken.setAttribute('aria-pressed', String(!showing)); });
+tokenInput.addEventListener('input', () => { if (connectedToken && tokenInput.value.trim() !== connectedToken) { collectionPanel.hidden = true; connectedToken = ''; collections = []; } render(); });
+connectButton.addEventListener('click', connect);
+destinationSelect.addEventListener('change', async () => { try { await loadCollections(); setStatus('Collections updated for the selected blog.'); } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not load collections.'); } render(); });
+collectionSelect.addEventListener('change', render);
+newCollectionName.addEventListener('input', render);
+createCollectionButton.addEventListener('click', async () => {
+  const name = newCollectionName.value.trim(); if (!name) return;
+  busy = true; setStatus(`Creating “${name}”…`); render();
   try {
-    await navigator.clipboard.writeText(text);
-    setStatus(successMessage);
-  } catch {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    textarea.setAttribute('readonly', '');
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
-    document.body.append(textarea);
-    textarea.select();
-    const copied = document.execCommand('copy');
-    textarea.remove();
-    setStatus(copied ? successMessage : 'Could not copy automatically.');
-  }
-}
-
-toggleToken.addEventListener('click', () => {
-  const showing = tokenInput.type === 'text';
-  tokenInput.type = showing ? 'password' : 'text';
-  toggleToken.textContent = showing ? 'Show' : 'Hide';
-  toggleToken.setAttribute('aria-pressed', String(!showing));
+    await createMicroblogCollection(tokenInput.value.trim(), destinationSelect.value, name);
+    newCollectionName.value = '';
+    await loadCollections();
+    const created = collections.find(collection => collection.name === name);
+    if (created) collectionSelect.value = created.url;
+    setStatus(`Created “${name}” and selected it.`);
+  } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not create collection.'); }
+  finally { busy = false; render(); }
 });
-
-tokenInput.addEventListener('input', render);
-filesInput.addEventListener('change', event => {
-  addFiles(event.target.files);
-  event.target.value = '';
-});
-
-for (const eventName of ['dragenter', 'dragover']) {
-  dropZone.addEventListener(eventName, event => {
-    event.preventDefault();
-    if (!busy) dropZone.classList.add('dragging');
-  });
-}
-for (const eventName of ['dragleave', 'drop']) {
-  dropZone.addEventListener(eventName, event => {
-    event.preventDefault();
-    dropZone.classList.remove('dragging');
-  });
-}
-dropZone.addEventListener('drop', event => {
-  if (!busy) addFiles(event.dataTransfer?.files);
-});
-
+filesInput.addEventListener('change', event => { addFiles(event.target.files); event.target.value = ''; });
+for (const eventName of ['dragenter', 'dragover']) dropZone.addEventListener(eventName, event => { event.preventDefault(); if (!busy) dropZone.classList.add('dragging'); });
+for (const eventName of ['dragleave', 'drop']) dropZone.addEventListener(eventName, event => { event.preventDefault(); dropZone.classList.remove('dragging'); });
+dropZone.addEventListener('drop', event => { if (!busy) addFiles(event.dataTransfer?.files); });
 uploadButton.addEventListener('click', () => runUpload(queuedItems()));
-retryButton.addEventListener('click', () => {
-  const retryable = retryableFailedItems();
-  for (const item of retryable) {
-    item.state = 'queued';
-    item.error = '';
-  }
-  render();
-  return runUpload(retryable);
-});
-
-clearButton.addEventListener('click', () => {
-  items = [];
-  setStatus('Cleared.');
-  render();
-});
-
-copyUrlsButton.addEventListener('click', () => {
-  const results = selectedResults();
-  return copyText(results.map(item => item.url).join('\n'), `Copied ${results.length} URL${results.length === 1 ? '' : 's'}.`);
-});
-copyMarkdownButton.addEventListener('click', () => {
-  const results = selectedResults();
-  return copyText(results.map(resultMarkdown).join('\n'), `Copied Markdown for ${results.length} image${results.length === 1 ? '' : 's'}.`);
-});
-copyHtmlButton.addEventListener('click', () => {
-  const results = selectedResults();
-  return copyText(results.map(resultHtml).join('\n'), `Copied HTML for ${results.length} image${results.length === 1 ? '' : 's'}.`);
-});
-
+retryButton.addEventListener('click', () => { const retryable = retryableFailedItems(); for (const item of retryable) { item.state = 'queued'; item.error = ''; } render(); return runUpload(retryable); });
+retryCollectionButton.addEventListener('click', async () => { const targets = selectedResults().filter(item => item.collectionState === 'failed'); if (!targets.length) return; busy = true; render(); await addToSelectedCollection(targets); busy = false; render(); });
+clearButton.addEventListener('click', () => { items = []; setStatus('Cleared.'); render(); });
+copyUrlsButton.addEventListener('click', () => { const results = selectedResults(); return copyText(results.map(item => item.url).join('\n'), `Copied ${results.length} URL${results.length === 1 ? '' : 's'}.`); });
+copyMarkdownButton.addEventListener('click', () => { const results = selectedResults(); return copyText(results.map(resultMarkdown).join('\n'), `Copied Markdown for ${results.length} image${results.length === 1 ? '' : 's'}.`); });
+copyHtmlButton.addEventListener('click', () => { const results = selectedResults(); return copyText(results.map(resultHtml).join('\n'), `Copied HTML for ${results.length} image${results.length === 1 ? '' : 's'}.`); });
 render();
