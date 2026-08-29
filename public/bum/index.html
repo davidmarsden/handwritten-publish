@@ -132,7 +132,7 @@
         <input id="audio-files" type="file" accept="audio/mpeg,audio/mp4,.mp3,.m4a" multiple>
       </label>
 
-      <p class="audio-note">Audio goes directly from your browser to Micro.blog’s media endpoint, so full-size tracks do not pass through the smaller photo upload bridge. Connect above and choose the destination blog first.</p>
+      <p class="audio-note">Audio is streamed through BUM Hand’s same-origin edge proxy to Micro.blog, avoiding browser cross-origin restrictions and the smaller buffered photo bridge. Connect above and choose the destination blog first.</p>
       <div id="audio-selection-summary" class="selection-summary" hidden></div>
       <ol id="audio-queue" class="queue" aria-live="polite"></ol>
 
