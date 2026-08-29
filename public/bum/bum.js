@@ -39,6 +39,7 @@ const copyHtmlButton = $('#copy-html');
 
 let items = [];
 let busy = false;
+let loadingCollections = false;
 let connectedToken = '';
 let collections = [];
 
@@ -76,9 +77,11 @@ function renderCollections() {
   }
   if (collections.some(collection => collection.url === selected)) collectionSelect.value = selected;
   const destination = destinationSelect.selectedOptions[0]?.textContent || '';
-  collectionSummary.textContent = collections.length
-    ? `${collections.length} collection${collections.length === 1 ? '' : 's'} on ${destination}.`
-    : destination ? `No photo collections yet on ${destination}. Create one here if you like.` : '';
+  collectionSummary.textContent = loadingCollections
+    ? 'Loading collections…'
+    : collections.length
+      ? `${collections.length} collection${collections.length === 1 ? '' : 's'} on ${destination}.`
+      : destination ? `No photo collections yet on ${destination}. Create one here if you like.` : '';
 }
 
 function render() {
@@ -106,21 +109,21 @@ function render() {
 
   selectionSummary.hidden = !items.length;
   selectionSummary.textContent = items.length ? `${items.length} image${items.length === 1 ? '' : 's'} selected.` : '';
-  uploadButton.disabled = busy || !tokenInput.value.trim() || !queued.length;
+  uploadButton.disabled = busy || loadingCollections || !tokenInput.value.trim() || !queued.length;
   uploadButton.textContent = busy ? 'Working…' : `Upload queued image${queued.length === 1 ? '' : 's'}`;
   retryButton.hidden = !retryable.length;
-  retryButton.disabled = busy || !tokenInput.value.trim();
+  retryButton.disabled = busy || loadingCollections || !tokenInput.value.trim();
   retryCollectionButton.hidden = !collectionFailures.length;
-  retryCollectionButton.disabled = busy || !selectedCollection();
+  retryCollectionButton.disabled = busy || loadingCollections || !selectedCollection();
   clearButton.disabled = busy || !items.length;
   filesInput.disabled = busy;
   tokenInput.disabled = busy;
   toggleToken.disabled = busy;
   connectButton.disabled = busy || !tokenInput.value.trim();
-  destinationSelect.disabled = busy;
-  collectionSelect.disabled = busy;
-  newCollectionName.disabled = busy;
-  createCollectionButton.disabled = busy || !destinationSelect.value || !newCollectionName.value.trim();
+  destinationSelect.disabled = busy || loadingCollections;
+  collectionSelect.disabled = busy || loadingCollections;
+  newCollectionName.disabled = busy || loadingCollections;
+  createCollectionButton.disabled = busy || loadingCollections || !destinationSelect.value || !newCollectionName.value.trim();
 
   resultsSection.hidden = !uploaded.length;
   resultsSummary.textContent = uploaded.length ? `${uploaded.length} successful upload${uploaded.length === 1 ? '' : 's'}.` : '';
@@ -150,10 +153,23 @@ function render() {
 async function loadCollections() {
   const token = tokenInput.value.trim();
   const destination = destinationSelect.value;
-  if (!token || !destination) return;
-  collectionSummary.textContent = 'Loading collections…';
-  collections = await fetchMicroblogCollections(token, destination);
+  collections = [];
+  loadingCollections = Boolean(token && destination);
   renderCollections();
+  render();
+  if (!token || !destination) {
+    loadingCollections = false;
+    renderCollections();
+    render();
+    return;
+  }
+  try {
+    collections = await fetchMicroblogCollections(token, destination);
+  } finally {
+    loadingCollections = false;
+    renderCollections();
+    render();
+  }
 }
 
 async function connect() {
@@ -253,7 +269,7 @@ async function copyText(text, successMessage) {
 }
 
 toggleToken.addEventListener('click', () => { const showing = tokenInput.type === 'text'; tokenInput.type = showing ? 'password' : 'text'; toggleToken.textContent = showing ? 'Show' : 'Hide'; toggleToken.setAttribute('aria-pressed', String(!showing)); });
-tokenInput.addEventListener('input', () => { if (connectedToken && tokenInput.value.trim() !== connectedToken) { collectionPanel.hidden = true; connectedToken = ''; collections = []; } render(); });
+tokenInput.addEventListener('input', () => { if (connectedToken && tokenInput.value.trim() !== connectedToken) { collectionPanel.hidden = true; connectedToken = ''; collections = []; loadingCollections = false; } render(); });
 connectButton.addEventListener('click', connect);
 destinationSelect.addEventListener('change', async () => { try { await loadCollections(); setStatus('Collections updated for the selected blog.'); } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not load collections.'); } render(); });
 collectionSelect.addEventListener('change', render);
