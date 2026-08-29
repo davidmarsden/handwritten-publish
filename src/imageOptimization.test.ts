@@ -6,12 +6,18 @@ import {
 } from './imageOptimization';
 
 describe('preparePhotoForMicroblog', () => {
-  it('leaves photos already within the bridge limit untouched', async () => {
-    const file = new File([new Uint8Array(1024)], 'small.jpg', { type: 'image/jpeg' });
+  it('materializes photos already within the bridge limit without optimizing them', async () => {
+    const bytes = new Uint8Array([1, 2, 3, 4, 5]);
+    const file = new File([bytes], 'small.jpg', { type: 'image/jpeg', lastModified: 123456789 });
     const result = await preparePhotoForMicroblog(file);
 
     expect(result.optimized).toBe(false);
-    expect(result.file).toBe(file);
+    expect(result.file).not.toBe(file);
+    expect(result.file.name).toBe(file.name);
+    expect(result.file.type).toBe(file.type);
+    expect(result.file.lastModified).toBe(file.lastModified);
+    expect(result.file.size).toBe(file.size);
+    expect(new Uint8Array(await result.file.arrayBuffer())).toEqual(bytes);
     expect(result.originalBytes).toBe(file.size);
     expect(result.uploadBytes).toBe(file.size);
   });
