@@ -1,10 +1,12 @@
 export const MICROBLOG_MAX_MEDIA_BYTES = 5_000_000;
-export const MICROBLOG_TARGET_MEDIA_BYTES = 4_500_000;
+export const MICROBLOG_BRIDGE_SAFE_BYTES = 3_500_000;
+export const MICROBLOG_TARGET_MEDIA_BYTES = 3_000_000;
 const MAX_WEB_EDGE = 3000;
 const MIN_WEB_EDGE = 1200;
 const JPEG_QUALITIES = [0.9, 0.82, 0.74, 0.66] as const;
 
 type SupportedPhotoType = 'image/jpeg' | 'image/png' | 'image/webp';
+type BrowserImageSource = ImageBitmap | HTMLImageElement;
 
 export type PreparedMicroblogPhoto = {
   file: File;
@@ -33,18 +35,55 @@ function canvasJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
   });
 }
 
-function drawBitmap(bitmap: ImageBitmap, width: number, height: number): HTMLCanvasElement {
+function sourceDimensions(source: BrowserImageSource): [number, number] {
+  return source instanceof HTMLImageElement
+    ? [source.naturalWidth, source.naturalHeight]
+    : [source.width, source.height];
+}
+
+function drawSource(source: BrowserImageSource, width: number, height: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('The browser could not prepare this photo for upload.');
 
-  // JPEG has no alpha channel. A white backing keeps transparent PNG/WebP areas predictable.
   context.fillStyle = '#ffffff';
   context.fillRect(0, 0, width, height);
-  context.drawImage(bitmap, 0, 0, width, height);
+  context.drawImage(source, 0, 0, width, height);
   return canvas;
+}
+
+async function htmlImage(file: File): Promise<{ source: HTMLImageElement; cleanup: () => void }> {
+  const objectUrl = URL.createObjectURL(file);
+  const image = new Image();
+  image.decoding = 'async';
+  image.src = objectUrl;
+  try {
+    if (typeof image.decode === 'function') await image.decode();
+    else await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('The source image could not be decoded.'));
+    });
+    if (!image.naturalWidth || !image.naturalHeight) throw new Error('The source image could not be decoded.');
+    return { source: image, cleanup: () => URL.revokeObjectURL(objectUrl) };
+  } catch (error) {
+    URL.revokeObjectURL(objectUrl);
+    throw error;
+  }
+}
+
+async function loadImage(file: File): Promise<{ source: BrowserImageSource; cleanup: () => void }> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return { source: bitmap, cleanup: () => bitmap.close() };
+    } catch {
+      // Some Android/Google Photos combinations expose a valid browser File that
+      // createImageBitmap cannot decode. The HTMLImageElement path is more tolerant.
+    }
+  }
+  return htmlImage(file);
 }
 
 function dimensionsForMaxEdge(width: number, height: number, maxEdge: number): [number, number] {
@@ -58,7 +97,9 @@ export async function preparePhotoForMicroblog(
   file: File,
   mediaType: string = file.type,
 ): Promise<PreparedMicroblogPhoto> {
-  if (file.size <= MICROBLOG_MAX_MEDIA_BYTES) {
+  // The Micro.blog endpoint accepts 5 MB, but the Netlify function transport has
+  // its own payload ceiling. Leave a generous margin for request encoding/metadata.
+  if (file.size <= MICROBLOG_BRIDGE_SAFE_BYTES) {
     return {
       file,
       optimized: false,
@@ -68,20 +109,17 @@ export async function preparePhotoForMicroblog(
   }
 
   if (!isSupportedPhotoType(mediaType)) {
-    throw new Error(`${file.name} is too large for Micro.blog and cannot be optimized automatically.`);
+    throw new Error(`${file.name} is too large for the upload bridge and cannot be optimized automatically.`);
   }
 
-  if (typeof createImageBitmap !== 'function') {
-    throw new Error(`${file.name} is too large for Micro.blog and this browser cannot optimize it automatically.`);
-  }
-
-  const bitmap = await createImageBitmap(file);
+  const loaded = await loadImage(file);
   try {
-    let [width, height] = dimensionsForMaxEdge(bitmap.width, bitmap.height, MAX_WEB_EDGE);
+    const [sourceWidth, sourceHeight] = sourceDimensions(loaded.source);
+    let [width, height] = dimensionsForMaxEdge(sourceWidth, sourceHeight, MAX_WEB_EDGE);
     let smallest: { blob: Blob; width: number; height: number } | null = null;
 
     while (true) {
-      const canvas = drawBitmap(bitmap, width, height);
+      const canvas = drawSource(loaded.source, width, height);
       for (const quality of JPEG_QUALITIES) {
         const blob = await canvasJpeg(canvas, quality);
         if (!smallest || blob.size < smallest.blob.size) smallest = { blob, width, height };
@@ -101,12 +139,12 @@ export async function preparePhotoForMicroblog(
       if (Math.max(width, height) <= MIN_WEB_EDGE) break;
       const nextWidth = Math.max(1, Math.round(width * 0.82));
       const nextHeight = Math.max(1, Math.round(height * 0.82));
-      if (nextWidth === width && nextHeight === height || Math.max(nextWidth, nextHeight) < MIN_WEB_EDGE) break;
+      if ((nextWidth === width && nextHeight === height) || Math.max(nextWidth, nextHeight) < MIN_WEB_EDGE) break;
       width = nextWidth;
       height = nextHeight;
     }
 
-    if (smallest && smallest.blob.size <= MICROBLOG_MAX_MEDIA_BYTES) {
+    if (smallest && smallest.blob.size <= MICROBLOG_BRIDGE_SAFE_BYTES) {
       const optimized = new File([smallest.blob], webJpegFilename(file.name), { type: 'image/jpeg' });
       return {
         file: optimized,
@@ -118,9 +156,9 @@ export async function preparePhotoForMicroblog(
       };
     }
 
-    throw new Error(`${file.name} could not be reduced below the 5 MB Micro.blog upload limit without making it unreasonably small.`);
+    throw new Error(`${file.name} could not be reduced to a safe upload size without making it unreasonably small.`);
   } finally {
-    bitmap.close();
+    loaded.cleanup();
   }
 }
 

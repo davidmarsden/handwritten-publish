@@ -1,5 +1,4 @@
 import {
-  MICROBLOG_MAX_MEDIA_BYTES as MAX_BYTES,
   addPhotosToMicroblogCollection,
   createMicroblogCollection,
   fetchMicroblogCollections,
@@ -7,7 +6,10 @@ import {
   inferImageMediaType,
   uploadMicroblogMedia,
 } from '/shared/microblog-client.js';
-import { preparePhotoForMicroblog } from '/shared/image-optimization.js';
+import {
+  MICROBLOG_BRIDGE_SAFE_BYTES as SAFE_UPLOAD_BYTES,
+  preparePhotoForMicroblog,
+} from '/shared/image-optimization.js';
 
 const SUPPORTED_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const MAX_FILES = 30;
@@ -222,12 +224,12 @@ function addFiles(fileList) {
       url: '',
       retryable,
       collectionState: 'none',
-      needsOptimization: file.size > MAX_BYTES,
+      needsOptimization: file.size > SAFE_UPLOAD_BYTES,
       optimizedBytes: null,
     });
   }
   const rejected = incoming.length - accepted.length;
-  const oversized = accepted.filter(file => file.size > MAX_BYTES && SUPPORTED_TYPES.has(inferImageMediaType(file))).length;
+  const oversized = accepted.filter(file => file.size > SAFE_UPLOAD_BYTES && SUPPORTED_TYPES.has(inferImageMediaType(file))).length;
   if (rejected) setStatus(`Added ${accepted.length}; batches are limited to ${MAX_FILES} files.`);
   else if (invalid) setStatus(`Added ${accepted.length} files; ${invalid} need attention.${oversized ? ` ${oversized} oversized photo${oversized === 1 ? '' : 's'} will be optimized automatically.` : ''}`);
   else if (oversized) setStatus(`Added ${accepted.length} images. ${oversized} oversized photo${oversized === 1 ? '' : 's'} will be optimized automatically before upload.`);
