@@ -6,9 +6,9 @@ The suite is separated into three focused tools:
 
 - **Writing Hand** — reMarkable → Micro.blog. *From paper to web at the push of a pen.*
 - **Publish Hand** — handwriting, images and documents → web. The browser publishing app lives at `/publish/`.
-- **BUM Hand** — **Batch Uploader for Micro.blog**, currently available at `/bum/`. It can upload batches of photos without creating posts, copy the resulting URLs/Markdown/HTML, and optionally add the successful uploads straight to an existing or newly-created Micro.blog photo collection.
+- **BUM Hand** — **Batch Uploader for Micro.blog**, currently available at `/bum/`. It can batch-upload photos without creating posts, safely optimise larger photos in the browser, copy the resulting URLs/Markdown/HTML, and optionally add successful uploads straight to an existing or newly-created Micro.blog Photo Collection. Audio is the next media milestone.
 
-The tools share publishing infrastructure but have separate product boundaries. See [`docs/helping-hand.md`](docs/helping-hand.md) for the architecture and extraction plan.
+The tools share publishing infrastructure but have separate product boundaries. See [`docs/helping-hand.md`](docs/helping-hand.md) for the architecture and extraction plan, and [`docs/bum-hand.md`](docs/bum-hand.md) for BUM Hand's current release boundary and media roadmap.
 
 The deployed root route `/` is the **Helping Hand** launcher. Product routes are built as separate Vite entrypoints while continuing to share the same repository, Netlify Functions and publishing core.
 
@@ -79,10 +79,11 @@ Vite uses multiple entrypoints: the Helping Hand launcher is built from `index.h
 
 ## Near-term roadmap
 
-1. give the reMarkable email workflow its own **Writing Hand** setup/identity and route;
-2. continue strengthening shared publisher primitives in `packages/publishing-core/` as more destinations are added;
-3. widen **BUM Hand** beyond images only after accepted file types, size limits and abuse controls are explicitly verified;
-4. continue destination-neutral publishing work, including handwritten.blog and other suitable endpoints.
+1. keep the completed **BUM Hand image + Photo Collections** workflow hardened and accurately documented, including Android/Google Photos batch staging and bridge-safe image optimisation;
+2. add **BUM Hand audio uploads** next, beginning with explicitly supported MP3/M4A workflows and an upload architecture suitable for realistically sized audio files;
+3. add **PDF/document uploads** after audio, with useful URL/link/Markdown/HTML results rather than image semantics;
+4. continue strengthening shared publisher primitives in `packages/publishing-core/` as media and destinations are added;
+5. continue destination-neutral publishing work, including handwritten.blog and other suitable endpoints.
 
 The destination-neutral document model is intentional: publisher integrations should adapt a `HandwrittenDocument`, not reshape the core format around one service.
 
