@@ -11,7 +11,7 @@ It owns:
 - page ordering and local document state;
 - transcripts and handwritten link regions;
 - photo/document enrichment;
-- `.hwpublish` import/export;
+- `.handpub` import/export;
 - browser publishing orchestration.
 
 The root `/` route is the Helping Hand launcher rather than a second copy of Publish Hand.

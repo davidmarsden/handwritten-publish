@@ -33,7 +33,8 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   text-underline-offset: 4px;
 }
 
-.hero { padding: 64px 0 42px; }
+.hero { padding: 64px 0 42px; position:relative; }
+.hero-mark { position:absolute; right:0; top:48px; width:112px; height:112px; }
 .eyebrow, .step {
   margin: 0 0 8px;
   font-size: .78rem;
@@ -155,7 +156,8 @@ input[type="password"], input[type="text"] {
 
 @media (max-width: 640px) {
   .shell { width: min(100% - 22px, 900px); }
-  .hero { padding-top: 48px; }
+  .hero { padding-top: 36px; }
+  .hero-mark { position:static; display:block; width:78px; height:78px; margin:0 0 24px; }
   .section-heading { display: block; }
   .section-heading .hint { margin-top: 12px; }
   .token-row { grid-template-columns: 1fr; }

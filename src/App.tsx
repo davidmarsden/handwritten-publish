@@ -210,7 +210,7 @@ export default function App() {
       setAnnotationPageId(null);
       setStatus(`Opened ${file.name}.`);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Could not open .hwpublish bundle.');
+      setStatus(error instanceof Error ? error.message : 'Could not open .handpub bundle.');
     } finally {
       setBusy(false);
       event.target.value = '';
@@ -334,7 +334,7 @@ export default function App() {
   async function exportBundle() {
     const blob = await buildBundle(document, pages, assets);
     const safeTitle = title.trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'handwritten-post';
-    downloadBlob(blob, `${safeTitle}.hwpublish`);
+    downloadBlob(blob, `${safeTitle}.handpub`);
     setStatus('Portable bundle exported.');
   }
 
@@ -498,8 +498,8 @@ export default function App() {
         <label className="fileButton">{busy ? 'Reading…' : !hydrated ? 'Restoring local draft…' : pages.length ? 'Replace with PNG pages' : 'Choose PNG pages'}<input type="file" accept="image/png,.png" multiple onChange={onFiles} disabled={controlsDisabled} /></label>
         <label className="fileButton">{pages.length ? 'Replace with PDF' : 'Choose PDF'}<input type="file" accept="application/pdf,.pdf" onChange={onPdf} disabled={controlsDisabled} /></label>
         <label className="fileButton">Add photo pages<input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple onChange={onPhotoPages} disabled={controlsDisabled} /></label>
-        <label className="fileButton">Open .hwpublish<input type="file" accept=".hwpublish,application/zip" onChange={onBundle} disabled={controlsDisabled} /></label>
-        <button onClick={exportBundle} disabled={!pages.length || controlsDisabled}>Export .hwpublish</button>
+        <label className="fileButton">Open .handpub<input type="file" accept=".handpub,application/zip" onChange={onBundle} disabled={controlsDisabled} /></label>
+        <button onClick={exportBundle} disabled={!pages.length || controlsDisabled}>Export .handpub</button>
         <button onClick={newDocument} disabled={controlsDisabled}>New document</button>
         <small aria-live="polite">{status}</small>
       </section>

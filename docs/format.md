@@ -1,20 +1,20 @@
-# `.hwpublish` format
+# `.handpub` format
 
-A `.hwpublish` file is an ordinary ZIP archive. Its goal is boring portability: source pages and photos remain usable standard image files even if this application disappears.
+A `.handpub` file is an ordinary ZIP archive. Its goal is boring portability: source pages and photos remain usable standard image files even if this application disappears.
 
-Handwritten Publish currently reads two manifest versions:
+Publish Hand currently reads two manifest versions:
 
 - **version 1** — the legacy PNG-only handwritten-page format;
-- **version 2** — the current mixed-media format used by Handwritten Publish v0.1.0 and later compatible releases.
+- **version 2** — the current mixed-media format used by Publish Hand.
 
-New producers should write version 2. Version 1 remains supported for backward compatibility and must retain its original PNG-only page shape.
+New producers should write version 2. Version 1 remains supported for schema compatibility and must retain its original PNG-only page shape.
 
 ## Version 2 layout
 
 A version-2 bundle can contain handwritten pages, standalone photo pages, original photo assets used as overlays, document metadata such as a post summary/categories, and an optional transcript.
 
 ```text
-post.hwpublish
+post.handpub
 ├── manifest.json
 ├── transcript.md                 # optional
 ├── pages/
@@ -54,6 +54,8 @@ Version-1 bundles use the same numbered page-path convention but every page entr
 }
 ```
 
+The internal `format` identifier remains `handwritten-publish`; the user-facing portable file extension is `.handpub`.
+
 `summary`, `categories`, `transcript`, and `assets` may be omitted when empty. `summary` is plain text. `categories` is an array of category-name strings. These are document-level publishing metadata rather than Micro.blog credentials or remote state, so they remain portable with the document.
 
 Each page records stable application identity, display position, original filename, SHA-256 digest, dimensions, media type and page-specific metadata. Handwritten pages can carry annotations. Standalone photo pages carry their own photo-page metadata such as alt text.
@@ -67,7 +69,7 @@ Version 2 supports two logical page kinds:
 - **handwritten page** — a PNG exported/rendered from a handwriting device; may contain normalized link and photo annotations;
 - **standalone photo page** — JPEG, PNG or WebP occupying its own position in the ordered document sequence.
 
-Version 1 predates that page-kind distinction. It contains handwritten PNG pages only, without the mixed-media `kind` model or photo-asset collection. Handwritten Publish upgrades valid version-1 documents to the current in-memory model when importing them.
+Version 1 predates that page-kind distinction. It contains handwritten PNG pages only, without the mixed-media `kind` model or photo-asset collection. Publish Hand upgrades valid version-1 documents to the current in-memory model when importing them.
 
 ## Coordinates
 
@@ -79,7 +81,7 @@ A link annotation stores its destination URL and optional label. A photo annotat
 
 Source page files and photo assets are identified by SHA-256 digests in the manifest. Import verifies file content against those recorded hashes before accepting the bundle.
 
-Publishing derivatives are not part of the portable source format. For example, a temporary recompressed JPEG produced to satisfy a remote media-size limit does not replace the original asset or its digest in `.hwpublish`.
+Publishing derivatives are not part of the portable source format. For example, a temporary recompressed JPEG produced to satisfy a remote media-size limit does not replace the original asset or its digest in `.handpub`.
 
 ## Compatibility principles
 

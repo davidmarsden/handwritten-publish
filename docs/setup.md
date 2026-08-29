@@ -58,7 +58,7 @@ If you are only using the browser app, you can leave the post-by-email environme
 
 ## 3. Connect Micro.blog in the browser
 
-The normal browser publishing workflow asks for a Micro.blog app token when you publish. That token is kept in browser memory; it is not written into IndexedDB, `.hwpublish` files or Netlify environment variables.
+The normal browser publishing workflow asks for a Micro.blog app token when you publish. That token is kept in browser memory; it is not written into IndexedDB, `.handpub` files or Netlify environment variables.
 
 Micro.blog app tokens can be created under **Account → App tokens / Edit Apps**.
 
@@ -247,7 +247,7 @@ reMarkable notebook/page tags are not included in Send by email messages, so the
 - Keep private posting addresses private.
 - Treat each posting address as a publishing credential, because explicit metadata can request live publication.
 - Use a dedicated Micro.blog token for email publishing so it can be revoked independently.
-- Do not put tokens into the repository or `.hwpublish` files.
+- Do not put tokens into the repository or `.handpub` files.
 - The Resend webhook is rejected unless its signature verifies.
 - Email sent to an unknown route is ignored.
 - A message addressed to configured aliases for more than one destination is ignored rather than guessed.
@@ -283,6 +283,6 @@ That is safe. Post-by-email records the Resend email ID in Netlify Database and 
 
 - [`post-by-email.md`](post-by-email.md) — implementation, security model and email behaviour
 - [`architecture.md`](architecture.md) — overall architecture and privacy boundaries
-- [`format.md`](format.md) — portable `.hwpublish` format
+- [`format.md`](format.md) — portable `.handpub` format
 - [`metadata.md`](metadata.md) — document metadata
 - [`STATUS.md`](STATUS.md) — current implementation status

@@ -100,11 +100,11 @@ function isAsset(value: unknown): value is HandwrittenAsset {
 }
 
 function parseManifest(value: unknown): HandwrittenDocument {
-  if (!value || typeof value !== 'object') throw new Error('Invalid .hwpublish manifest.');
+  if (!value || typeof value !== 'object') throw new Error('Invalid .handpub manifest.');
   const document = value as Partial<HandwrittenDocument> & { version?: number };
-  if (document.format !== 'handwritten-publish') throw new Error('Invalid .hwpublish manifest.');
+  if (document.format !== 'handwritten-publish') throw new Error('Invalid .handpub manifest.');
   if (document.version !== LEGACY_FORMAT_VERSION && document.version !== FORMAT_VERSION) {
-    throw new Error('Unsupported .hwpublish format version.');
+    throw new Error('Unsupported .handpub format version.');
   }
 
   const pagesValid = Array.isArray(document.pages)
@@ -121,7 +121,7 @@ function parseManifest(value: unknown): HandwrittenDocument {
     || (document.transcript !== undefined && typeof document.transcript !== 'string')
     || !pagesValid
     || (document.assets !== undefined && (!Array.isArray(document.assets) || !document.assets.every(isAsset)))) {
-    throw new Error('Invalid .hwpublish manifest.');
+    throw new Error('Invalid .handpub manifest.');
   }
 
   return upgradeDocumentFormat(document as HandwrittenDocument);

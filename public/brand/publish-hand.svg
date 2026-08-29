@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Publish Hand</title>
+  <desc id="desc">An ink-style hand beside an open page outline.</desc>
+  <g fill="none" stroke="#b74234" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M36 66 32 36" stroke-width="8"/>
+    <path d="M49 64 48 28" stroke-width="8"/>
+    <path d="M62 65 65 34" stroke-width="8"/>
+    <path d="M36 74 59 88" stroke-width="9"/>
+    <path d="M79 30h20v68H78" stroke-width="7"/>
+    <path d="M79 30c-8 0-14 5-14 13v42c0 8 5 13 13 13" stroke-width="7"/>
+  </g>
+</svg>
