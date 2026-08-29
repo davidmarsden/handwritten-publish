@@ -34,6 +34,7 @@ describe('Micro.blog config categories', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
+      mediaEndpoint: 'https://micro.blog/micropub/media',
       destinations: [{ uid: 'https://example.micro.blog/', name: 'Example' }],
       categories: ['Southall', 'Local politics'],
     });
@@ -65,6 +66,7 @@ describe('Micro.blog config categories', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
+      mediaEndpoint: 'https://micro.blog/micropub/media',
       destinations: [{ uid: 'https://example.micro.blog/', name: 'Example' }],
       categories: ['Photos', 'Travel'],
     });
