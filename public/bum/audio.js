@@ -116,35 +116,36 @@ async function getMediaEndpoint(token) {
   return payload.mediaEndpoint;
 }
 
-function directUpload(endpoint, token, destination, item) {
+function proxyUpload(endpoint, token, destination, item) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', endpoint);
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.open('POST', '/api/microblog/audio');
+    xhr.setRequestHeader('Content-Type', item.mediaType);
+    xhr.setRequestHeader('X-Microblog-Token', token);
+    xhr.setRequestHeader('X-Microblog-Media-Endpoint', encodeURIComponent(endpoint));
+    xhr.setRequestHeader('X-Microblog-Destination', encodeURIComponent(destination));
+    xhr.setRequestHeader('X-File-Name', encodeURIComponent(item.file.name));
     xhr.upload.addEventListener('progress', event => {
       if (!event.lengthComputable) return;
       item.progress = Math.min(99, Math.round((event.loaded / event.total) * 100));
       renderAudio();
     });
     xhr.addEventListener('load', () => {
+      let payload = {};
+      try { payload = JSON.parse(xhr.responseText || '{}'); } catch {}
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new Error(`Micro.blog rejected ${item.file.name} (HTTP ${xhr.status}).`));
+        reject(new Error(payload.error || `Could not upload ${item.file.name} (HTTP ${xhr.status}).`));
         return;
       }
-      const location = xhr.getResponseHeader('Location');
-      if (!location) {
-        reject(new Error('Micro.blog accepted the audio upload but the browser could not read its returned media URL.'));
+      if (!payload.url) {
+        reject(new Error('Micro.blog accepted the audio upload but returned no media URL.'));
         return;
       }
       item.progress = 100;
-      resolve(location);
+      resolve(payload.url);
     });
-    xhr.addEventListener('error', () => reject(new Error('Direct audio upload could not reach Micro.blog. This may be a browser cross-origin restriction.')));
-
-    const body = new FormData();
-    body.append('file', item.file, item.file.name);
-    body.append('mp-destination', destination);
-    xhr.send(body);
+    xhr.addEventListener('error', () => reject(new Error('Audio upload could not reach the BUM Hand upload proxy.')));
+    xhr.send(item.file);
   });
 }
 
@@ -193,7 +194,7 @@ async function runAudioUpload() {
       setAudioStatus(`Uploading ${item.file.name}…`);
       renderAudio();
       try {
-        item.url = await directUpload(endpoint, token, destination, item);
+        item.url = await proxyUpload(endpoint, token, destination, item);
         item.state = 'uploaded';
       } catch (error) {
         item.state = 'failed';
