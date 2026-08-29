@@ -6,7 +6,7 @@ type CollectionItem = {
     uid?: unknown[];
     url?: unknown[];
     name?: unknown[];
-    'microblog-uploads-count'?: unknown;
+    'microblog-uploads-count'?: unknown[];
   };
 };
 
@@ -26,17 +26,21 @@ function firstId(value: unknown): string | number | null {
   return typeof value[0] === 'string' || typeof value[0] === 'number' ? value[0] : null;
 }
 
+function firstNumber(value: unknown): number {
+  if (!Array.isArray(value)) return 0;
+  const first = value[0];
+  return typeof first === 'number' && Number.isFinite(first) ? first : 0;
+}
+
 function normalizeCollection(item: CollectionItem): Collection | null {
   const url = firstString(item.properties?.url).trim();
   const name = firstString(item.properties?.name).trim();
   if (!url || !name) return null;
-  const rawCount = item.properties?.['microblog-uploads-count'];
-  const uploadCount = typeof rawCount === 'number' && Number.isFinite(rawCount) ? rawCount : 0;
   return {
     uid: firstId(item.properties?.uid),
     url,
     name,
-    uploadCount,
+    uploadCount: firstNumber(item.properties?.['microblog-uploads-count']),
   };
 }
 
