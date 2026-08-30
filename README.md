@@ -2,65 +2,79 @@
 
 Helping Hand is a family of small, human-first publishing tools for getting material from paper, tablets and local files onto the web with as little machinery in the way as possible.
 
-The suite is separated into three focused tools:
+## v1.0.0
 
-- **Writing Hand** — reMarkable → Micro.blog. *From paper to web at the push of a pen.*
-- **Publish Hand** — handwriting, images and documents → web. The browser publishing app lives at `/publish/`.
-- **BUM Hand** — **Batch Uploader for Micro.blog**, currently available at `/bum/`. It can batch-upload photos without creating posts, safely optimise larger photos in the browser, copy the resulting URLs/Markdown/HTML, and optionally add successful uploads straight to an existing or newly-created Micro.blog Photo Collection. Audio is the next media milestone.
+Helping Hand v1.0.0 is the first complete release of the suite. It now does the three jobs it was created for:
 
-The tools share publishing infrastructure but have separate product boundaries. See [`docs/helping-hand.md`](docs/helping-hand.md) for the architecture and extraction plan, and [`docs/bum-hand.md`](docs/bum-hand.md) for BUM Hand's current release boundary and media roadmap.
+- **Writing Hand** — reMarkable → Micro.blog. *From paper to web at the push of a pen.* Send edited transcription, original handwritten pages, or both by email. Posts are drafts by default unless `Status: published` is explicitly supplied.
+- **Publish Hand** — handwriting, scans, PDFs and photos → a web-ready Micro.blog post. Arrange mixed pages, add links and metadata, keep portable `.handpub` documents, and safely create/update tracked posts.
+- **BUM Hand** — **Batch Uploader for Micro.blog**. Use one mixed-file chooser for JPEG/PNG/WebP, MP3/M4A and PDF; upload batches without creating posts; optimise larger photos; optionally add photos directly to Micro.blog Photo Collections; and copy canonical URLs, Markdown or HTML.
 
-The deployed root route `/` is the **Helping Hand** launcher. Product routes are built as separate Vite entrypoints while continuing to share the same repository, Netlify Functions and publishing core.
+The deployed root route `/` is the **Helping Hand** launcher. The tools share publishing infrastructure but keep separate product boundaries.
 
-## Publish Hand
-
-Publish Hand is a local-first web app for turning handwritten page images into portable, publishable documents without turning the handwriting itself into disposable input.
-
-The page image remains canonical. Transcripts, links, photographs and publishing metadata enrich it rather than replace it.
-
-The hosted app lives at `/publish/`.
+See [`docs/helping-hand.md`](docs/helping-hand.md) for the suite architecture, [`docs/bum-hand.md`](docs/bum-hand.md) for the mixed-media uploader, and [`docs/STATUS.md`](docs/STATUS.md) for the current release boundary.
 
 ## Set up your own copy
 
-The project is open source and designed to work well as a personal, self-hosted tool. Fork or clone the repository, deploy your own copy to Netlify, and connect it to your own Micro.blog and Resend accounts.
+The project is open source and designed to work as a personal, self-hosted tool. Fork or clone the repository, deploy your own copy to Netlify, and connect your own Micro.blog account. Writing Hand additionally uses Resend inbound email and a dedicated server-side Micro.blog token.
 
 **[Read the complete self-hosted setup guide →](docs/setup.md)**
 
-Publish Hand works without post-by-email. The optional email workflow is becoming **Writing Hand** and adds the direct reMarkable **write → send → private Micro.blog draft** path.
+## Publish Hand
 
-## v0.1.0
-
-This is the first genuinely usable release of the browser publisher.
+Publish Hand is local-first. Handwritten page images remain canonical; transcripts, links, photographs and publishing metadata enrich them rather than replace them.
 
 It can:
 
-- import ordered PNG pages exported from reMarkable;
-- mix handwritten pages with standalone JPEG, PNG and WebP photo pages;
-- reorder pages with touch/mouse drag controls or keyboard-friendly arrows;
+- import ordered reMarkable PNG pages and browser-rendered PDFs;
+- mix handwritten pages with standalone JPEG, PNG and WebP photographs;
+- reorder mixed pages with touch/mouse drag controls or arrow fallbacks;
 - keep a working document locally in IndexedDB;
 - export and re-import portable `.handpub` bundles with SHA-256 integrity checks;
-- add an optional transcript;
-- draw clickable link regions over handwriting;
-- place original photo assets over handwritten pages with alt text;
+- add transcripts, summaries, categories and clickable link/photo annotations;
 - create private Micro.blog drafts through Micropub;
-- update tracked Micro.blog drafts without re-uploading unchanged media;
-- safely update an already-published tracked Micro.blog post after explicit confirmation;
-- recover the canonical public URL when Micro.blog has replaced the original private-draft URL;
-- optimise oversized photo derivatives for Micro.blog while retaining untouched originals locally.
+- update tracked drafts without re-uploading unchanged media;
+- safely update an already-published tracked post after explicit confirmation;
+- recover the canonical public URL when Micro.blog replaces the original private-draft URL;
+- optimise oversized photo derivatives while retaining untouched local originals.
 
-New Micro.blog posts are always created as private drafts. Published-post updates are available only for posts already tracked by the document and require explicit confirmation.
+## Writing Hand
+
+Writing Hand turns reMarkable's Send by email workflow into a direct publishing path. It cleans reMarkable boilerplate, accepts transcription and/or original PNG pages, and supports leading metadata such as:
+
+```text
+Title: Optional title
+Categories: reMarkable, notes
+Status: draft
+```
+
+Draft is the safe default. `Status: published` must be explicit to publish immediately. Recipient routing, webhook verification and idempotency are handled server-side in the user's own deployment.
+
+## BUM Hand
+
+BUM Hand uses one mixed-media queue rather than separate uploaders.
+
+- **Images:** JPEG, PNG and WebP, with local optimisation for larger files and optional direct Photo Collection assignment.
+- **Audio:** MP3 and M4A, streamed through a same-origin Netlify Edge proxy to Micro.blog.
+- **Documents:** PDF, using the same streamed route and preserving useful file/link semantics.
+- **Mixed batches:** any supported combination can be selected together and uploaded in one run.
+- **Results:** canonical URLs plus type-appropriate Markdown and HTML; audio also gets browser playback.
+
+Android/Google Photos selections are eagerly staged into browser-owned files immediately after selection so later items in a batch remain readable.
 
 ## Portable `.handpub` documents
 
-A `.handpub` file is an ordinary ZIP archive containing a versioned manifest, page images, optional transcript and original photo assets. The format is deliberately boring and inspectable: if this application disappeared, the handwritten pages would still be ordinary image files.
+A `.handpub` file is an ordinary ZIP archive containing a versioned manifest, page images, optional transcript and original photo assets. The format is deliberately inspectable: if the application disappeared, the original handwritten pages would still be ordinary files.
 
-See [`docs/format.md`](docs/format.md) for the format and compatibility rules.
+See [`docs/format.md`](docs/format.md) for compatibility rules.
 
 ## Architecture and privacy
 
-Most document work happens in the browser. Page files, annotations, photo assets and local draft state remain local unless the user explicitly chooses a publishing operation.
+Most document work happens in the browser. Local files and document state remain local until the user explicitly publishes or uploads.
 
-Micro.blog publishing uses small Netlify Functions as request bridges for Micropub configuration, media uploads, photo collections and post creation/update. Micro.blog app tokens are passed per request and are not stored in IndexedDB, `.handpub` files or Netlify configuration.
+Micro.blog browser tokens are passed per request and are not stored in IndexedDB, `.handpub` files or Netlify configuration. Writing Hand's unattended email workflow is a separate opt-in boundary using dedicated credentials in the user's own deployment.
+
+Netlify Functions handle the small Micropub bridges. Streamed audio/PDF uploads use a same-origin Netlify Edge Function so large media does not have to fit through the buffered photo bridge.
 
 See [`docs/architecture.md`](docs/architecture.md), [`docs/helping-hand.md`](docs/helping-hand.md) and [`docs/STATUS.md`](docs/STATUS.md).
 
@@ -75,23 +89,19 @@ npm run build
 npm run dev
 ```
 
-Vite uses multiple entrypoints: the Helping Hand launcher is built from `index.html`, while Publish Hand is built from `publish/index.html` and served at `/publish/`. BUM Hand remains a standalone static surface under `public/bum/`. Shared browser publishing primitives live in `packages/publishing-core/`, with Netlify Functions under `netlify/functions/`.
+Vite uses multiple entrypoints: the Helping Hand launcher is built from `index.html`, Publish Hand from `publish/index.html`, and the static Writing Hand/BUM Hand/setup/roadmap surfaces live under `public/`. Shared browser publishing primitives live in `packages/publishing-core/`, with Netlify Functions and Edge Functions under `netlify/`.
 
-## Near-term roadmap
+## Roadmap after v1.0
 
-1. keep the completed **BUM Hand image + Photo Collections** workflow hardened and accurately documented, including Android/Google Photos batch staging and bridge-safe image optimisation;
-2. add **BUM Hand audio uploads** next, beginning with explicitly supported MP3/M4A workflows and an upload architecture suitable for realistically sized audio files;
-3. add **PDF/document uploads** after audio, with useful URL/link/Markdown/HTML results rather than image semantics;
-4. continue strengthening shared publisher primitives in `packages/publishing-core/` as media and destinations are added;
-5. continue destination-neutral publishing work, including handwritten.blog and other suitable endpoints.
+The core suite is feature-complete for its current use. Remaining ideas stay on the roadmap, but there is no release calendar: they should be implemented only when real use creates a need.
 
-The destination-neutral document model is intentional: publisher integrations should adapt a `HandwrittenDocument`, not reshape the core format around one service.
+Possible future work includes assisted transcription/accessibility metadata, richer revision/history, additional supported BUM Hand file types or outputs, PDF attachments through Writing Hand, deeper tablet integrations, video if Micro.blog's API and a real use case justify it, and destination-neutral publishing adapters such as handwritten.blog.
+
+The core rule remains: new features should remove repetitive publishing work without turning Helping Hand into another CMS.
 
 ## Inspiration and acknowledgements
 
-The browser publisher was partly inspired by [handwritten.blog](https://handwritten.blog/) and its simple, appealing idea that handwritten pages can be first-class web publishing content. The ordered mixed handwritten/photo workflow was also informed by looking at that product experience.
-
-No handwritten.blog source code is included or known to have been copied into this repository. The current implementation, document format and Micro.blog integration were developed independently. handwritten.blog remains a planned future publishing destination rather than a code dependency.
+The browser publisher was partly inspired by [handwritten.blog](https://handwritten.blog/) and its appealing idea that handwritten pages can be first-class web publishing content. No handwritten.blog source code is included or known to have been copied into this repository.
 
 Micro.blog integration uses its Micropub and media APIs. reMarkable is a source of exported page images and email/transcription input; this project is not affiliated with or endorsed by reMarkable, Micro.blog or handwritten.blog.
 
