@@ -1,5 +1,11 @@
-const MAX_AUDIO_BYTES = 75_000_000;
-const SUPPORTED_AUDIO_TYPES = new Set(['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a']);
+const MAX_MEDIA_BYTES = 75_000_000;
+const SUPPORTED_MEDIA_TYPES = new Set([
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/mp4',
+  'audio/x-m4a',
+  'application/pdf',
+]);
 
 function json(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -18,7 +24,7 @@ function decodedHeader(value: string | null): string {
 }
 
 function safeFilename(value: string): string {
-  return value.replace(/[\r\n"\\]/g, '_').trim() || 'audio-upload';
+  return value.replace(/[\r\n"\\]/g, '_').trim() || 'upload';
 }
 
 function multipartStream(
@@ -71,17 +77,17 @@ export default async (request: Request) => {
   const token = request.headers.get('x-microblog-token')?.trim() ?? '';
   const endpoint = decodedHeader(request.headers.get('x-microblog-media-endpoint'));
   const destination = decodedHeader(request.headers.get('x-microblog-destination'));
-  const filename = decodedHeader(request.headers.get('x-file-name')) || 'audio-upload';
+  const filename = decodedHeader(request.headers.get('x-file-name')) || 'upload';
   const contentType = (request.headers.get('content-type') || '').toLowerCase();
   const contentLength = Number(request.headers.get('content-length') || '0');
 
   if (!token) return json({ error: 'Micro.blog app token is required.' }, 400);
   if (!endpoint.startsWith('https://')) return json({ error: 'A valid Micro.blog media endpoint is required.' }, 400);
   if (!destination) return json({ error: 'Choose a Micro.blog destination first.' }, 400);
-  if (!SUPPORTED_AUDIO_TYPES.has(contentType)) return json({ error: 'An MP3 or M4A audio file is required.' }, 400);
-  if (!request.body) return json({ error: 'Audio upload is empty.' }, 400);
-  if (contentLength > MAX_AUDIO_BYTES) {
-    return json({ error: `This audio file is ${(contentLength / 1_000_000).toFixed(1)} MB; Micro.blog currently accepts audio files up to 75 MB.` }, 413);
+  if (!SUPPORTED_MEDIA_TYPES.has(contentType)) return json({ error: 'An MP3, M4A or PDF file is required.' }, 400);
+  if (!request.body) return json({ error: 'Upload is empty.' }, 400);
+  if (contentLength > MAX_MEDIA_BYTES) {
+    return json({ error: `This file is ${(contentLength / 1_000_000).toFixed(1)} MB; BUM Hand currently accepts streamed media up to 75 MB.` }, 413);
   }
 
   const boundary = `----bum-hand-${crypto.randomUUID()}`;
@@ -107,12 +113,12 @@ export default async (request: Request) => {
   }
 
   const location = response.headers.get('Location');
-  if (!location) return json({ error: 'Micro.blog accepted the audio upload but returned no media URL.' }, 502);
+  if (!location) return json({ error: 'Micro.blog accepted the upload but returned no media URL.' }, 502);
   return json({ url: location }, 202);
 };
 
 export const config = {
-  path: '/api/microblog/audio',
+  path: '/api/microblog/stream-media',
   method: 'POST',
   rateLimit: {
     windowLimit: 30,
