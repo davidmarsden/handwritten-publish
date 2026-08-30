@@ -4,11 +4,12 @@ Helping Hand is a family of small, human-first publishing tools for getting mate
 
 ## v1.0.0
 
-Helping Hand v1.0.0 is the first complete release of the suite. It now does the three jobs it was created for:
+Helping Hand v1.0.0 is the first complete release of the suite. It now does four distinct jobs:
 
 - **Writing Hand** — reMarkable → Micro.blog. *From paper to web at the push of a pen.* Send edited transcription, original handwritten pages, or both by email. Posts are drafts by default unless `Status: published` is explicitly supplied.
 - **Publish Hand** — handwriting, scans, PDFs and photos → a web-ready Micro.blog post. Arrange mixed pages, add links and metadata, keep portable `.handpub` documents, and safely create/update tracked posts.
 - **BUM Hand** — **Batch Uploader for Micro.blog**. Use one mixed-file chooser for JPEG/PNG/WebP, MP3/M4A and PDF; upload batches without creating posts; optimise larger photos; optionally add photos directly to Micro.blog Photo Collections; and copy canonical URLs, Markdown or HTML.
+- **Markdown Hand** — prepared `.md` → Micro.blog. *Your Markdown. Hands off.* Send raw Markdown directly through Micropub as a draft or published post, then fetch the stored source back and verify that it survived exactly.
 
 The deployed root route `/` is the **Helping Hand** launcher. The tools share publishing infrastructure but keep separate product boundaries.
 
@@ -62,6 +63,19 @@ BUM Hand uses one mixed-media queue rather than separate uploaders.
 
 Android/Google Photos selections are eagerly staged into browser-owned files immediately after selection so later items in a batch remain readable.
 
+## Markdown Hand
+
+Markdown Hand exists to avoid rewriting carefully prepared Markdown in a web editor.
+
+- choose a local `.md` file on desktop or tablet;
+- choose the Micro.blog destination;
+- optionally supply title, summary and comma-separated categories as Micropub metadata;
+- create a draft by default, or explicitly confirm immediate publication;
+- send the file contents as raw Micropub `content` without HTML conversion;
+- fetch the created post back with `q=source` and report **Markdown preserved exactly ✓** when it matches.
+
+The app deliberately has no Markdown editor. The source file remains the source of truth.
+
 ## Portable `.handpub` documents
 
 A `.handpub` file is an ordinary ZIP archive containing a versioned manifest, page images, optional transcript and original photo assets. The format is deliberately inspectable: if the application disappeared, the original handwritten pages would still be ordinary files.
@@ -89,19 +103,19 @@ npm run build
 npm run dev
 ```
 
-Vite uses multiple entrypoints: the Helping Hand launcher is built from `index.html`, Publish Hand from `publish/index.html`, and the static Writing Hand/BUM Hand/setup/roadmap surfaces live under `public/`. Shared browser publishing primitives live in `packages/publishing-core/`, with Netlify Functions and Edge Functions under `netlify/`.
+Vite uses multiple entrypoints: the Helping Hand launcher is built from `index.html`, Publish Hand from `publish/index.html`, and the static Writing Hand/BUM Hand/Markdown Hand/setup/roadmap surfaces live under `public/`. Shared browser publishing primitives live in `packages/publishing-core/`, with Netlify Functions and Edge Functions under `netlify/`.
 
 ## Roadmap after v1.0
 
 The core suite is feature-complete for its current use. Remaining ideas stay on the roadmap, but there is no release calendar: they should be implemented only when real use creates a need.
 
-Possible future work includes assisted transcription/accessibility metadata, richer revision/history, additional supported BUM Hand file types or outputs, PDF attachments through Writing Hand, deeper tablet integrations, video if Micro.blog's API and a real use case justify it, and destination-neutral publishing adapters such as handwritten.blog.
+Possible future work includes assisted transcription/accessibility metadata, richer revision/history, additional supported BUM Hand file types or outputs, PDF attachments through Writing Hand, deeper tablet integrations, video if Micro.blog's API and a real use case justify it, and destination-neutral publishing adapters.
 
 The core rule remains: new features should remove repetitive publishing work without turning Helping Hand into another CMS.
 
 ## Inspiration and acknowledgements
 
-The browser publisher was partly inspired by [handwritten.blog](https://handwritten.blog/) and its appealing idea that handwritten pages can be first-class web publishing content. No handwritten.blog source code is included or known to have been copied into this repository.
+The browser publisher was partly inspired by handwritten.blog and its appealing idea that handwritten pages can be first-class web publishing content. No handwritten.blog source code is included or known to have been copied into this repository.
 
 Micro.blog integration uses its Micropub and media APIs. reMarkable is a source of exported page images and email/transcription input; this project is not affiliated with or endorsed by reMarkable, Micro.blog or handwritten.blog.
 
