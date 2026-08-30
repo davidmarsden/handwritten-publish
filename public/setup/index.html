@@ -27,7 +27,7 @@
     <article>
       <span class="step">01</span>
       <h2>Browser tools</h2>
-      <p>Publish Hand and BUM Hand work with your own Micro.blog app token. No inbound email configuration required.</p>
+      <p>Publish Hand, BUM Hand and Markdown Hand work with your own Micro.blog app token. No inbound email configuration required.</p>
       <a href="#self-host">Set up the shared deployment ↓</a>
     </article>
     <article>
@@ -43,7 +43,7 @@
     <h2 class="section-title">Make it yours.</h2>
     <p class="intro">The browser tools are local-first. Your token is supplied when you publish and is not persisted by Helping Hand. Writing Hand is optional and adds server-side credentials only to your own deployment.</p>
 
-    <div class="callout"><strong>Quick reminder:</strong> Publish Hand and BUM Hand work without any email configuration. Writing Hand posts are drafts by default; only an explicit <code>Status: published</code> line publishes immediately.</div>
+    <div class="callout"><strong>Quick reminder:</strong> Publish Hand, BUM Hand and Markdown Hand work without any email configuration. Writing Hand posts are drafts by default; only an explicit <code>Status: published</code> line publishes immediately.</div>
 
     <h2>What you need</h2>
     <p>For the browser tools: GitHub, Netlify, and a Micro.blog account if you want to publish. For Writing Hand as well: Resend with inbound email enabled, a private incoming email address, a dedicated Micro.blog app token, and Netlify Database.</p>
@@ -56,16 +56,16 @@ npm test
 npm run build</code></pre>
     <p>For local development:</p>
     <pre><code>npm run dev</code></pre>
-    <p>The suite uses Vite/React plus static product pages. Production output goes to <code>dist/</code>; server-side bridges live in <code>netlify/functions/</code>.</p>
+    <p>The suite uses Vite/React plus static product pages. Production output goes to <code>dist/</code>; server-side bridges live under <code>netlify/functions/</code> and <code>netlify/edge-functions/</code>.</p>
 
     <h2>2. Deploy to Netlify</h2>
     <p>Create a Netlify project from your GitHub fork/repository.</p>
     <table><tr><th>Setting</th><th>Value</th></tr><tr><td>Build command</td><td><code>npm run build</code></td></tr><tr><td>Publish directory</td><td><code>dist</code></td></tr></table>
-    <p>Netlify recognises the functions in <code>netlify/functions/</code>. The repository also contains a Netlify Database migration; Netlify provisions and applies it during deployment. If you only use the browser tools, leave all post-by-email environment variables unset.</p>
+    <p>Netlify recognises the functions and Edge Functions in the repository. The repository also contains a Netlify Database migration; Netlify provisions and applies it during deployment. If you only use the browser tools, leave all post-by-email environment variables unset.</p>
 
     <h2>3. Connect Micro.blog in the browser</h2>
-    <p>Paste a Micro.blog app token into Publish Hand or BUM Hand when you want to publish or upload. The token is kept in browser memory and passed to the Netlify bridge only for the requested API calls; Helping Hand does not persist it in IndexedDB, portable documents or Netlify configuration.</p>
-    <p>Create Micro.blog app tokens under <strong>Account → App tokens / Edit Apps</strong>. If you have several Micro.blog-hosted blogs, Publish Hand uses Micropub destinations to let you select one. New browser-created posts start as private drafts.</p>
+    <p>Paste a Micro.blog app token into Publish Hand, BUM Hand or Markdown Hand when you want to publish or upload. The token is kept in browser memory and passed to the Netlify bridge only for the requested API calls; Helping Hand does not persist it in IndexedDB, portable documents or Netlify configuration.</p>
+    <p>Create Micro.blog app tokens under <strong>Account → App tokens / Edit Apps</strong>. If you have several Micro.blog-hosted blogs, the browser tools use Micropub destinations to let you select one. Publish Hand and Markdown Hand are draft-first.</p>
 
     <h2>4. Optional: enable Writing Hand</h2>
     <div class="flow">reMarkable
@@ -86,6 +86,7 @@ Micro.blog draft by default
       <a href="/setup/email/">Writing Hand</a>
       <a href="/publish/">Publish Hand</a>
       <a href="/bum/">BUM Hand</a>
+      <a href="/markdown/">Markdown Hand</a>
       <a href="/roadmap/">Roadmap</a>
       <a href="/setup/">Setup</a>
       <a href="https://davidmarsden.info/">davidmarsden.info</a>
