@@ -43,4 +43,26 @@ describe('Markdown Hand publishing', () => {
     expect(createBody.properties.content).toEqual([markdown]);
     expect(createBody.properties['post-status']).toEqual(['published']);
   });
+
+  it('preserves the created post URL when verification has a transport failure', async () => {
+    const markdown = '# Still created';
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ url: 'https://example.micro.blog/draft/transport', preview: 'https://micro.blog/posts/transport' }), { status: 201, headers: { 'Content-Type': 'application/json' } }))
+      .mockRejectedValueOnce(new TypeError('fetch failed'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await handler(new Request('https://hand.example/api/microblog/markdown', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'token', markdown }),
+    }));
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toMatchObject({
+      created: true,
+      verified: false,
+      url: 'https://example.micro.blog/draft/transport',
+      preview: 'https://micro.blog/posts/transport',
+      status: 'draft',
+    });
+  });
 });

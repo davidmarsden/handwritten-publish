@@ -92,7 +92,21 @@ export default async (request: Request) => {
   sourceUrl.searchParams.set('q', 'source');
   sourceUrl.searchParams.set('url', url);
   if (destination) sourceUrl.searchParams.set('mp-destination', destination);
-  const sourceResponse = await fetch(sourceUrl, { headers: bearer(token) });
+
+  let sourceResponse: Response;
+  try {
+    sourceResponse = await fetch(sourceUrl, { headers: bearer(token) });
+  } catch {
+    return json({
+      created: true,
+      verified: false,
+      error: 'The post was created, but Markdown Hand could not reach Micro.blog to verify its stored source.',
+      url,
+      preview: created.preview || url,
+      status,
+    }, 502);
+  }
+
   if (!sourceResponse.ok) {
     return json({
       created: true,
