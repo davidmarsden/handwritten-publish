@@ -289,7 +289,7 @@ async function addFiles(fileList) {
 
 async function uploadStreamedMedia(item, token, destination) {
   if (!upstreamMediaEndpoint) upstreamMediaEndpoint = await fetchUpstreamMediaEndpoint(token);
-  const response = await fetch('/api/microblog/media', {
+  const response = await fetch('/api/microblog/stream-media', {
     method: 'POST',
     headers: {
       'Content-Type': item.mediaType,
