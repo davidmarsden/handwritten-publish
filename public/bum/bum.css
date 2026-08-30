@@ -11,7 +11,10 @@ button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .45; }
 .shell { width: min(900px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 56px; }
-.family-link { color: inherit; font-weight: 700; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.product-nav { display:flex; gap:10px; align-items:center; font-size:.9rem; }
+.product-nav a { color:inherit; font-weight:750; text-decoration:none; }
+.product-nav span { opacity:.38; }
+.product-nav strong { font-weight:800; }
 .hero { padding: 64px 0 42px; position:relative; }
 .hero-mark { position:absolute; right:0; top:48px; width:112px; height:112px; }
 .eyebrow, .step { margin: 0 0 8px; font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
