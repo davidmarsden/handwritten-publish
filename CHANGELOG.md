@@ -1,5 +1,46 @@
 # Changelog
 
+## v1.0.0 — 2026-08-30
+
+Helping Hand reaches its first complete release: the three-tool suite now covers the workflows it was created for, from handwritten reMarkable publishing to mixed-media post building and batch file uploads to Micro.blog.
+
+### Helping Hand
+
+- Established the three-tool suite: Writing Hand, Publish Hand and BUM Hand.
+- Added a unified launcher, setup guide, product branding and shared navigation/footer structure.
+- Kept the project open source and self-hostable, with user-owned Micro.blog and Resend credentials.
+
+### Writing Hand
+
+- Added the reMarkable → email → Micro.blog workflow using Resend inbound email.
+- Clean reMarkable subject/body boilerplate and support edited transcription, original PNG pages, or both.
+- Support leading handwritten metadata for optional title, categories and explicit draft/published status.
+- Default all email-created posts to draft unless `Status: published` is explicitly present.
+- Add durable webhook/idempotency handling and multi-destination recipient routing.
+
+### Publish Hand
+
+- Import ordered handwritten PNG pages and browser-rendered PDFs.
+- Mix handwriting with standalone JPEG/PNG/WebP photographs.
+- Add transcripts, summaries, categories, links and positioned photo annotations.
+- Persist work locally and export/import portable `.handpub` bundles with integrity checks.
+- Create private Micro.blog drafts, safely update tracked drafts and explicitly-confirmed published posts, and recover canonical published URLs when Micro.blog replaces draft URLs.
+- Optimise oversized photo derivatives while preserving local originals.
+
+### BUM Hand
+
+- Add one mixed-file chooser and queue for JPEG, PNG, WebP, MP3, M4A and PDF.
+- Batch-upload up to 30 selected files without creating posts.
+- Optimise larger photos locally and eagerly stage Android/Google Photos selections to stable browser-owned files.
+- Add successful photos directly to existing or newly-created Micro.blog Photo Collections.
+- Stream MP3/M4A and PDF uploads through a same-origin Netlify Edge proxy to avoid browser CORS and small buffered-function limits.
+- Return canonical URLs plus type-appropriate Markdown and HTML; audio also gets a browser playback control.
+- Keep per-file retry and separate collection retry without duplicating successful uploads.
+
+### Release boundary
+
+v1.0.0 is feature-complete for the workflows currently needed. Future roadmap items are intentionally optional and should be driven by real use rather than a release schedule.
+
 ## v0.1.0 — 2026-08-26
 
 First genuinely usable release of Handwritten Publish.
@@ -49,7 +90,3 @@ First genuinely usable release of Handwritten Publish.
 - Documented current architecture, status and portable format.
 - Added MIT licence.
 - Added explicit acknowledgement that handwritten.blog inspired part of the product idea/workflow; no handwritten.blog source code is included or known to have been copied.
-
-### Next
-
-Likely post-v0.1 directions include a handwritten.blog publisher adapter, assisted transcription/accessibility metadata, richer revision history and safer native tablet input/send integrations.
