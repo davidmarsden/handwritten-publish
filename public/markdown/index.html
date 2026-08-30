@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="theme-color" content="#f3efe6">
+  <meta name="description" content="Markdown Hand publishes prepared Markdown files to Micro.blog without rewriting the source.">
+  <meta property="og:title" content="Markdown Hand — Helping Hand">
+  <meta property="og:description" content="Your Markdown. Hands off.">
+  <link rel="icon" href="/brand/markdown-hand.svg" type="image/svg+xml">
+  <title>Markdown Hand — Helping Hand</title>
+  <style>
+    :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#20201e;background:#f3efe6;font-synthesis:none}*{box-sizing:border-box}body{margin:0}a{color:inherit}.shell{width:min(980px,calc(100% - 30px));margin:auto;padding:30px 0 64px}.product-nav{display:flex;align-items:center;gap:10px;font-size:.9rem}.product-nav a{font-weight:750;text-decoration:none}.product-nav span{opacity:.4}.hero{display:grid;grid-template-columns:minmax(0,1fr) 100px;gap:28px;align-items:start;padding:54px 0 32px}.hero-mark{width:100px;height:100px}.eyebrow{margin:0;text-transform:uppercase;letter-spacing:.14em;font-size:.74rem;font-weight:850;color:#264e7a}h1,h2{font-family:Georgia,"Times New Roman",serif;font-weight:500;letter-spacing:-.045em}h1{margin:10px 0 18px;font-size:clamp(4rem,12vw,7.5rem);line-height:.82;letter-spacing:-.065em}.lede{max-width:720px;margin:0;color:#625d54;font-size:1.15rem;line-height:1.6}.panel{margin:18px 0;padding:24px;border:1px solid rgba(32,32,30,.14);border-radius:18px;background:rgba(255,255,255,.62);box-shadow:0 18px 50px rgba(75,64,45,.06)}label{display:block;font-weight:780;margin:16px 0 7px}.hint{margin:5px 0 0;color:#777168;font-size:.86rem;line-height:1.45}input,select,textarea,button{font:inherit}input[type=password],input[type=text],select,textarea,input[type=file]{width:100%;padding:12px;border:1px solid #aaa59a;border-radius:9px;background:#fff;color:#171717}textarea{min-height:82px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:20px}button{padding:12px 16px;border:1px solid #171717;border-radius:9px;background:#171717;color:#fff;font-weight:780}button.secondary{background:transparent;color:inherit}button:disabled{opacity:.45}.status{font-weight:720}.result{font-size:1.2rem;font-weight:850;margin-top:0}.good{color:#17653a}.warn{color:#9a5a11}.bad{color:#a52626}.details{color:#625d54;line-height:1.55}.suite-footer{display:flex;gap:18px;flex-wrap:wrap;margin-top:44px;padding-top:24px;border-top:1px solid rgba(32,32,30,.14);font-size:.9rem;color:#625d54}.suite-footer a{font-weight:700;text-underline-offset:3px}@media(max-width:720px){.hero{grid-template-columns:1fr;padding-top:38px}.hero-mark{width:78px;height:78px;order:-1}.row{grid-template-columns:1fr}}@media(prefers-color-scheme:dark){:root{color:#f1ede5;background:#191816}.lede,.hint,.details,.suite-footer{color:#bbb3a7}.panel{background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.12);box-shadow:none}input[type=password],input[type=text],select,textarea,input[type=file]{background:#222;color:#f1ede5;border-color:#777}.suite-footer{border-color:rgba(255,255,255,.13)}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <nav class="product-nav" aria-label="Helping Hand product navigation"><a href="/">Helping Hand</a><span>→</span><strong>Markdown Hand</strong></nav>
+    <header class="hero">
+      <div><p class="eyebrow">Prepared Markdown → Micro.blog</p><h1>Markdown<br>Hand</h1><p class="lede"><strong>Your Markdown. Hands off.</strong> Choose a finished <code>.md</code> file and send its Markdown directly to Micro.blog without passing through the web editor. Markdown Hand verifies the stored source after posting.</p></div>
+      <img class="hero-mark" src="/brand/markdown-hand.svg" alt="" aria-hidden="true">
+    </header>
+
+    <section class="panel">
+      <label for="token">Micro.blog app token</label><input id="token" type="password" autocomplete="off"><p class="hint">Used for this browser session only.</p>
+      <div class="actions"><button id="connect" type="button">Connect</button><span id="connection-status" class="status">Not connected.</span></div>
+      <div id="destination-wrap" hidden><label for="destination">Blog</label><select id="destination"></select></div>
+
+      <label for="file">Markdown file</label><input id="file" type="file" accept=".md,text/markdown,text/plain"><p id="file-note" class="hint">Choose a UTF-8 Markdown file up to 500 KB.</p>
+
+      <div class="row">
+        <div><label for="title">Post title <span class="hint">(optional)</span></label><input id="title" type="text" placeholder="Leave blank to preserve a title-free post"></div>
+        <div><label for="status-select">Status</label><select id="status-select"><option value="draft" selected>Draft</option><option value="published">Published</option></select></div>
+      </div>
+      <label for="categories">Categories <span class="hint">(optional)</span></label><input id="categories" type="text" placeholder="Photography, Notes"><p class="hint">Comma-separated Micro.blog categories.</p>
+      <label for="summary">Summary <span class="hint">(optional)</span></label><textarea id="summary" placeholder="Optional Micro.blog summary"></textarea>
+
+      <div class="actions"><button id="publish" type="button" disabled>Send Markdown to Micro.blog</button><span id="publish-status" class="status">Ready.</span></div>
+    </section>
+
+    <section id="results" class="panel" hidden>
+      <p id="verdict" class="result"></p>
+      <p class="details" id="verification"></p>
+      <p><a id="open-post" target="_blank" rel="noopener">Open in Micro.blog ↗</a></p>
+    </section>
+
+    <footer class="suite-footer"><a href="/">Helping Hand</a><a href="/setup/email/">Writing Hand</a><a href="/publish/">Publish Hand</a><a href="/bum/">BUM Hand</a><a href="/markdown/">Markdown Hand</a><a href="/roadmap/">Roadmap</a><a href="/setup/">Setup</a><a href="https://davidmarsden.info/">davidmarsden.info</a><a href="https://github.com/davidmarsden/handwritten-publish">GitHub</a></footer>
+  </main>
+  <script type="module" src="/markdown/markdown.js"></script>
+</body>
+</html>

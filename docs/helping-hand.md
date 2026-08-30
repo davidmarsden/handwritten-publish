@@ -28,6 +28,16 @@ Publish Hand remains destination-neutral at the document-model level. Micro.blog
 
 A focused mixed-file uploader for JPEG/PNG/WebP images, MP3/M4A audio and PDFs. One chooser feeds one queue; the files are routed to the correct upload path behind the scenes. Successful photos can be added directly to Micro.blog Photo Collections, while all supported files return useful canonical URL/Markdown/HTML results.
 
+### Markdown Hand
+
+**Prepared Markdown → Micro.blog, untouched.**
+
+A deliberately tiny publisher for finished `.md` files. It reads the chosen file locally, sends the raw Markdown as ordinary Micropub `content`, keeps title/summary/categories separate as optional metadata, defaults to draft, and fetches the created post source back with `q=source` to verify an exact round trip.
+
+Tagline: **Your Markdown. Hands off.**
+
+Markdown Hand intentionally has no editor. Its job is to avoid putting another editor between a finished Markdown file and publication.
+
 ## Repository strategy
 
 Helping Hand deliberately remains one repository with shared infrastructure. Separate products do not require separate codebases.
@@ -43,6 +53,7 @@ packages/
   publishing-core/
 public/
   bum/
+  markdown/
   roadmap/
   setup/
 publish/
@@ -51,7 +62,7 @@ netlify/
   edge-functions/
 ```
 
-The root `/` route is the Helping Hand launcher. `/publish/` is Publish Hand, `/setup/email/` is Writing Hand's product/setup surface, and `/bum/` is BUM Hand.
+The root `/` route is the Helping Hand launcher. `/publish/` is Publish Hand, `/setup/email/` is Writing Hand's product/setup surface, `/bum/` is BUM Hand, and `/markdown/` is Markdown Hand.
 
 ## Shared publishing core
 
@@ -69,18 +80,20 @@ Product-specific code stays outside the shared core:
 
 - reMarkable/Resend email parsing belongs to Writing Hand;
 - handwritten document/page models and annotation editing belong to Publish Hand;
-- queue/batch selection, streamed-file routing and upload-result presentation belong to BUM Hand.
+- queue/batch selection, streamed-file routing and upload-result presentation belong to BUM Hand;
+- raw Markdown file reading and source-verification behaviour belong to Markdown Hand.
 
 ## v1.0 release boundary
 
-The original extraction/restructuring plan is complete:
+The original extraction/restructuring plan is complete, and the later Markdown round-trip proof earned a place in the same release because it solved an immediate publishing frustration before the v1.0 tag was cut:
 
 1. [x] Establish BUM Hand as a standalone product surface.
 2. [x] Establish Publish Hand behind its own `/publish/` route.
 3. [x] Give the reMarkable email workflow the Writing Hand identity and setup surface.
-4. [x] Replace the root application page with the Helping Hand launcher.
-5. [x] Share Micro.blog/media primitives without collapsing the three product boundaries.
-6. [x] Add consistent suite navigation, setup and roadmap surfaces.
+4. [x] Add Markdown Hand behind `/markdown/` for editor-free `.md` publishing.
+5. [x] Replace the root application page with the Helping Hand launcher.
+6. [x] Share Micro.blog/media primitives without collapsing the four product boundaries.
+7. [x] Add consistent suite navigation, setup and roadmap surfaces.
 
 Future work is intentionally need-driven. There is no requirement to add another product or another destination simply because the architecture allows it.
 

@@ -2,7 +2,7 @@
 
 ## Current release: v1.0.0
 
-Helping Hand is now a complete three-tool publishing suite for the workflows it was built to solve. The core v1.0 release is feature-complete for current use; future work is optional and should be driven by real needs rather than a release calendar.
+Helping Hand is now a complete four-tool publishing suite for the workflows it was built to solve. The core v1.0 release is feature-complete for current use; future work is optional and should be driven by real needs rather than a release calendar.
 
 ## Writing Hand — working
 
@@ -78,15 +78,29 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 - [x] Canonical URL, Markdown and HTML results
 - [x] Browser audio playback controls
 
+## Markdown Hand — working
+
+- [x] Choose a local `.md` file on desktop or tablet
+- [x] Send raw Markdown directly as Micropub `content`
+- [x] Optional title, summary and category metadata
+- [x] Choose a Micro.blog destination
+- [x] Draft-first publishing
+- [x] Explicit confirmation before immediate publication
+- [x] Fetch the created post back with Micropub `q=source`
+- [x] Verify and report exact Markdown round-trip matches
+- [x] Preserve the created post URL if source verification fails
+- [x] Dedicated app mark and page-specific favicon
+
 ## Safety and privacy boundary
 
 - Browser Micro.blog tokens remain ephemeral and are not persisted by Helping Hand.
 - Writing Hand uses separate, revocable server-side credentials in the user's own deployment.
-- New Publish Hand posts are draft-first.
+- New Publish Hand and Markdown Hand posts are draft-first.
 - Writing Hand email posts are draft-first unless `Status: published` is explicitly supplied.
 - Published tracked-post mutations require explicit confirmation and current-state verification.
 - Oversized image derivatives never replace local originals.
 - BUM Hand stages selected files locally and forwards them only after the user starts an upload.
+- Markdown Hand reads the chosen file locally and sends its source only when the user explicitly creates a post.
 
 ## After v1.0
 
@@ -98,6 +112,6 @@ There is no mandatory next phase. Possible future work remains intentionally ope
 - [ ] Additional BUM Hand file types or useful output formats when needed
 - [ ] Video only when Micro.blog's API and a real use case justify the complexity
 - [ ] Deeper native reMarkable or other tablet integration
-- [ ] Destination-neutral publisher adapters such as handwritten.blog
+- [ ] Destination-neutral publisher adapters when a real need appears
 
 The product rule is simple: add something when it removes a real publishing frustration, not because the roadmap has an empty box.
