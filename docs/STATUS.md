@@ -1,95 +1,103 @@
-# Handwritten Publish status
+# Helping Hand status
 
-## Current release: v0.1.0
+## Current release: v1.0.0
 
-Handwritten Publish is now a genuinely usable local-first publishing tool rather than a format or publishing prototype.
+Helping Hand is now a complete three-tool publishing suite for the workflows it was built to solve. The core v1.0 release is feature-complete for current use; future work is optional and should be driven by real needs rather than a release calendar.
 
-The v0.1.0 boundary is the first complete end-to-end workflow: import and edit handwritten/mixed-media documents locally, preserve them as portable `.hwpublish` bundles, create private Micro.blog drafts, and safely revise the same tracked post after it has been published.
+## Writing Hand — working
 
-## Working
+- [x] reMarkable Send by email → Micro.blog
+- [x] Edited transcription only
+- [x] Original handwritten PNG pages only
+- [x] Transcription + original pages
+- [x] Strip reMarkable subject/body boilerplate
+- [x] Optional leading `Title:` metadata
+- [x] Optional Micro.blog `Categories:` metadata
+- [x] Explicit `Status: draft` / `Status: published`
+- [x] Draft by default when status is absent or invalid
+- [x] Leading hashtag shorthand for existing Micro.blog categories
+- [x] Signed Resend webhook verification
+- [x] Durable idempotency/retry handling for received email jobs
+- [x] Recipient → Micro.blog destination routing
+- [x] Self-hosted setup and security documentation
+
+Still optional/future: PDF email attachments and deeper native tablet integrations.
+
+## Publish Hand — working
 
 ### Documents and local persistence
 
 - [x] Import multiple reMarkable PNG pages
-- [x] Import PDFs locally in the browser and render them into ordinary handwritten pages
-- [x] Import standalone JPEG/PNG/WebP photo pages into the same ordered document sequence
-- [x] Natural filename ordering and manual page reordering
-- [x] Touch/mouse drag page ordering with keyboard-friendly arrow fallbacks
-- [x] Move handwritten pages and standalone photo pages together with the same page-order controls
-- [x] Remove standalone photo pages and edit their alt text
-- [x] Stable document identity and page SHA-256 hashes
-- [x] IndexedDB local draft persistence, including page and photo files
-- [x] Portable `.hwpublish` export and verified round-trip import
-- [x] Backward-compatible import of older PNG-only `.hwpublish` bundles
-- [x] Optional post summary and category metadata in local documents and `.hwpublish`
-- [x] Optional transcript
+- [x] Import PDFs locally in the browser and render them into ordinary pages
+- [x] Import standalone JPEG/PNG/WebP photo pages into the same ordered sequence
+- [x] Natural filename ordering and manual mixed-page reordering
+- [x] Touch/mouse drag controls with arrow fallbacks
+- [x] IndexedDB local draft persistence
+- [x] Portable `.handpub` export/import with SHA-256 integrity checks
+- [x] Optional transcript, summary and category metadata
 
 ### Annotations and mixed media
 
 - [x] Visual page annotation editor
-- [x] Normalized link regions with URL/label metadata
-- [x] Normalized photo regions with asset ID/alt metadata
-- [x] Annotation overlays in the local page preview
-- [x] Annotation metadata persists through IndexedDB and `.hwpublish`
-- [x] First-class JPEG/PNG/WebP photo assets with original filename, dimensions and SHA-256
-- [x] Bind existing/new photo assets to photo regions in the annotation editor
-- [x] Render bound original photos over handwritten pages locally
-- [x] Persist original photo files through IndexedDB and `.hwpublish` bundles
-- [x] Verify bundled photo assets by SHA-256 on import
+- [x] Normalized clickable link regions
+- [x] Positioned photo regions with alt text
+- [x] First-class original JPEG/PNG/WebP photo assets
+- [x] Persist original photo files through local storage and `.handpub`
 
 ### Micro.blog publishing
 
-- [x] Micro.blog account/destination discovery
-- [x] Discover existing categories for the selected Micro.blog destination
-- [x] Sync post summaries and categories through Micropub
-- [x] Micro.blog media upload through a thin Netlify bridge
-- [x] Create private Micro.blog drafts and open private previews
-- [x] Track and update an existing Micro.blog draft
-- [x] Detect Micro.blog-visible changes since the last successful sync, including summary/category edits
-- [x] Reuse unchanged page media across updates
-- [x] Publish responsive clickable handwritten link regions
-- [x] Keep link regions visibly discoverable after Micro.blog HTML/CSS filtering
-- [x] Upload only photo assets referenced by published photo regions
-- [x] Publish bound original photos as responsive overlays with alt text
-- [x] Reuse unchanged uploaded photo assets across later updates
+- [x] Account/destination discovery
+- [x] Existing category discovery
+- [x] Summary/category sync through Micropub
+- [x] Media upload through Netlify bridges
+- [x] Create private Micro.blog drafts
+- [x] Track and update existing drafts
+- [x] Reuse unchanged uploaded media
+- [x] Publish responsive link/photo annotations
 - [x] Publish standalone photo pages in document order
-- [x] Reuse standalone photo-page media when only non-file content changes
-- [x] Optimise oversized standalone/overlay photos into temporary web JPEG derivatives while preserving local originals
+- [x] Optimise oversized image derivatives while preserving originals
 - [x] Inspect tracked post status before mutation
-- [x] Safely update an already-published tracked Micro.blog post after explicit confirmation
-- [x] Preserve published state while replacing title/content/summary/categories
-- [x] Recover a canonical published URL when Micro.blog no longer recognises the original private-draft URL, using tracked media as a unique fingerprint
+- [x] Safely update an already-published tracked post after explicit confirmation
+- [x] Recover canonical published URLs after Micro.blog replaces private-draft URLs
+
+## BUM Hand — working
+
+- [x] One mixed-file chooser and queue
+- [x] JPEG, PNG and WebP image uploads
+- [x] MP3 and M4A audio uploads
+- [x] PDF document uploads
+- [x] Mixed image/audio/PDF batches in one run
+- [x] Up to 30 selected files per queue
+- [x] Local optimisation for larger photos
+- [x] Android/Google Photos eager file staging for reliable batch reads
+- [x] Choose a Micro.blog destination blog
+- [x] Add photos directly to existing Photo Collections
+- [x] Create new Photo Collections from BUM Hand
+- [x] Stream audio/PDF through a same-origin Netlify Edge proxy
+- [x] Per-file retry and separate collection retry
+- [x] Canonical URL, Markdown and HTML results
+- [x] Browser audio playback controls
 
 ## Safety and privacy boundary
 
-New Micro.blog posts remain draft-first: Handwritten Publish does not create a newly published post directly.
+- Browser Micro.blog tokens remain ephemeral and are not persisted by Helping Hand.
+- Writing Hand uses separate, revocable server-side credentials in the user's own deployment.
+- New Publish Hand posts are draft-first.
+- Writing Hand email posts are draft-first unless `Status: published` is explicitly supplied.
+- Published tracked-post mutations require explicit confirmation and current-state verification.
+- Oversized image derivatives never replace local originals.
+- BUM Hand stages selected files locally and forwards them only after the user starts an upload.
 
-A tracked post may later be updated after publication, but only when Micro.blog confirms its status and the user explicitly confirms the live update. The bridge re-checks status immediately before mutation and refuses ambiguous URL recovery rather than guessing.
+## After v1.0
 
-Micro.blog app tokens remain ephemeral. They are not written to IndexedDB, `.hwpublish` bundles or Netlify configuration.
+There is no mandatory next phase. Possible future work remains intentionally open-ended:
 
-The optional post-by-email mode is a distinct opt-in privacy boundary: unattended publishing requires separately configured, revocable Resend and Micro.blog server credentials. Enabling it does not change the browser token model.
-
-Oversized publishing derivatives never replace the local originals. Unbound or missing photo regions block sync before media upload rather than being silently omitted.
-
-## In progress
-
-- [x] Post-by-email receiver prototype: verify Resend webhook signatures, require an exact private recipient address, retrieve PNG attachments, upload pages to Micro.blog and create a private draft only
-- [ ] Durable retry/idempotency handling before unattended production activation
-- [ ] Activation/setup flow for the revocable posting address and server credentials
-- [ ] PDF attachment support after the PNG email path is proven
-
-See `docs/post-by-email.md` for the current architecture and activation boundary.
-
-## Next
-
-The immediate direction is to remove friction from getting handwritten material into Micro.blog while keeping the draft-first safety boundary.
-
-Likely next directions:
-
-- [ ] Finish and activate post by email: reMarkable → private revocable address → Micro.blog private draft
 - [ ] Assisted transcription and accessibility metadata
-- [ ] Richer document revision/history support
-- [ ] Deeper native reMarkable or other tablet input/send integration when safely supportable
+- [ ] Richer document revision/history
+- [ ] PDF attachments through Writing Hand
+- [ ] Additional BUM Hand file types or useful output formats when needed
+- [ ] Video only when Micro.blog's API and a real use case justify the complexity
+- [ ] Deeper native reMarkable or other tablet integration
+- [ ] Destination-neutral publisher adapters such as handwritten.blog
 
-The core rule remains unchanged: handwritten page images are canonical; destinations and assistance features enrich them rather than replacing them.
+The product rule is simple: add something when it removes a real publishing frustration, not because the roadmap has an empty box.
