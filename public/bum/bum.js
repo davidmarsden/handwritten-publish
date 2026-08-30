@@ -13,7 +13,8 @@ import {
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const AUDIO_TYPES = new Set(['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a']);
-const AUDIO_MAX_BYTES = 75_000_000;
+const PDF_TYPE = 'application/pdf';
+const STREAMED_MEDIA_MAX_BYTES = 75_000_000;
 const MAX_FILES = 30;
 const $ = selector => document.querySelector(selector);
 
@@ -64,17 +65,26 @@ function inferAudioType(file) {
   return '';
 }
 
+function inferDocumentType(file) {
+  const type = (file.type || '').toLowerCase();
+  if (type === PDF_TYPE || file.name.toLowerCase().endsWith('.pdf')) return PDF_TYPE;
+  return '';
+}
+
 function classifyFile(file) {
   const imageType = inferImageMediaType(file);
   if (IMAGE_TYPES.has(imageType)) return { kind: 'image', mediaType: imageType };
   const audioType = inferAudioType(file);
   if (AUDIO_TYPES.has(audioType)) return { kind: 'audio', mediaType: audioType };
+  const documentType = inferDocumentType(file);
+  if (documentType) return { kind: 'document', mediaType: documentType };
   return { kind: 'unsupported', mediaType: file.type || '' };
 }
 
 function basename(filename) {
-  return filename.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() || 'Uploaded file';
+  return filename.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Uploaded file';
 }
+function documentLabel(item) { return `${basename(item.file.name)} (PDF)`; }
 function escapeHtml(value) { return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;'); }
 function escapeMarkdown(value) { return value.replace(/([\\\[\]])/g, '\\$1'); }
 function setStatus(message) { statusEl.textContent = message; }
@@ -90,14 +100,14 @@ function connectionReady() {
 }
 
 function resultMarkdown(item) {
-  return item.kind === 'image'
-    ? `![${escapeMarkdown(basename(item.file.name))}](${item.url})`
-    : `[${escapeMarkdown(item.file.name)}](${item.url})`;
+  if (item.kind === 'image') return `![${escapeMarkdown(basename(item.file.name))}](${item.url})`;
+  if (item.kind === 'document') return `[${escapeMarkdown(documentLabel(item))}](${item.url})`;
+  return `[${escapeMarkdown(item.file.name)}](${item.url})`;
 }
 function resultHtml(item) {
-  return item.kind === 'image'
-    ? `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(basename(item.file.name))}">`
-    : `<audio controls preload="none" src="${escapeHtml(item.url)}"></audio>`;
+  if (item.kind === 'image') return `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(basename(item.file.name))}">`;
+  if (item.kind === 'document') return `<a href="${escapeHtml(item.url)}">${escapeHtml(documentLabel(item))}</a>`;
+  return `<audio controls preload="none" src="${escapeHtml(item.url)}"></audio>`;
 }
 
 function statusLabel(item) {
@@ -130,7 +140,7 @@ function renderCollections() {
     ? 'Loading collections…'
     : collections.length
       ? `${collections.length} collection${collections.length === 1 ? '' : 's'} on ${destination}. Photo collections apply only to images.`
-      : destination ? `No photo collections yet on ${destination}. Audio uploads ignore this setting.` : '';
+      : destination ? `No photo collections yet on ${destination}. Audio and PDF uploads ignore this setting.` : '';
 }
 
 function render() {
@@ -155,7 +165,8 @@ function render() {
   if (items.length) {
     const images = items.filter(item => item.kind === 'image').length;
     const audio = items.filter(item => item.kind === 'audio').length;
-    selectionSummary.textContent = `${items.length} file${items.length === 1 ? '' : 's'} selected · ${images} image${images === 1 ? '' : 's'} · ${audio} audio`;
+    const documents = items.filter(item => item.kind === 'document').length;
+    selectionSummary.textContent = `${items.length} file${items.length === 1 ? '' : 's'} selected · ${images} image${images === 1 ? '' : 's'} · ${audio} audio · ${documents} PDF${documents === 1 ? '' : 's'}`;
   }
   uploadButton.disabled = busy || loadingCollections || !ready || !queued.length;
   uploadButton.textContent = busy ? 'Working…' : `Upload queued file${queued.length === 1 ? '' : 's'}`;
@@ -252,10 +263,11 @@ async function addFiles(fileList) {
   const staged = await Promise.all(accepted.map(async file => {
     const { kind, mediaType } = classifyFile(file);
     let state = 'queued', error = '', retryable = true, stableFile = file;
-    if (kind === 'unsupported') { state = 'failed'; error = 'PNG, JPEG, WebP, MP3 or M4A only'; retryable = false; }
+    if (kind === 'unsupported') { state = 'failed'; error = 'PNG, JPEG, WebP, MP3, M4A or PDF only'; retryable = false; }
     else if (!file.size) { state = 'failed'; error = 'Empty file'; retryable = false; }
-    else if (kind === 'audio' && file.size > AUDIO_MAX_BYTES) { state = 'failed'; error = `${formatBytes(file.size)} exceeds Micro.blog’s 75 MB audio limit`; retryable = false; }
-    else {
+    else if ((kind === 'audio' || kind === 'document') && file.size > STREAMED_MEDIA_MAX_BYTES) {
+      state = 'failed'; error = `${formatBytes(file.size)} exceeds BUM Hand’s current 75 MB streamed-media limit`; retryable = false;
+    } else {
       try { stableFile = await stableBrowserFile(file, mediaType); }
       catch { state = 'failed'; error = 'Could not read this file from the selected provider. Select it again or save it to the device first.'; retryable = false; }
     }
@@ -275,9 +287,9 @@ async function addFiles(fileList) {
   render();
 }
 
-async function uploadAudio(item, token, destination) {
+async function uploadStreamedMedia(item, token, destination) {
   if (!upstreamMediaEndpoint) upstreamMediaEndpoint = await fetchUpstreamMediaEndpoint(token);
-  const response = await fetch('/api/microblog/audio', {
+  const response = await fetch('/api/microblog/media', {
     method: 'POST',
     headers: {
       'Content-Type': item.mediaType,
@@ -297,9 +309,9 @@ async function uploadAudio(item, token, destination) {
 async function uploadItem(item, token, destination) {
   item.error = ''; item.retryable = true; item.optimizedBytes = null;
   try {
-    if (item.kind === 'audio') {
+    if (item.kind === 'audio' || item.kind === 'document') {
       item.state = 'uploading'; render();
-      item.url = await uploadAudio(item, token, destination);
+      item.url = await uploadStreamedMedia(item, token, destination);
     } else {
       if (item.needsOptimization) { item.state = 'optimizing'; render(); }
       const prepared = await preparePhotoForMicroblog(item.file, item.mediaType);
