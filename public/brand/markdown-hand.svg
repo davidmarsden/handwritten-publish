@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Markdown Hand</title>
+  <desc id="desc">An ink-style hand beside a Markdown hash mark.</desc>
+  <g fill="none" stroke="#264e7a" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M34 66 30 36" stroke-width="8"/>
+    <path d="M47 64 46 28" stroke-width="8"/>
+    <path d="M60 65 63 34" stroke-width="8"/>
+    <path d="M34 74 57 88" stroke-width="9"/>
+    <path d="M80 37 74 91" stroke-width="7"/>
+    <path d="M99 37 93 91" stroke-width="7"/>
+    <path d="M69 55h38" stroke-width="7"/>
+    <path d="M67 74h38" stroke-width="7"/>
+  </g>
+</svg>
