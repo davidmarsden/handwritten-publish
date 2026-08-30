@@ -1,0 +1,2 @@
+.uploaded-list audio{display:block;width:min(100%,520px);margin-top:10px;height:38px}
+@media(max-width:700px){.uploaded-list audio{width:100%}}

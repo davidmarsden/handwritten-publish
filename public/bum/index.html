@@ -4,13 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="BUM Hand — Batch Uploader for Micro.blog. Upload multiple images, add them to photo collections and copy their Micro.blog URLs, Markdown or HTML.">
+  <meta name="description" content="BUM Hand — Batch Uploader for Micro.blog. Upload batches of photos and audio without creating posts.">
   <meta property="og:title" content="BUM Hand — Helping Hand">
   <meta property="og:description" content="Batch Uploader for Micro.blog.">
   <meta property="og:image" content="/.netlify/images?url=/brand/helping-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png">
   <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
   <title>BUM Hand — Batch Uploader for Micro.blog</title>
   <link rel="stylesheet" href="/bum/bum.css">
+  <link rel="stylesheet" href="/bum/audio.css">
 </head>
 <body>
   <main class="shell">
@@ -20,7 +21,7 @@
       <img class="hero-mark" src="/brand/bum-hand.svg" alt="" aria-hidden="true">
       <p class="eyebrow">Batch Uploader for Micro.blog</p>
       <h1>BUM Hand</h1>
-      <p class="lede">Throw a bunch of images at Micro.blog. Keep the URLs, or drop the whole batch straight into a photo collection. No post required.</p>
+      <p class="lede">Throw a bunch of files at Micro.blog. Photos, audio, whatever BUM Hand understands. Keep the URLs, or drop photos straight into a collection. No post required.</p>
     </header>
 
     <section class="panel" aria-labelledby="token-heading">
@@ -44,9 +45,9 @@
       <div class="section-heading">
         <div>
           <p class="step">02</p>
-          <h2 id="collection-heading">Photo collection</h2>
+          <h2 id="collection-heading">Blog &amp; photo collection</h2>
         </div>
-        <p class="hint">Optional. Choose a blog and collection to add every successful upload to it automatically.</p>
+        <p class="hint">Choose the destination blog. Photo collection assignment is optional and applies only to image uploads.</p>
       </div>
 
       <div class="field-grid">
@@ -55,7 +56,7 @@
           <select id="destination"></select>
         </div>
         <div>
-          <label class="field-label" for="collection">Collection</label>
+          <label class="field-label" for="collection">Photo collection</label>
           <select id="collection">
             <option value="">Upload only — no collection</option>
           </select>
@@ -76,15 +77,15 @@
       <div class="section-heading">
         <div>
           <p class="step">03</p>
-          <h2 id="files-heading">Choose images</h2>
+          <h2 id="files-heading">Choose files</h2>
         </div>
-        <p class="hint">PNG, JPEG or WebP. Larger photos are resized and compressed locally when needed for a bridge-safe upload; originals are left untouched.</p>
+        <p class="hint">PNG, JPEG, WebP, MP3 or M4A. Larger photos are optimized locally; audio is streamed through BUM Hand’s edge proxy.</p>
       </div>
 
       <label id="drop-zone" class="drop-zone" for="files">
-        <strong>Choose images</strong>
-        <span>or drop them here</span>
-        <input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple>
+        <strong>Choose files</strong>
+        <span>photos or audio — or drop them here</span>
+        <input id="files" type="file" accept="*/*" multiple>
       </label>
 
       <div id="selection-summary" class="selection-summary" hidden></div>
@@ -92,7 +93,7 @@
     </section>
 
     <section class="actions" aria-label="Upload actions">
-      <button id="upload" class="button primary" type="button" disabled>Upload queued images</button>
+      <button id="upload" class="button primary" type="button" disabled>Upload queued files</button>
       <button id="retry" class="button secondary" type="button" hidden>Retry failed</button>
       <button id="retry-collection" class="button secondary" type="button" hidden>Retry collection</button>
       <button id="clear" class="button ghost" type="button" disabled>Clear</button>

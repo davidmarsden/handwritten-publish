@@ -38,7 +38,8 @@ export default async (request: Request) => {
     'media-endpoint'?: string;
     destination?: Array<{ uid?: string; name?: string }>;
   };
-  if (!config['media-endpoint']) return json({ error: 'Micro.blog did not return a media endpoint.' }, 502);
+  const mediaEndpoint = config['media-endpoint'];
+  if (!mediaEndpoint) return json({ error: 'Micro.blog did not return a media endpoint.' }, 502);
 
   const destinations = (config.destination ?? [])
     .filter(destination => typeof destination.uid === 'string')
@@ -56,7 +57,7 @@ export default async (request: Request) => {
     categories = categoryNames(categoryPayload);
   }
 
-  return json({ destinations, categories });
+  return json({ mediaEndpoint, destinations, categories });
 };
 
 export const config = {
