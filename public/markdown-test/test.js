@@ -22,7 +22,11 @@ async function requestJson(url, body) {
     body: JSON.stringify(body),
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || `Request failed (${response.status}).`);
+  if (!response.ok) {
+    const error = new Error(payload.error || `Request failed (${response.status}).`);
+    error.payload = payload;
+    throw error;
+  }
   return payload;
 }
 
@@ -72,8 +76,9 @@ run.addEventListener('click', async () => {
   run.disabled = true;
   results.hidden = true;
   status.textContent = `Reading ${selected.name}…`;
+  let markdown = '';
   try {
-    const markdown = await selected.text();
+    markdown = await selected.text();
     status.textContent = 'Creating private draft and fetching the source back…';
     const payload = await requestJson('/api/microblog/markdown-test', {
       token: connectedToken,
@@ -90,7 +95,20 @@ run.addEventListener('click', async () => {
     results.hidden = false;
     status.textContent = payload.matches ? 'Round-trip complete: Markdown survived exactly.' : 'Round-trip complete: the returned source differs. Compare below.';
   } catch (error) {
-    status.textContent = error.message;
+    const payload = error.payload || {};
+    const draftUrl = payload.preview || payload.url;
+    if (draftUrl) {
+      verdict.textContent = 'Draft created · source check failed';
+      verdict.className = 'result bad';
+      preview.href = draftUrl;
+      meta.textContent = 'Micro.blog created the private draft, but Helping Hand could not fetch its source back for comparison.';
+      original.textContent = markdown || '(Could not read the selected Markdown file.)';
+      returned.textContent = '(Source lookup failed before a comparable value was returned.)';
+      results.hidden = false;
+      status.textContent = `${error.message} The draft link is preserved below so you can inspect or delete it.`;
+    } else {
+      status.textContent = error.message;
+    }
   } finally {
     refreshRunState();
   }
