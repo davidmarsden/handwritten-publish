@@ -1,1 +1,2 @@
-.audio-note{margin:14px 0 0;color:var(--muted,#625d54);line-height:1.55}.uploaded-list audio{width:min(420px,100%);margin-top:10px}.audio-beta{display:inline-block;margin-left:8px;padding:3px 7px;border:1px solid currentColor;border-radius:999px;font-family:ui-sans-serif,system-ui,sans-serif;font-size:.68rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;vertical-align:middle;opacity:.72}
+.uploaded-list audio{display:block;width:min(100%,520px);margin-top:10px;height:38px}
+@media(max-width:700px){.uploaded-list audio{width:100%}}
