@@ -17,7 +17,7 @@ describe('Micro.blog streamed media edge proxy', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const bytes = new Uint8Array([1, 2, 3, 4]);
-    const response = await handler(new Request('https://hand.example/api/microblog/media', {
+    const response = await handler(new Request('https://hand.example/api/microblog/stream-media', {
       method: 'POST',
       headers: {
         'Content-Type': contentType,
@@ -44,7 +44,7 @@ describe('Micro.blog streamed media edge proxy', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
-    const response = await handler(new Request('https://hand.example/api/microblog/media', {
+    const response = await handler(new Request('https://hand.example/api/microblog/stream-media', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/pdf',
