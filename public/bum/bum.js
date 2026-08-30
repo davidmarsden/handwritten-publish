@@ -84,6 +84,10 @@ function failedItems() { return items.filter(item => item.state === 'failed'); }
 function retryableFailedItems() { return failedItems().filter(item => item.retryable); }
 function selectedCollection() { return collections.find(collection => collection.url === collectionSelect.value) || null; }
 function photoItems(targets = items) { return targets.filter(item => item.kind === 'image'); }
+function connectionReady() {
+  const token = tokenInput.value.trim();
+  return Boolean(connectedToken && token === connectedToken && destinationSelect.value);
+}
 
 function resultMarkdown(item) {
   return item.kind === 'image'
@@ -133,6 +137,7 @@ function render() {
   const queued = queuedItems();
   const retryable = retryableFailedItems();
   const uploaded = uploadedItems();
+  const ready = connectionReady();
   const collectionFailures = uploaded.filter(item => item.kind === 'image' && item.collectionState === 'failed');
 
   queueEl.replaceChildren(...items.map(item => {
@@ -152,21 +157,21 @@ function render() {
     const audio = items.filter(item => item.kind === 'audio').length;
     selectionSummary.textContent = `${items.length} file${items.length === 1 ? '' : 's'} selected · ${images} image${images === 1 ? '' : 's'} · ${audio} audio`;
   }
-  uploadButton.disabled = busy || loadingCollections || !tokenInput.value.trim() || !destinationSelect.value || !queued.length;
+  uploadButton.disabled = busy || loadingCollections || !ready || !queued.length;
   uploadButton.textContent = busy ? 'Working…' : `Upload queued file${queued.length === 1 ? '' : 's'}`;
   retryButton.hidden = !retryable.length;
-  retryButton.disabled = busy || loadingCollections || !tokenInput.value.trim() || !destinationSelect.value;
+  retryButton.disabled = busy || loadingCollections || !ready;
   retryCollectionButton.hidden = !collectionFailures.length;
-  retryCollectionButton.disabled = busy || loadingCollections || !selectedCollection();
+  retryCollectionButton.disabled = busy || loadingCollections || !ready || !selectedCollection();
   clearButton.disabled = busy || !items.length;
   filesInput.disabled = busy;
   tokenInput.disabled = busy;
   toggleToken.disabled = busy;
   connectButton.disabled = busy || !tokenInput.value.trim();
-  destinationSelect.disabled = busy || loadingCollections;
-  collectionSelect.disabled = busy || loadingCollections;
-  newCollectionName.disabled = busy || loadingCollections;
-  createCollectionButton.disabled = busy || loadingCollections || !destinationSelect.value || !newCollectionName.value.trim();
+  destinationSelect.disabled = busy || loadingCollections || !connectedToken;
+  collectionSelect.disabled = busy || loadingCollections || !ready;
+  newCollectionName.disabled = busy || loadingCollections || !ready;
+  createCollectionButton.disabled = busy || loadingCollections || !ready || !newCollectionName.value.trim();
 
   resultsSection.hidden = !uploaded.length;
   resultsSummary.textContent = uploaded.length ? `${uploaded.length} successful upload${uploaded.length === 1 ? '' : 's'}.` : '';
@@ -221,7 +226,12 @@ async function connect() {
     await loadCollections();
     setStatus('Connected. Choose any supported files below.');
   } catch (error) {
-    collectionPanel.hidden = true; upstreamMediaEndpoint = '';
+    collectionPanel.hidden = true;
+    connectedToken = '';
+    upstreamMediaEndpoint = '';
+    destinationSelect.replaceChildren();
+    collections = [];
+    renderCollections();
     setStatus(error instanceof Error ? error.message : 'Could not connect to Micro.blog.');
   } finally { busy = false; render(); }
 }
@@ -327,7 +337,7 @@ async function addToSelectedCollection(targets) {
 async function runUpload(targets) {
   const token = tokenInput.value.trim();
   const destination = destinationSelect.value;
-  if (!token || !destination) { setStatus('Connect to Micro.blog and choose a destination first.'); return; }
+  if (!connectionReady()) { setStatus('Connect to Micro.blog with the current token and choose a destination first.'); return; }
   if (!targets.length) return;
   busy = true; setStatus(`Uploading ${targets.length} file${targets.length === 1 ? '' : 's'}…`); render();
   for (const item of targets) await uploadItem(item, token, destination);
@@ -351,14 +361,25 @@ async function copyText(text, successMessage) {
 }
 
 toggleToken.addEventListener('click', () => { const showing = tokenInput.type === 'text'; tokenInput.type = showing ? 'password' : 'text'; toggleToken.textContent = showing ? 'Show' : 'Hide'; toggleToken.setAttribute('aria-pressed', String(!showing)); });
-tokenInput.addEventListener('input', () => { if (connectedToken && tokenInput.value.trim() !== connectedToken) { collectionPanel.hidden = true; connectedToken = ''; upstreamMediaEndpoint = ''; collections = []; loadingCollections = false; } render(); });
+tokenInput.addEventListener('input', () => {
+  if (connectedToken && tokenInput.value.trim() !== connectedToken) {
+    collectionPanel.hidden = true;
+    connectedToken = '';
+    upstreamMediaEndpoint = '';
+    collections = [];
+    loadingCollections = false;
+    destinationSelect.replaceChildren();
+    renderCollections();
+  }
+  render();
+});
 connectButton.addEventListener('click', connect);
 destinationSelect.addEventListener('change', async () => { try { await loadCollections(); setStatus('Destination updated. Photo collections apply only to images.'); } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not load collections.'); } });
 collectionSelect.addEventListener('change', render);
 newCollectionName.addEventListener('input', render);
 createCollectionButton.addEventListener('click', async () => {
   const token = tokenInput.value.trim(), destination = destinationSelect.value, name = newCollectionName.value.trim();
-  if (!token || !destination || !name) return;
+  if (!connectionReady() || !name) return;
   busy = true; setStatus(`Creating “${name}”…`); render();
   try {
     const created = await createMicroblogCollection(token, destination, name);
