@@ -118,7 +118,7 @@ export default async (request: Request) => {
 };
 
 export const config = {
-  path: '/api/microblog/media',
+  path: '/api/microblog/stream-media',
   method: 'POST',
   rateLimit: {
     windowLimit: 30,
