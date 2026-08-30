@@ -2,11 +2,11 @@
 
 ## v1.0.0 — 2026-08-30
 
-Helping Hand reaches its first complete release: the three-tool suite now covers the workflows it was created for, from handwritten reMarkable publishing to mixed-media post building and batch file uploads to Micro.blog.
+Helping Hand reaches its first complete release: the four-tool suite now covers handwritten reMarkable publishing, mixed-media post building, batch file uploads and direct prepared-Markdown publishing to Micro.blog.
 
 ### Helping Hand
 
-- Established the three-tool suite: Writing Hand, Publish Hand and BUM Hand.
+- Established the four-tool suite: Writing Hand, Publish Hand, BUM Hand and Markdown Hand.
 - Added a unified launcher, setup guide, product branding and shared navigation/footer structure.
 - Kept the project open source and self-hostable, with user-owned Micro.blog and Resend credentials.
 
@@ -36,6 +36,15 @@ Helping Hand reaches its first complete release: the three-tool suite now covers
 - Stream MP3/M4A and PDF uploads through a same-origin Netlify Edge proxy to avoid browser CORS and small buffered-function limits.
 - Return canonical URLs plus type-appropriate Markdown and HTML; audio also gets a browser playback control.
 - Keep per-file retry and separate collection retry without duplicating successful uploads.
+
+### Markdown Hand
+
+- Add direct `.md` file → Micro.blog publishing without passing the source through a web editor or HTML conversion.
+- Keep the raw Markdown as ordinary Micropub `content`, with optional title, summary and categories supplied separately.
+- Default to draft and require explicit confirmation before immediate publication.
+- Fetch the created post back with Micropub `q=source` and report when the stored Markdown matches exactly.
+- Preserve the created post URL even when source verification fails.
+- Add a dedicated Markdown Hand mark and page-specific favicon.
 
 ### Release boundary
 
