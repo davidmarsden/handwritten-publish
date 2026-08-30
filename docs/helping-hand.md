@@ -1,8 +1,8 @@
 # Helping Hand
 
-Helping Hand is the umbrella for a small family of human-first publishing tools.
+Helping Hand is the umbrella for a small family of human-first publishing tools. The suite reached its first complete release at v1.0.0.
 
-The tools share a publishing core, but each has one clear job and should be usable without exposing the complexity of the others.
+The tools share publishing infrastructure, but each has one clear job and should be usable without exposing the complexity of the others.
 
 ## The family
 
@@ -10,7 +10,7 @@ The tools share a publishing core, but each has one clear job and should be usab
 
 **reMarkable → Micro.blog.**
 
-Write on a reMarkable, use the tablet's built-in Send by email workflow, and turn the message into a Micro.blog draft or an explicitly published post. Writing Hand owns the Resend inbound-email workflow, reMarkable transcription cleanup, metadata parsing, attachment handling and unattended Micro.blog publishing.
+Write on a reMarkable, use the tablet's built-in Send by email workflow, and turn the message into a Micro.blog draft or an explicitly published post. Writing Hand owns Resend inbound email, reMarkable transcription cleanup, metadata parsing, original-page attachment handling, recipient routing and unattended retry/idempotency.
 
 Tagline: **From paper to web at the push of a pen.**
 
@@ -18,21 +18,21 @@ Tagline: **From paper to web at the push of a pen.**
 
 **Handwriting, images and documents → web.**
 
-The browser-based publishing tool. It keeps handwritten page images canonical while allowing transcripts, links, photographs and publishing metadata to enrich them. The current Handwritten Publish web app is the starting point for Publish Hand.
+The browser-based publishing workbench. It keeps handwritten page images canonical while allowing transcripts, links, photographs and publishing metadata to enrich them. It imports PNG/photo/PDF material, persists local documents, exports portable `.handpub` bundles and publishes safely to Micro.blog.
 
-Publish Hand should remain destination-neutral at the document-model level. Micro.blog is the first publishing adapter, not the definition of the document format.
+Publish Hand remains destination-neutral at the document-model level. Micro.blog is the first publishing adapter, not the definition of the document format.
 
 ### BUM Hand
 
 **Batch Uploader for Micro.blog.**
 
-A focused browser utility for uploading multiple media files to Micro.blog and returning useful URLs/HTML/Markdown. Images are the first use case, but the tool should be designed around media/files rather than "photos" so that supported audio and other uploadable formats can be added cleanly.
+A focused mixed-file uploader for JPEG/PNG/WebP images, MP3/M4A audio and PDFs. One chooser feeds one queue; the files are routed to the correct upload path behind the scenes. Successful photos can be added directly to Micro.blog Photo Collections, while all supported files return useful canonical URL/Markdown/HTML results.
 
 ## Repository strategy
 
-For now, Helping Hand remains one repository with shared infrastructure. Separate products do not require separate codebases.
+Helping Hand deliberately remains one repository with shared infrastructure. Separate products do not require separate codebases.
 
-Target structure:
+Current structure:
 
 ```text
 apps/
@@ -41,37 +41,51 @@ apps/
   bum-hand/
 packages/
   publishing-core/
-  ui/
+public/
+  bum/
+  roadmap/
+  setup/
+publish/
+netlify/
+  functions/
+  edge-functions/
 ```
 
-The existing production application remains at the repository root until each product is extracted safely. The first restructuring work is therefore additive: establish boundaries and shared contracts before moving build entrypoints or Netlify Functions.
+The root `/` route is the Helping Hand launcher. `/publish/` is Publish Hand, `/setup/email/` is Writing Hand's product/setup surface, and `/bum/` is BUM Hand.
 
 ## Shared publishing core
 
-The tools should converge on shared code for:
+Shared code belongs in common plumbing when it is genuinely shared:
 
 - Micro.blog/Micropub authentication and destination discovery;
-- media upload;
+- media upload primitives;
 - post create/update operations;
 - categories and post status;
+- image optimisation;
 - privacy-safe public-demo usage controls;
 - common configuration and error handling.
 
-Product-specific code should stay outside the shared core. In particular:
+Product-specific code stays outside the shared core:
 
 - reMarkable/Resend email parsing belongs to Writing Hand;
-- handwritten document/page models and link-region editing belong to Publish Hand;
-- queue/batch-selection and upload-result presentation belong to BUM Hand.
+- handwritten document/page models and annotation editing belong to Publish Hand;
+- queue/batch selection, streamed-file routing and upload-result presentation belong to BUM Hand.
 
-## Extraction order
+## v1.0 release boundary
 
-1. **BUM Hand** — the smallest and cleanest standalone surface; extract it first using the existing media bridge.
-2. **Publish Hand** — move the current browser document publisher behind its own app boundary once shared publishing code exists.
-3. **Writing Hand** — give the already mostly server-side reMarkable workflow its own setup/identity after the shared backend has stabilised.
-4. Replace the root product page with a **Helping Hand** launcher only after all three tools have working routes.
+The original extraction/restructuring plan is complete:
+
+1. [x] Establish BUM Hand as a standalone product surface.
+2. [x] Establish Publish Hand behind its own `/publish/` route.
+3. [x] Give the reMarkable email workflow the Writing Hand identity and setup surface.
+4. [x] Replace the root application page with the Helping Hand launcher.
+5. [x] Share Micro.blog/media primitives without collapsing the three product boundaries.
+6. [x] Add consistent suite navigation, setup and roadmap surfaces.
+
+Future work is intentionally need-driven. There is no requirement to add another product or another destination simply because the architecture allows it.
 
 ## Product principle
 
 Helping Hand exists to reduce the machinery between human-made material and publication.
 
-The software may transcribe, route, upload and automate, but the human-created source remains the point. The tools should make authorship easier to preserve, not replace it.
+The software may transcribe, route, upload and automate, but the human-created source remains the point. New features should preserve that authorship, solve a concrete publishing frustration, and avoid turning the suite into a second CMS.
