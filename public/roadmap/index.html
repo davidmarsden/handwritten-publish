@@ -4,60 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <meta name="theme-color" content="#f3efe6">
-  <meta name="description" content="The Helping Hand roadmap: what is live, what is next, and where BUM Hand is going.">
+  <meta name="description" content="The Helping Hand roadmap after v1.0: the core suite is complete and future work is driven by real needs.">
   <meta property="og:title" content="Roadmap — Helping Hand">
-  <meta property="og:description" content="What is live, what is next, and where Helping Hand is going.">
+  <meta property="og:description" content="Helping Hand v1.0 is complete. Future ideas stay optional and need-driven.">
   <meta property="og:image" content="/.netlify/images?url=/brand/helping-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png">
   <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
   <title>Roadmap — Helping Hand</title>
   <style>
     :root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#20201e;background:#f3efe6;font-synthesis:none}
-    *{box-sizing:border-box}
-    body{margin:0}
-    a{color:inherit}
-    .shell{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:34px 0 72px}
-    .top-nav{display:flex;gap:10px;align-items:center;margin-bottom:56px;font-size:.9rem}
-    .top-nav a{font-weight:750;text-decoration:none}
-    .top-nav span{opacity:.38}
-    .hero{display:grid;grid-template-columns:minmax(0,1fr) 118px;gap:42px;align-items:start;margin-bottom:66px}
-    .hero-mark{width:118px;height:118px}
-    .eyebrow,.section-kicker,.phase{margin:0;text-transform:uppercase;letter-spacing:.14em;font-size:.74rem;font-weight:850}
-    h1,h2,h3{font-family:Georgia,"Times New Roman",serif;font-weight:500;letter-spacing:-.045em}
-    h1{margin:10px 0 0;font-size:clamp(4.2rem,13vw,9rem);line-height:.82;letter-spacing:-.065em}
-    .intro{max-width:790px;margin:30px 0 0;font-size:clamp(1.15rem,2vw,1.48rem);line-height:1.55;color:#625d54}
-    .note{max-width:790px;margin:20px 0 0;color:#777168;line-height:1.55}
-    .section{margin-top:64px}
-    .section-title{margin:8px 0 18px;font-size:clamp(2.6rem,6vw,5.2rem);line-height:.92}
-    .section-intro{max-width:820px;margin:0 0 28px;color:#625d54;font-size:1.08rem;line-height:1.65}
-    .feature{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:22px;padding:30px;border:1px solid rgba(32,32,30,.13);border-radius:22px;background:rgba(255,255,255,.62);box-shadow:0 18px 50px rgba(75,64,45,.07)}
-    .feature-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
-    .feature-mark{width:82px;height:82px;flex:none}
-    .feature h3{margin:10px 0 14px;font-size:clamp(2.7rem,6vw,5rem);line-height:.92}
-    .feature p{margin:0;color:#625d54;line-height:1.6}
-    .feature .promise{margin-top:18px;color:#20201e;font-weight:750}
-    .now-card{align-self:stretch;padding:24px;border-radius:16px;background:#191816;color:#f4f0e8}
-    .now-card .phase{color:#b9b0a4}
-    .now-card h4{margin:10px 0 12px;font-size:1.25rem}
-    .now-card p{color:#cbc3b8}
-    .now-card ul{margin:18px 0 0;padding-left:20px;color:#e7e0d6;line-height:1.65}
-    .roadmap-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:22px}
-    .roadmap-card{padding:24px;border:1px solid rgba(32,32,30,.13);border-radius:18px;background:rgba(255,255,255,.58)}
-    .roadmap-card h3{margin:30px 0 12px;font-size:2rem;line-height:.98}
-    .roadmap-card p{margin:0;color:#625d54;line-height:1.55}
-    .roadmap-card ul{margin:18px 0 0;padding-left:19px;color:#3f3c37;line-height:1.62}
-    .roadmap-card.next{border-top:5px solid #5c6f3a}
-    .roadmap-card.soon{border-top:5px solid #b74234}
-    .roadmap-card.later{border-top:5px solid #264e7a}
-    .suite-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-    .suite-card{padding:24px;border-top:1px solid rgba(32,32,30,.2)}
-    .suite-card h3{margin:12px 0 10px;font-size:2rem}
-    .suite-card p{margin:0;color:#625d54;line-height:1.55}
-    .principles{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
-    .principles span{padding:7px 10px;border:1px solid rgba(32,32,30,.15);border-radius:999px;font-size:.82rem;font-weight:750}
-    .suite-footer{display:flex;gap:18px;flex-wrap:wrap;margin-top:70px;padding-top:24px;border-top:1px solid rgba(32,32,30,.14);font-size:.9rem;color:#625d54}
-    .suite-footer a{font-weight:700;text-underline-offset:3px}
-    @media(max-width:800px){.shell{padding-top:24px}.top-nav{margin-bottom:38px}.hero{grid-template-columns:1fr}.hero-mark{width:84px;height:84px;order:-1}.feature{grid-template-columns:1fr}.roadmap-grid,.suite-grid{grid-template-columns:1fr}.section{margin-top:48px}}
-    @media(prefers-color-scheme:dark){:root{color:#f1ede5;background:#191816}.intro,.note,.section-intro,.feature p,.roadmap-card p,.suite-card p,.suite-footer{color:#bbb3a7}.feature .promise,.roadmap-card ul{color:#e7e0d6}.hero-mark{filter:invert(1)}.feature,.roadmap-card{background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.12);box-shadow:none}.suite-card,.suite-footer{border-color:rgba(255,255,255,.13)}.now-card{background:#f1ede5;color:#191816}.now-card .phase,.now-card p,.now-card ul{color:#514d46}.principles span{border-color:rgba(255,255,255,.16)}}
+    *{box-sizing:border-box}body{margin:0}a{color:inherit}.shell{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:34px 0 72px}.top-nav{display:flex;gap:10px;align-items:center;margin-bottom:56px;font-size:.9rem}.top-nav a{font-weight:750;text-decoration:none}.top-nav span{opacity:.38}.hero{display:grid;grid-template-columns:minmax(0,1fr) 118px;gap:42px;align-items:start;margin-bottom:66px}.hero-mark{width:118px;height:118px}.eyebrow,.section-kicker,.phase{margin:0;text-transform:uppercase;letter-spacing:.14em;font-size:.74rem;font-weight:850}h1,h2,h3{font-family:Georgia,"Times New Roman",serif;font-weight:500;letter-spacing:-.045em}h1{margin:10px 0 0;font-size:clamp(4.2rem,13vw,9rem);line-height:.82;letter-spacing:-.065em}.intro{max-width:790px;margin:30px 0 0;font-size:clamp(1.15rem,2vw,1.48rem);line-height:1.55;color:#625d54}.note{max-width:790px;margin:20px 0 0;color:#777168;line-height:1.55}.section{margin-top:64px}.section-title{margin:8px 0 18px;font-size:clamp(2.6rem,6vw,5.2rem);line-height:.92}.section-intro{max-width:820px;margin:0 0 28px;color:#625d54;font-size:1.08rem;line-height:1.65}.feature{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:22px;padding:30px;border:1px solid rgba(32,32,30,.13);border-radius:22px;background:rgba(255,255,255,.62);box-shadow:0 18px 50px rgba(75,64,45,.07)}.feature-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}.feature-mark{width:82px;height:82px;flex:none}.feature p{margin:0;color:#625d54;line-height:1.6}.feature .promise{margin-top:18px;color:#20201e;font-weight:750}.now-card{align-self:stretch;padding:24px;border-radius:16px;background:#191816;color:#f4f0e8}.now-card .phase{color:#b9b0a4}.now-card h4{margin:10px 0 12px;font-size:1.25rem}.now-card p{color:#cbc3b8}.now-card ul{margin:18px 0 0;padding-left:20px;color:#e7e0d6;line-height:1.65}.roadmap-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:22px}.roadmap-card{padding:24px;border:1px solid rgba(32,32,30,.13);border-radius:18px;background:rgba(255,255,255,.58)}.roadmap-card h3{margin:30px 0 12px;font-size:2rem;line-height:.98}.roadmap-card p{margin:0;color:#625d54;line-height:1.55}.roadmap-card ul{margin:18px 0 0;padding-left:19px;color:#3f3c37;line-height:1.62}.roadmap-card.next{border-top:5px solid #5c6f3a}.roadmap-card.soon{border-top:5px solid #b74234}.roadmap-card.later{border-top:5px solid #264e7a}.suite-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.suite-card{padding:24px;border-top:1px solid rgba(32,32,30,.2)}.suite-card h3{margin:12px 0 10px;font-size:2rem}.suite-card p{margin:0;color:#625d54;line-height:1.55}.principles{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}.principles span{padding:7px 10px;border:1px solid rgba(32,32,30,.15);border-radius:999px;font-size:.82rem;font-weight:750}.suite-footer{display:flex;gap:18px;flex-wrap:wrap;margin-top:70px;padding-top:24px;border-top:1px solid rgba(32,32,30,.14);font-size:.9rem;color:#625d54}.suite-footer a{font-weight:700;text-underline-offset:3px}@media(max-width:800px){.shell{padding-top:24px}.top-nav{margin-bottom:38px}.hero{grid-template-columns:1fr}.hero-mark{width:84px;height:84px;order:-1}.feature{grid-template-columns:1fr}.roadmap-grid,.suite-grid{grid-template-columns:1fr}.section{margin-top:48px}}@media(prefers-color-scheme:dark){:root{color:#f1ede5;background:#191816}.intro,.note,.section-intro,.feature p,.roadmap-card p,.suite-card p,.suite-footer{color:#bbb3a7}.feature .promise,.roadmap-card ul{color:#e7e0d6}.hero-mark{filter:invert(1)}.feature,.roadmap-card{background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.12);box-shadow:none}.suite-card,.suite-footer{border-color:rgba(255,255,255,.13)}.now-card{background:#f1ede5;color:#191816}.now-card .phase,.now-card p,.now-card ul{color:#514d46}.principles span{border-color:rgba(255,255,255,.16)}}
   </style>
 </head>
 <body>
@@ -66,107 +21,68 @@
 
     <header class="hero">
       <div>
-        <p class="eyebrow">What comes next</p>
+        <p class="eyebrow">After v1.0</p>
         <h1>Road<br>map</h1>
-        <p class="intro">Helping Hand started with one small publishing itch. The aim is to keep it that way: useful, understandable tools that remove repetitive machinery without getting between you and the thing you made.</p>
-        <p class="note">This is a direction of travel, not a release calendar. Priorities can move as the tools get used in real life.</p>
+        <p class="intro">Helping Hand now does what it was built to do. Writing Hand, Publish Hand and BUM Hand are all live, and the core suite is officially v1.0.</p>
+        <p class="note">What remains below is a shelf of possibilities, not a release calendar. New work should happen when real use exposes a real itch.</p>
       </div>
       <img class="hero-mark" src="/brand/helping-hand.svg" alt="" aria-hidden="true">
     </header>
 
-    <section class="section" aria-labelledby="bum-heading">
-      <p class="section-kicker">Main priority</p>
+    <section class="section" aria-labelledby="release-heading">
+      <p class="section-kicker">Release boundary</p>
       <div class="feature">
         <div>
           <div class="feature-head">
             <div>
-              <h2 class="section-title" id="bum-heading">BUM Hand</h2>
-              <p class="section-intro">Batch Uploader for Micro.blog has moved beyond the original image-only proof of concept. The current baseline is a reliable photo batch workflow with local optimisation and direct Photo Collections support; the next job is to broaden the same simple model to audio.</p>
+              <h2 class="section-title" id="release-heading">v1.0 complete</h2>
+              <p class="section-intro">The suite now covers the three workflows that justified building it in the first place: write by hand and send to Micro.blog, build richer mixed-media handwritten posts, and batch-upload ordinary files without creating posts.</p>
             </div>
-            <img class="feature-mark" src="/brand/bum-hand.svg" alt="" aria-hidden="true">
+            <img class="feature-mark" src="/brand/helping-hand.svg" alt="" aria-hidden="true">
           </div>
-          <p class="promise">The rule: give it files, put them on Micro.blog, give useful things back. No second media library, no post required.</p>
-          <div class="principles" aria-label="BUM Hand principles"><span>Fast in, useful out</span><span>No post required</span><span>Your Micro.blog account</span><span>No token storage</span></div>
+          <p class="promise">The rule from here: maintain what works, fix genuine friction, and resist turning a small publishing toolkit into another CMS.</p>
+          <div class="principles"><span>Need-driven</span><span>Human-first</span><span>Open source</span><span>Self-hostable</span><span>No feature treadmill</span></div>
         </div>
         <aside class="now-card">
-          <p class="phase">Live now</p>
-          <h4>Images + Photo Collections</h4>
-          <p>The image workflow is now the stable BUM Hand baseline.</p>
+          <p class="phase">Live in v1.0</p>
+          <h4>Three hands, three jobs</h4>
           <ul>
-            <li>JPEG, PNG and WebP batches</li>
-            <li>Up to 30 selected images</li>
-            <li>Browser-side optimisation for larger photos</li>
-            <li>Android / Google Photos eager batch staging</li>
-            <li>Choose a Micro.blog blog and Photo Collection</li>
-            <li>Create a collection from BUM Hand</li>
-            <li>Upload-only mode with no post</li>
-            <li>Per-file status, retry and collection retry</li>
-            <li>Copy canonical URLs, Markdown or HTML</li>
+            <li>Writing Hand: reMarkable email/transcription → Micro.blog</li>
+            <li>Publish Hand: handwriting, photos and PDFs → web-ready posts</li>
+            <li>BUM Hand: mixed JPEG/PNG/WebP, MP3/M4A and PDF batch uploads</li>
+            <li>Photo Collections directly from BUM Hand</li>
+            <li>Local image optimisation and Android/Google Photos batch staging</li>
+            <li>Canonical URL, Markdown and HTML output</li>
+            <li>Self-hosted setup and shared open-source infrastructure</li>
           </ul>
         </aside>
       </div>
+    </section>
 
-      <div class="roadmap-grid" aria-label="BUM Hand roadmap">
-        <article class="roadmap-card next">
-          <p class="phase">Next</p>
-          <h3>Audio</h3>
-          <p>Make audio the next first-class BUM Hand media type, beginning with formats Micro.blog explicitly supports.</p>
-          <ul>
-            <li>Start with MP3 and M4A</li>
-            <li>Verify current Micro.blog API behaviour and file limits before implementation</li>
-            <li>Design for realistically sized tracks, not the photo bridge's request-size assumptions</li>
-            <li>Preserve upload-only mode and canonical URL output</li>
-            <li>Keep explicit per-file validation, progress and retry</li>
-            <li>Explore useful audio HTML/Markdown and optional post/podcast output later</li>
-          </ul>
-        </article>
-        <article class="roadmap-card soon">
-          <p class="phase">After audio</p>
-          <h3>Documents</h3>
-          <p>Broaden BUM Hand to useful document uploads once the audio path is solid.</p>
-          <ul>
-            <li>PDF first</li>
-            <li>Preserve original filenames and file semantics</li>
-            <li>Return canonical URLs and useful link/Markdown/HTML snippets</li>
-            <li>Validate only explicitly supported file types</li>
-            <li>Reuse shared upload plumbing where it genuinely fits</li>
-          </ul>
-        </article>
-        <article class="roadmap-card later">
-          <p class="phase">Explore</p>
-          <h3>Useful outputs</h3>
-          <p>Help uploaded media move into publishing jobs without turning BUM Hand into another CMS.</p>
-          <ul>
-            <li>Output formats tailored to images, audio and documents</li>
-            <li>Optional shortcuts from uploaded media into posts or podcast workflows</li>
-            <li>Mixed-media batches where the experience remains understandable</li>
-            <li>Video only when Micro.blog's API and a real use case make it worth the complexity</li>
-            <li>Portable results rather than lock-in</li>
-          </ul>
-        </article>
+    <section class="section" aria-labelledby="possible-heading">
+      <p class="section-kicker">Only if useful</p>
+      <h2 class="section-title" id="possible-heading">Possible future work.</h2>
+      <p class="section-intro">None of these is promised. They stay visible so good ideas are not lost, but they only move when there is a concrete reason to build them.</p>
+      <div class="roadmap-grid">
+        <article class="roadmap-card next"><p class="phase">Explore</p><h3>Writing &amp; accessibility</h3><ul><li>Assisted transcription and accessibility metadata</li><li>PDF attachments through Writing Hand</li><li>Deeper reMarkable or other tablet integrations</li><li>Richer revision/history where it solves a real problem</li></ul></article>
+        <article class="roadmap-card soon"><p class="phase">Explore</p><h3>Media &amp; outputs</h3><ul><li>Additional BUM Hand file types when needed</li><li>Useful media-specific post/podcast shortcuts</li><li>Video only if Micro.blog's API and a real use case justify it</li><li>Keep mixed-media output portable rather than creating a second library</li></ul></article>
+        <article class="roadmap-card later"><p class="phase">Explore</p><h3>Destinations</h3><ul><li>Destination-neutral publisher adapters</li><li>Other endpoints only when they fit the existing document model</li><li>Never reshape the core format around one destination</li></ul></article>
       </div>
     </section>
 
-    <section class="section" aria-labelledby="suite-heading">
-      <p class="section-kicker">The rest of the suite</p>
-      <h2 class="section-title" id="suite-heading">Keep the other hands sharp.</h2>
+    <section class="section" aria-labelledby="maintenance-heading">
+      <p class="section-kicker">Maintenance</p>
+      <h2 class="section-title" id="maintenance-heading">Keep the hands working.</h2>
       <div class="suite-grid">
-        <article class="suite-card"><p class="phase">Writing Hand</p><h3>More native, not more complicated.</h3><p>Keep improving the paper → email → web path, metadata handling and setup experience while preserving the one-action feel from reMarkable.</p></article>
-        <article class="suite-card"><p class="phase">Publish Hand</p><h3>A better workbench.</h3><p>Keep refining mixed handwriting/photo/PDF documents, publishing metadata and the portable <code>.handpub</code> format. Shared media work should move into common plumbing rather than duplicate code.</p></article>
-        <article class="suite-card"><p class="phase">Helping Hand</p><h3>A small suite, on purpose.</h3><p>The launcher, setup and documentation should make the family understandable to somebody who did not build it. New tools only belong here if they solve a similarly concrete publishing problem.</p></article>
-        <article class="suite-card"><p class="phase">Open source</p><h3>Easy to take home.</h3><p>Keep the repository readable, the setup guide current and self-hosting straightforward so other people can run their own Helping Hand rather than depending on a central account service.</p></article>
+        <article class="suite-card"><p class="phase">Reliability</p><h3>Protect the workflows that already work.</h3><p>Bug fixes, API changes, browser regressions and Micro.blog compatibility take priority over speculative new features.</p></article>
+        <article class="suite-card"><p class="phase">Documentation</p><h3>Keep it easy to take home.</h3><p>Keep setup, architecture and release notes current so somebody else can understand and self-host the suite without reverse-engineering it.</p></article>
+        <article class="suite-card"><p class="phase">Product boundary</p><h3>Small on purpose.</h3><p>A new feature belongs only when it removes repetitive publishing machinery while leaving the original work and Micro.blog in charge.</p></article>
+        <article class="suite-card"><p class="phase">Open source</p><h3>Portable, inspectable, yours.</h3><p>Prefer ordinary files, standards and explicit APIs over lock-in. Helping Hand should remain useful even when parts of the stack change.</p></article>
       </div>
     </section>
 
     <footer class="suite-footer">
-      <a href="/">Helping Hand</a>
-      <a href="/setup/email/">Writing Hand</a>
-      <a href="/publish/">Publish Hand</a>
-      <a href="/bum/">BUM Hand</a>
-      <a href="/roadmap/">Roadmap</a>
-      <a href="/setup/">Setup</a>
-      <a href="https://davidmarsden.info/">davidmarsden.info</a>
-      <a href="https://github.com/davidmarsden/handwritten-publish">GitHub</a>
+      <a href="/">Helping Hand</a><a href="/setup/email/">Writing Hand</a><a href="/publish/">Publish Hand</a><a href="/bum/">BUM Hand</a><a href="/roadmap/">Roadmap</a><a href="/setup/">Setup</a><a href="https://davidmarsden.info/">davidmarsden.info</a><a href="https://github.com/davidmarsden/handwritten-publish">GitHub</a>
     </footer>
   </main>
 </body>
