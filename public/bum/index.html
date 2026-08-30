@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="BUM Hand — Batch Uploader for Micro.blog. Upload batches of photos and audio without creating posts.">
+  <meta name="description" content="BUM Hand — Batch Uploader for Micro.blog. Upload batches of photos, audio and PDFs without creating posts.">
   <meta property="og:title" content="BUM Hand — Helping Hand">
   <meta property="og:description" content="Batch Uploader for Micro.blog.">
   <meta property="og:image" content="/.netlify/images?url=/brand/helping-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png">
@@ -21,18 +21,11 @@
       <img class="hero-mark" src="/brand/bum-hand.svg" alt="" aria-hidden="true">
       <p class="eyebrow">Batch Uploader for Micro.blog</p>
       <h1>BUM Hand</h1>
-      <p class="lede">Throw a bunch of files at Micro.blog. Photos, audio, whatever BUM Hand understands. Keep the URLs, or drop photos straight into a collection. No post required.</p>
+      <p class="lede">Throw a bunch of files at Micro.blog. Photos, audio, PDFs — whatever BUM Hand understands. Keep the URLs, or drop photos straight into a collection. No post required.</p>
     </header>
 
     <section class="panel" aria-labelledby="token-heading">
-      <div class="section-heading">
-        <div>
-          <p class="step">01</p>
-          <h2 id="token-heading">Micro.blog token</h2>
-        </div>
-        <p class="hint">Used only for these requests. It is not stored by BUM Hand.</p>
-      </div>
-
+      <div class="section-heading"><div><p class="step">01</p><h2 id="token-heading">Micro.blog token</h2></div><p class="hint">Used only for these requests. It is not stored by BUM Hand.</p></div>
       <label class="field-label" for="token">App token</label>
       <div class="token-row">
         <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Micro.blog app token">
@@ -42,52 +35,25 @@
     </section>
 
     <section id="collection-panel" class="panel" aria-labelledby="collection-heading" hidden>
-      <div class="section-heading">
-        <div>
-          <p class="step">02</p>
-          <h2 id="collection-heading">Blog &amp; photo collection</h2>
-        </div>
-        <p class="hint">Choose the destination blog. Photo collection assignment is optional and applies only to image uploads.</p>
-      </div>
-
+      <div class="section-heading"><div><p class="step">02</p><h2 id="collection-heading">Blog &amp; photo collection</h2></div><p class="hint">Choose the destination blog. Photo collection assignment is optional and applies only to image uploads.</p></div>
       <div class="field-grid">
-        <div>
-          <label class="field-label" for="destination">Blog</label>
-          <select id="destination"></select>
-        </div>
-        <div>
-          <label class="field-label" for="collection">Photo collection</label>
-          <select id="collection">
-            <option value="">Upload only — no collection</option>
-          </select>
-        </div>
+        <div><label class="field-label" for="destination">Blog</label><select id="destination"></select></div>
+        <div><label class="field-label" for="collection">Photo collection</label><select id="collection"><option value="">Upload only — no collection</option></select></div>
       </div>
-
       <div class="new-collection-row">
-        <div>
-          <label class="field-label" for="new-collection-name">New collection</label>
-          <input id="new-collection-name" type="text" maxlength="120" placeholder="e.g. Favourite Photos">
-        </div>
+        <div><label class="field-label" for="new-collection-name">New collection</label><input id="new-collection-name" type="text" maxlength="120" placeholder="e.g. Favourite Photos"></div>
         <button id="create-collection" class="button secondary" type="button">Create collection</button>
       </div>
       <p id="collection-summary" class="collection-summary"></p>
     </section>
 
     <section class="panel" aria-labelledby="files-heading">
-      <div class="section-heading">
-        <div>
-          <p class="step">03</p>
-          <h2 id="files-heading">Choose files</h2>
-        </div>
-        <p class="hint">PNG, JPEG, WebP, MP3 or M4A. Larger photos are optimized locally; audio is streamed through BUM Hand’s edge proxy.</p>
-      </div>
-
+      <div class="section-heading"><div><p class="step">03</p><h2 id="files-heading">Choose files</h2></div><p class="hint">PNG, JPEG, WebP, MP3, M4A or PDF. Larger photos are optimized locally; audio and PDFs use BUM Hand’s streamed media proxy.</p></div>
       <label id="drop-zone" class="drop-zone" for="files">
         <strong>Choose files</strong>
-        <span>photos or audio — or drop them here</span>
+        <span>photos, audio or PDFs — or drop them here</span>
         <input id="files" type="file" accept="*/*" multiple>
       </label>
-
       <div id="selection-summary" class="selection-summary" hidden></div>
       <ol id="queue" class="queue" aria-live="polite"></ol>
     </section>
@@ -100,37 +66,20 @@
     </section>
 
     <section id="results" class="panel" aria-labelledby="results-heading" hidden>
-      <div class="section-heading results-heading">
-        <div>
-          <p class="step">04</p>
-          <h2 id="results-heading">Uploaded</h2>
-        </div>
-        <p id="results-summary" class="hint"></p>
-      </div>
-
+      <div class="section-heading results-heading"><div><p class="step">04</p><h2 id="results-heading">Uploaded</h2></div><p id="results-summary" class="hint"></p></div>
       <div class="copy-actions">
         <button id="copy-urls" class="button secondary" type="button">Copy URLs</button>
         <button id="copy-markdown" class="button secondary" type="button">Copy Markdown</button>
         <button id="copy-html" class="button secondary" type="button">Copy HTML</button>
       </div>
-
       <ul id="uploaded-list" class="uploaded-list"></ul>
     </section>
 
     <p id="status" class="status" role="status">Ready.</p>
-
     <footer class="suite-footer">
-      <a href="/">Helping Hand</a>
-      <a href="/setup/email/">Writing Hand</a>
-      <a href="/publish/">Publish Hand</a>
-      <a href="/bum/">BUM Hand</a>
-      <a href="/roadmap/">Roadmap</a>
-      <a href="/setup/">Setup</a>
-      <a href="https://davidmarsden.info/">davidmarsden.info</a>
-      <a href="https://github.com/davidmarsden/handwritten-publish">GitHub</a>
+      <a href="/">Helping Hand</a><a href="/setup/email/">Writing Hand</a><a href="/publish/">Publish Hand</a><a href="/bum/">BUM Hand</a><a href="/roadmap/">Roadmap</a><a href="/setup/">Setup</a><a href="https://davidmarsden.info/">davidmarsden.info</a><a href="https://github.com/davidmarsden/handwritten-publish">GitHub</a>
     </footer>
   </main>
-
   <script type="module" src="/bum/bum.js"></script>
 </body>
 </html>
