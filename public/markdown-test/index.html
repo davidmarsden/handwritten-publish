@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="theme-color" content="#191816">
+  <title>Markdown round-trip test — Helping Hand</title>
+  <style>
+    :root{font-family:system-ui,sans-serif;color:#20201e;background:#f3efe6}*{box-sizing:border-box}body{margin:0}.shell{width:min(900px,calc(100% - 28px));margin:auto;padding:28px 0 64px}a{color:inherit}.nav{font-weight:750}.hero{padding:46px 0 26px}h1{font-family:Georgia,serif;font-size:clamp(3rem,11vw,6.5rem);line-height:.9;margin:0}.lede{font-size:1.12rem;line-height:1.55;color:#625d54;max-width:720px}.panel{margin:18px 0;padding:22px;border:1px solid rgba(0,0,0,.14);border-radius:16px;background:rgba(255,255,255,.62)}label{display:block;font-weight:750;margin:14px 0 7px}input,select,button{font:inherit}input[type=password],input[type=text],select,input[type=file]{width:100%;padding:12px;border:1px solid #aaa59a;border-radius:9px;background:#fff;color:#171717}button{margin-top:16px;padding:12px 16px;border:1px solid #171717;border-radius:9px;background:#171717;color:white;font-weight:750}button:disabled{opacity:.45}.status{font-weight:700}.result{font-size:1.15rem;font-weight:800}.good{color:#17653a}.bad{color:#a52626}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#191816;color:#f3efe6;padding:16px;border-radius:10px;max-height:320px;overflow:auto}.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:700px){.cols{grid-template-columns:1fr}}@media(prefers-color-scheme:dark){:root{color:#f1ede5;background:#191816}.lede{color:#bbb3a7}.panel{background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.12)}input[type=password],input[type=text],select,input[type=file]{background:#222;color:#f1ede5;border-color:#777}}
+  </style>
+</head>
+<body><main class="shell">
+  <div class="nav"><a href="/">Helping Hand</a> → Markdown round-trip test</div>
+  <header class="hero"><h1>Markdown<br>round-trip</h1><p class="lede">Choose a Markdown file. Helping Hand will create a private Micro.blog draft from the raw Markdown, fetch the draft source back through Micropub, and compare the two. Nothing is published.</p></header>
+  <section class="panel">
+    <label for="token">Micro.blog app token</label><input id="token" type="password" autocomplete="off">
+    <button id="connect" type="button">Connect</button>
+    <div id="destination-wrap" hidden><label for="destination">Blog</label><select id="destination"></select></div>
+    <label for="title">Test draft title</label><input id="title" type="text" value="Helping Hand Markdown round-trip test">
+    <label for="file">Markdown file</label><input id="file" type="file" accept=".md,text/markdown,text/plain">
+    <button id="run" type="button" disabled>Create private test draft</button>
+    <p id="status" class="status">Ready.</p>
+  </section>
+  <section id="results" class="panel" hidden>
+    <p id="verdict" class="result"></p>
+    <p><a id="preview" target="_blank" rel="noopener">Open Micro.blog draft ↗</a></p>
+    <p id="meta"></p>
+    <div class="cols"><div><h2>Original</h2><pre id="original"></pre></div><div><h2>Returned source</h2><pre id="returned"></pre></div></div>
+  </section>
+</main><script type="module" src="/markdown-test/test.js"></script></body></html>
