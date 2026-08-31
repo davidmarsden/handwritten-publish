@@ -1,3 +1,9 @@
+const target = document.querySelector('#target');
+const targetNote = document.querySelector('#target-note');
+const researchAuth = document.querySelector('#research-auth');
+const researchKey = document.querySelector('#research-key');
+const microblogAuth = document.querySelector('#microblog-auth');
+const microblogMetadata = document.querySelector('#microblog-metadata');
 const token = document.querySelector('#token');
 const connect = document.querySelector('#connect');
 const connectionStatus = document.querySelector('#connection-status');
@@ -37,9 +43,36 @@ function parsedCategories() {
   return [...new Set(categories.value.split(',').map(value => value.trim()).filter(Boolean))];
 }
 
-function refreshState() {
-  publish.disabled = !connectedToken || token.value.trim() !== connectedToken || !file.files?.length;
+function usingResearch() {
+  return target.value === 'southall-research';
 }
+
+function refreshState() {
+  const hasFile = Boolean(file.files?.length);
+  if (usingResearch()) {
+    publish.disabled = !hasFile || !researchKey.value.trim();
+  } else {
+    publish.disabled = !hasFile || !connectedToken || token.value.trim() !== connectedToken;
+  }
+}
+
+function refreshTarget() {
+  const research = usingResearch();
+  researchAuth.hidden = !research;
+  microblogAuth.hidden = research;
+  microblogMetadata.hidden = research;
+  publish.textContent = research ? 'Save draft to Southall-Research' : 'Send Markdown to Micro.blog';
+  openPost.textContent = research ? 'Open saved draft ↗' : 'Open in Micro.blog ↗';
+  targetNote.innerHTML = research
+    ? '<strong>Working destination.</strong> Saves the Markdown unchanged under <code>Southall-Research/drafts/</code>, where the private draft-review workflow can inspect it.'
+    : '<strong>Publication destination.</strong> Sends the raw Markdown through Micropub. Draft remains the safe default; published status requires explicit confirmation.';
+  results.hidden = true;
+  publishStatus.textContent = 'Ready.';
+  refreshState();
+}
+
+target.addEventListener('change', refreshTarget);
+researchKey.addEventListener('input', refreshState);
 
 token.addEventListener('input', () => {
   if (token.value.trim() !== connectedToken) {
@@ -53,7 +86,7 @@ token.addEventListener('input', () => {
 
 file.addEventListener('change', () => {
   const selected = file.files?.[0];
-  fileNote.textContent = selected ? `${selected.name} · ${Math.round(selected.size / 1024)} KB` : 'Choose a UTF-8 Markdown file up to 500 KB.';
+  fileNote.textContent = selected ? `${selected.name} · ${Math.round(selected.size / 1024)} KB` : 'Choose a UTF-8 Markdown file.';
   results.hidden = true;
   refreshState();
 });
@@ -86,15 +119,42 @@ connect.addEventListener('click', async () => {
 
 publish.addEventListener('click', async () => {
   const selected = file.files?.[0];
-  if (!selected || !connectedToken) return;
+  if (!selected) return;
+  const selectedTarget = target.value;
+  const researchWriteKey = researchKey.value;
+  const microblogToken = connectedToken;
+  const microblogDestination = destination.value || undefined;
+  const requestedTitle = title.value;
+  const requestedSummary = summary.value;
+  const requestedCategories = parsedCategories();
+  const requestedStatus = statusSelect.value === 'published' ? 'published' : 'draft';
 
   publish.disabled = true;
+  target.disabled = true;
   results.hidden = true;
   publishStatus.textContent = `Reading ${selected.name}…`;
 
   try {
     const markdown = await selected.text();
-    const requestedStatus = statusSelect.value === 'published' ? 'published' : 'draft';
+
+    if (selectedTarget === 'southall-research') {
+      publishStatus.textContent = 'Saving private working draft to Southall-Research…';
+      const payload = await requestJson('/api/southall-research/draft', {
+        writeKey: researchWriteKey,
+        filename: selected.name,
+        markdown,
+      });
+
+      openPost.href = payload.url;
+      results.hidden = false;
+      verdict.textContent = payload.updated ? 'Southall-Research draft updated ✓' : 'Southall-Research draft saved ✓';
+      verdict.className = 'result good';
+      verification.textContent = `${payload.path} · ${payload.originalLength} characters preserved unchanged. The private draft-review workflow will run from this commit.`;
+      publishStatus.textContent = payload.updated ? 'Private working draft updated successfully.' : 'Private working draft saved successfully.';
+      return;
+    }
+
+    if (!microblogToken) return;
     if (requestedStatus === 'published') {
       const confirmed = window.confirm('Publish this Markdown file immediately? Draft is the safer default.');
       if (!confirmed) {
@@ -108,12 +168,12 @@ publish.addEventListener('click', async () => {
       : 'Creating draft and verifying source…';
 
     const payload = await requestJson('/api/microblog/markdown', {
-      token: connectedToken,
-      destination: destination.value || undefined,
+      token: microblogToken,
+      destination: microblogDestination,
       markdown,
-      title: title.value,
-      summary: summary.value,
-      categories: parsedCategories(),
+      title: requestedTitle,
+      summary: requestedSummary,
+      categories: requestedCategories,
       status: requestedStatus,
     });
 
@@ -138,7 +198,7 @@ publish.addEventListener('click', async () => {
     }
   } catch (error) {
     const payload = error.payload || {};
-    if (payload.url || payload.preview) {
+    if (selectedTarget !== 'southall-research' && (payload.url || payload.preview)) {
       openPost.href = payload.preview || payload.url;
       results.hidden = false;
       verdict.textContent = 'Post created · verification unavailable';
@@ -147,6 +207,9 @@ publish.addEventListener('click', async () => {
     }
     publishStatus.textContent = error.message;
   } finally {
+    target.disabled = false;
     refreshState();
   }
 });
+
+refreshTarget();
