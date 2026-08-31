@@ -41,6 +41,8 @@ describe('Southall-Research draft destination', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ saved: true, updated: false, path: 'drafts/test-draft.md' });
+    const existingUrl = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(existingUrl.searchParams.get('ref')).toBe('main');
     const writeBody = JSON.parse(fetchMock.mock.calls[1][1].body as string);
     expect(Buffer.from(writeBody.content, 'base64').toString('utf8')).toBe(markdown);
     expect(writeBody).not.toHaveProperty('sha');
@@ -65,6 +67,8 @@ describe('Southall-Research draft destination', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ saved: true, updated: true });
+    const existingUrl = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(existingUrl.searchParams.get('ref')).toBe('main');
     const writeBody = JSON.parse(fetchMock.mock.calls[1][1].body as string);
     expect(writeBody.sha).toBe('existing-sha');
   });
