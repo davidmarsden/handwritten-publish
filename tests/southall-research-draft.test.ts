@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import handler from '../netlify/functions/southall-research-draft';
 
-const originalNetlify = globalThis.Netlify;
+const globals = globalThis as typeof globalThis & { Netlify?: unknown };
+const originalNetlify = globals.Netlify;
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  if (originalNetlify) globalThis.Netlify = originalNetlify;
-  else delete (globalThis as { Netlify?: unknown }).Netlify;
+  if (originalNetlify) globals.Netlify = originalNetlify;
+  else delete globals.Netlify;
 });
 
 function stubNetlifyEnv(values: Record<string, string>) {
