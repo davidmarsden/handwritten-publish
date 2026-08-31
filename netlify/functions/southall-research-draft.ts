@@ -54,7 +54,9 @@ export default async (request: Request) => {
 
   let existingSha: string | undefined;
   try {
-    const existingResponse = await fetch(apiUrl, { headers });
+    const existingUrl = new URL(apiUrl);
+    existingUrl.searchParams.set('ref', 'main');
+    const existingResponse = await fetch(existingUrl, { headers });
     if (existingResponse.ok) {
       const existing = await existingResponse.json() as { sha?: string };
       existingSha = existing.sha;
