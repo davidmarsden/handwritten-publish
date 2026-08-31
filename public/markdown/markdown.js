@@ -120,18 +120,27 @@ connect.addEventListener('click', async () => {
 publish.addEventListener('click', async () => {
   const selected = file.files?.[0];
   if (!selected) return;
+  const selectedTarget = target.value;
+  const researchWriteKey = researchKey.value;
+  const microblogToken = connectedToken;
+  const microblogDestination = destination.value || undefined;
+  const requestedTitle = title.value;
+  const requestedSummary = summary.value;
+  const requestedCategories = parsedCategories();
+  const requestedStatus = statusSelect.value === 'published' ? 'published' : 'draft';
 
   publish.disabled = true;
+  target.disabled = true;
   results.hidden = true;
   publishStatus.textContent = `Reading ${selected.name}…`;
 
   try {
     const markdown = await selected.text();
 
-    if (usingResearch()) {
+    if (selectedTarget === 'southall-research') {
       publishStatus.textContent = 'Saving private working draft to Southall-Research…';
       const payload = await requestJson('/api/southall-research/draft', {
-        writeKey: researchKey.value,
+        writeKey: researchWriteKey,
         filename: selected.name,
         markdown,
       });
@@ -145,8 +154,7 @@ publish.addEventListener('click', async () => {
       return;
     }
 
-    if (!connectedToken) return;
-    const requestedStatus = statusSelect.value === 'published' ? 'published' : 'draft';
+    if (!microblogToken) return;
     if (requestedStatus === 'published') {
       const confirmed = window.confirm('Publish this Markdown file immediately? Draft is the safer default.');
       if (!confirmed) {
@@ -160,12 +168,12 @@ publish.addEventListener('click', async () => {
       : 'Creating draft and verifying source…';
 
     const payload = await requestJson('/api/microblog/markdown', {
-      token: connectedToken,
-      destination: destination.value || undefined,
+      token: microblogToken,
+      destination: microblogDestination,
       markdown,
-      title: title.value,
-      summary: summary.value,
-      categories: parsedCategories(),
+      title: requestedTitle,
+      summary: requestedSummary,
+      categories: requestedCategories,
       status: requestedStatus,
     });
 
@@ -190,7 +198,7 @@ publish.addEventListener('click', async () => {
     }
   } catch (error) {
     const payload = error.payload || {};
-    if (!usingResearch() && (payload.url || payload.preview)) {
+    if (selectedTarget !== 'southall-research' && (payload.url || payload.preview)) {
       openPost.href = payload.preview || payload.url;
       results.hidden = false;
       verdict.textContent = 'Post created · verification unavailable';
@@ -199,6 +207,7 @@ publish.addEventListener('click', async () => {
     }
     publishStatus.textContent = error.message;
   } finally {
+    target.disabled = false;
     refreshState();
   }
 });
