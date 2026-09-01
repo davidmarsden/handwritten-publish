@@ -18,7 +18,7 @@
     <nav class="writing-product-nav" aria-label="Helping Hand navigation"><a href="/">Helping Hand</a><span>→</span><strong>Setup</strong></nav>
     <p class="eyebrow">Your tools. Your accounts. Your deployment.</p>
     <h1>Set up<br>Helping Hand</h1>
-    <p class="intro">Helping Hand is designed to work as a personal, self-hosted publishing kit. Fork it, deploy your own copy, connect your own Micro.blog account, and add Writing Hand only if you want the direct reMarkable email route.</p>
+    <p class="intro">Helping Hand is designed to work as a personal, self-hosted publishing kit. Fork it, deploy your own copy, connect your own Micro.blog account, and add the optional server-side routes you actually use.</p>
   </div>
 </header>
 
@@ -27,7 +27,7 @@
     <article>
       <span class="step">01</span>
       <h2>Browser tools</h2>
-      <p>Publish Hand, BUM Hand and Markdown Hand work with your own Micro.blog app token. No inbound email configuration required.</p>
+      <p>Publish Hand and BUM Hand work with your own Micro.blog app token. Markdown Hand can also save private working drafts to a configured GitHub repository.</p>
       <a href="#self-host">Set up the shared deployment ↓</a>
     </article>
     <article>
@@ -41,12 +41,12 @@
   <section class="setup-docs" id="self-host">
     <p class="section-kicker">Self-hosting</p>
     <h2 class="section-title">Make it yours.</h2>
-    <p class="intro">The browser tools are local-first. Your token is supplied when you publish and is not persisted by Helping Hand. Writing Hand is optional and adds server-side credentials only to your own deployment.</p>
+    <p class="intro">The browser tools are local-first. Micro.blog tokens are supplied when needed and are not persisted by Helping Hand. Writing Hand and private GitHub draft routing are separate opt-in server-side boundaries in your own deployment.</p>
 
-    <div class="callout"><strong>Quick reminder:</strong> Publish Hand, BUM Hand and Markdown Hand work without any email configuration. Writing Hand posts are drafts by default; only an explicit <code>Status: published</code> line publishes immediately.</div>
+    <div class="callout"><strong>Quick reminder:</strong> Publish Hand, BUM Hand and Markdown Hand do not require email configuration. Markdown Hand's private GitHub destination is optional; Micro.blog remains available independently. Writing Hand posts are drafts by default; only an explicit <code>Status: published</code> line publishes immediately.</div>
 
     <h2>What you need</h2>
-    <p>For the browser tools: GitHub, Netlify, and a Micro.blog account if you want to publish. For Writing Hand as well: Resend with inbound email enabled, a private incoming email address, a dedicated Micro.blog app token, and Netlify Database.</p>
+    <p>For the core browser tools: GitHub, Netlify, and a Micro.blog account if you want to publish or upload there. For Writing Hand: Resend inbound email plus a dedicated Micro.blog token. For Markdown Hand's private GitHub working-draft destination: a narrowly-scoped repository token stored server-side and a separate browser write key.</p>
 
     <h2>1. Fork or clone</h2>
     <pre><code>git clone https://github.com/davidmarsden/handwritten-publish.git
@@ -61,13 +61,18 @@ npm run build</code></pre>
     <h2>2. Deploy to Netlify</h2>
     <p>Create a Netlify project from your GitHub fork/repository.</p>
     <table><tr><th>Setting</th><th>Value</th></tr><tr><td>Build command</td><td><code>npm run build</code></td></tr><tr><td>Publish directory</td><td><code>dist</code></td></tr></table>
-    <p>Netlify recognises the functions and Edge Functions in the repository. The repository also contains a Netlify Database migration; Netlify provisions and applies it during deployment. If you only use the browser tools, leave all post-by-email environment variables unset.</p>
+    <p>Netlify recognises the functions and Edge Functions in the repository. The repository also contains a Netlify Database migration used by Writing Hand. If you only use the ordinary browser-to-Micro.blog tools, leave the optional server-side environment variables unset.</p>
 
     <h2>3. Connect Micro.blog in the browser</h2>
     <p>Paste a Micro.blog app token into Publish Hand, BUM Hand or Markdown Hand when you want to publish or upload. The token is kept in browser memory and passed to the Netlify bridge only for the requested API calls; Helping Hand does not persist it in IndexedDB, portable documents or Netlify configuration.</p>
-    <p>Create Micro.blog app tokens under <strong>Account → App tokens / Edit Apps</strong>. If you have several Micro.blog-hosted blogs, the browser tools use Micropub destinations to let you select one. Publish Hand and Markdown Hand are draft-first.</p>
+    <p>Create Micro.blog app tokens under <strong>Account → App tokens / Edit Apps</strong>. If you have several Micro.blog-hosted blogs, the browser tools use Micropub destinations to let you select one. Publish Hand and Markdown Hand are draft-first when creating Micro.blog posts.</p>
 
-    <h2>4. Optional: enable Writing Hand</h2>
+    <h2>4. Optional: private GitHub working drafts</h2>
+    <p>Markdown Hand can save a chosen <code>.md</code> file unchanged to a private GitHub repository before it is ready for publication. The current Southall-Research route writes only to <code>drafts/</code> on <code>main</code>; saving the same filename again updates that working draft.</p>
+    <p>The GitHub credential never goes to the browser. Configure a fine-grained token with access only to the intended private repository and <strong>Contents: read and write</strong>, then store it in Netlify as <code>SOUTHALL_RESEARCH_GITHUB_TOKEN</code>. Create a separate long random <code>SOUTHALL_RESEARCH_WRITE_KEY</code> for browser authorisation.</p>
+    <p>See <a href="https://github.com/davidmarsden/handwritten-publish/blob/main/docs/southall-research-destination.md"><strong>the Southall-Research destination guide</strong></a> for the exact security boundary and setup.</p>
+
+    <h2>5. Optional: enable Writing Hand</h2>
     <div class="flow">reMarkable
   ↓ Send by email
 private Resend address
@@ -79,7 +84,7 @@ Micro.blog draft by default
     <p>The detailed configuration is on the <a href="/setup/email/"><strong>Writing Hand page</strong></a>. It includes every environment variable, the Resend webhook URL, routing examples and the handwritten title/category/status syntax.</p>
 
     <h2>Security summary</h2>
-    <ul><li>Never commit Micro.blog or Resend tokens.</li><li>Keep Writing Hand recipient addresses private; treat them as publishing credentials.</li><li>Browser users supply their own Micro.blog token.</li><li>Writing Hand uses a separate dedicated server-side Micro.blog token.</li><li>Missing email <code>Status:</code> always means draft.</li></ul>
+    <ul><li>Never commit Micro.blog, Resend or GitHub repository tokens.</li><li>Keep Writing Hand recipient addresses private; treat them as publishing credentials.</li><li>Browser users supply their own Micro.blog token.</li><li>Private GitHub draft routing keeps the repository token server-side and uses a separate write key in the browser.</li><li>Writing Hand uses a separate dedicated server-side Micro.blog token.</li><li>Missing email <code>Status:</code> always means draft.</li></ul>
 
     <footer class="suite-footer">
       <a href="/">Helping Hand</a>

@@ -30,13 +30,13 @@ A focused mixed-file uploader for JPEG/PNG/WebP images, MP3/M4A audio and PDFs. 
 
 ### Markdown Hand
 
-**Prepared Markdown → Micro.blog, untouched.**
+**Prepared Markdown → private working draft or publication.**
 
-A deliberately tiny publisher for finished `.md` files. It reads the chosen file locally, sends the raw Markdown as ordinary Micropub `content`, keeps title/summary/categories separate as optional metadata, defaults to draft, and fetches the created post source back with `q=source` to verify an exact round trip.
+A deliberately tiny router for finished `.md` files. It reads the chosen file locally and sends it unchanged either to a private GitHub research draft or to Micro.blog. The current private route stores Southall Stories working material under `Southall-Research/drafts/` and updates an existing draft when the same filename is saved again. The Micro.blog route keeps title/summary/categories separate as optional metadata, defaults to draft, and fetches the created post source back with `q=source` to verify an exact round trip.
 
 Tagline: **Your Markdown. Hands off.**
 
-Markdown Hand intentionally has no editor. Its job is to avoid putting another editor between a finished Markdown file and publication.
+Markdown Hand intentionally has no editor. Its job is to keep a prepared Markdown file as the source of truth while routing it to the right next stage.
 
 ## Repository strategy
 
@@ -81,7 +81,16 @@ Product-specific code stays outside the shared core:
 - reMarkable/Resend email parsing belongs to Writing Hand;
 - handwritten document/page models and annotation editing belong to Publish Hand;
 - queue/batch selection, streamed-file routing and upload-result presentation belong to BUM Hand;
-- raw Markdown file reading and source-verification behaviour belong to Markdown Hand.
+- raw Markdown file reading, private GitHub draft routing and Micro.blog source-verification behaviour belong to Markdown Hand.
+
+## Destination boundaries
+
+Helping Hand no longer assumes that every useful intermediate state is a Micro.blog post.
+
+- Micro.blog remains the publication platform used by all four tools where publication is required.
+- Markdown Hand can instead stop at a private GitHub working draft when a piece is still research or newsroom material.
+- The GitHub repository credential is server-side and narrowly scoped; the browser uses a separate write key.
+- Destination-specific adapters should remain small boundaries around human-owned source files, not reasons to reshape the core formats.
 
 ## v1.0 release boundary
 
@@ -90,10 +99,11 @@ The original extraction/restructuring plan is complete, and the later Markdown r
 1. [x] Establish BUM Hand as a standalone product surface.
 2. [x] Establish Publish Hand behind its own `/publish/` route.
 3. [x] Give the reMarkable email workflow the Writing Hand identity and setup surface.
-4. [x] Add Markdown Hand behind `/markdown/` for editor-free `.md` publishing.
+4. [x] Add Markdown Hand behind `/markdown/` for editor-free `.md` routing and publishing.
 5. [x] Replace the root application page with the Helping Hand launcher.
 6. [x] Share Micro.blog/media primitives without collapsing the four product boundaries.
 7. [x] Add consistent suite navigation, setup and roadmap surfaces.
+8. [x] Add the first non-Micro.blog working destination: private Southall-Research GitHub drafts.
 
 Future work is intentionally need-driven. There is no requirement to add another product or another destination simply because the architecture allows it.
 

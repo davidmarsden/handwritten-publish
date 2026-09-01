@@ -81,12 +81,17 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 ## Markdown Hand — working
 
 - [x] Choose a local `.md` file on desktop or tablet
-- [x] Send raw Markdown directly as Micropub `content`
-- [x] Optional title, summary and category metadata
+- [x] Keep the selected Markdown unchanged whichever destination is chosen
+- [x] Save a private working draft to `Southall-Research/drafts/` on GitHub
+- [x] Update an existing private draft when the same filename is saved again
+- [x] Keep the GitHub repository token server-side behind a separate browser write key
+- [x] Trigger the Southall-Research private draft-review workflow through ordinary `drafts/**` changes
+- [x] Send raw Markdown directly as Micro.blog Micropub `content`
+- [x] Optional title, summary and category metadata for Micro.blog
 - [x] Choose a Micro.blog destination
-- [x] Draft-first publishing
-- [x] Explicit confirmation before immediate publication
-- [x] Fetch the created post back with Micropub `q=source`
+- [x] Draft-first Micro.blog publishing
+- [x] Explicit confirmation before immediate Micro.blog publication
+- [x] Fetch the created Micro.blog post back with Micropub `q=source`
 - [x] Verify and report exact Markdown round-trip matches
 - [x] Preserve the created post URL if source verification fails
 - [x] Dedicated app mark and page-specific favicon
@@ -95,12 +100,13 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 
 - Browser Micro.blog tokens remain ephemeral and are not persisted by Helping Hand.
 - Writing Hand uses separate, revocable server-side credentials in the user's own deployment.
-- New Publish Hand and Markdown Hand posts are draft-first.
+- Private GitHub working drafts use a narrowly-scoped server-side repository token plus a separate browser write key.
+- New Publish Hand and Markdown Hand Micro.blog posts are draft-first.
 - Writing Hand email posts are draft-first unless `Status: published` is explicitly supplied.
 - Published tracked-post mutations require explicit confirmation and current-state verification.
 - Oversized image derivatives never replace local originals.
 - BUM Hand stages selected files locally and forwards them only after the user starts an upload.
-- Markdown Hand reads the chosen file locally and sends its source only when the user explicitly creates a post.
+- Markdown Hand reads the chosen file locally and sends its source only when the user explicitly saves or publishes it.
 
 ## After v1.0
 
@@ -111,7 +117,8 @@ There is no mandatory next phase. Possible future work remains intentionally ope
 - [ ] PDF attachments through Writing Hand
 - [ ] Additional BUM Hand file types or useful output formats when needed
 - [ ] Video only when Micro.blog's API and a real use case justify the complexity
+- [ ] Optional Micro.blog Notes destination, including encrypted note creation and notebook selection, if it becomes useful in real use
 - [ ] Deeper native reMarkable or other tablet integration
-- [ ] Destination-neutral publisher adapters when a real need appears
+- [ ] Additional destination-neutral publisher adapters when a real need appears
 
 The product rule is simple: add something when it removes a real publishing frustration, not because the roadmap has an empty box.

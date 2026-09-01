@@ -9,15 +9,15 @@ Helping Hand v1.0.0 is the first complete release of the suite. It now does four
 - **Writing Hand** — reMarkable → Micro.blog. *From paper to web at the push of a pen.* Send edited transcription, original handwritten pages, or both by email. Posts are drafts by default unless `Status: published` is explicitly supplied.
 - **Publish Hand** — handwriting, scans, PDFs and photos → a web-ready Micro.blog post. Arrange mixed pages, add links and metadata, keep portable `.handpub` documents, and safely create/update tracked posts.
 - **BUM Hand** — **Batch Uploader for Micro.blog**. Use one mixed-file chooser for JPEG/PNG/WebP, MP3/M4A and PDF; upload batches without creating posts; optimise larger photos; optionally add photos directly to Micro.blog Photo Collections; and copy canonical URLs, Markdown or HTML.
-- **Markdown Hand** — prepared `.md` → Micro.blog. *Your Markdown. Hands off.* Send raw Markdown directly through Micropub as a draft or published post, then fetch the stored source back and verify that it survived exactly.
+- **Markdown Hand** — prepared `.md` → private GitHub working draft or Micro.blog. *Your Markdown. Hands off.* Save raw Markdown unchanged to a configured private research repository, or send it through Micropub as a draft or published post and verify the stored source round trip.
 
 The deployed root route `/` is the **Helping Hand** launcher. The tools share publishing infrastructure but keep separate product boundaries.
 
-See [`docs/helping-hand.md`](docs/helping-hand.md) for the suite architecture, [`docs/bum-hand.md`](docs/bum-hand.md) for the mixed-media uploader, and [`docs/STATUS.md`](docs/STATUS.md) for the current release boundary.
+See [`docs/helping-hand.md`](docs/helping-hand.md) for the suite architecture, [`docs/bum-hand.md`](docs/bum-hand.md) for the mixed-media uploader, [`docs/southall-research-destination.md`](docs/southall-research-destination.md) for the private GitHub draft route, and [`docs/STATUS.md`](docs/STATUS.md) for the current release boundary.
 
 ## Set up your own copy
 
-The project is open source and designed to work as a personal, self-hosted tool. Fork or clone the repository, deploy your own copy to Netlify, and connect your own Micro.blog account. Writing Hand additionally uses Resend inbound email and a dedicated server-side Micro.blog token.
+The project is open source and designed to work as a personal, self-hosted tool. Fork or clone the repository, deploy your own copy to Netlify, and connect the destinations you actually use. Micro.blog browser publishing uses your own app token; Writing Hand additionally uses Resend inbound email and a dedicated server-side Micro.blog token; private GitHub working drafts use a narrowly-scoped server-side repository token plus a separate browser write key.
 
 **[Read the complete self-hosted setup guide →](docs/setup.md)**
 
@@ -65,16 +65,18 @@ Android/Google Photos selections are eagerly staged into browser-owned files imm
 
 ## Markdown Hand
 
-Markdown Hand exists to avoid rewriting carefully prepared Markdown in a web editor.
+Markdown Hand exists to avoid rewriting carefully prepared Markdown in a web editor and now has two deliberate destinations.
 
 - choose a local `.md` file on desktop or tablet;
-- choose the Micro.blog destination;
-- optionally supply title, summary and comma-separated categories as Micropub metadata;
-- create a draft by default, or explicitly confirm immediate publication;
+- save it unchanged to a configured private GitHub working-draft repository — currently `Southall-Research/drafts/` — where the research/review workflow can pick it up;
+- saving the same filename again updates the existing private draft rather than creating a duplicate;
+- keep the GitHub repository token server-side and authorise browser saves with a separate write key;
+- or choose Micro.blog, select the destination blog, and optionally supply title, summary and comma-separated categories as Micropub metadata;
+- create a Micro.blog draft by default, or explicitly confirm immediate publication;
 - send the file contents as raw Micropub `content` without HTML conversion;
-- fetch the created post back with `q=source` and report **Markdown preserved exactly ✓** when it matches.
+- fetch the created Micro.blog post back with `q=source` and report **Markdown preserved exactly ✓** when it matches.
 
-The app deliberately has no Markdown editor. The source file remains the source of truth.
+The app deliberately has no Markdown editor. The source file remains the source of truth whichever destination is chosen.
 
 ## Portable `.handpub` documents
 
@@ -84,11 +86,11 @@ See [`docs/format.md`](docs/format.md) for compatibility rules.
 
 ## Architecture and privacy
 
-Most document work happens in the browser. Local files and document state remain local until the user explicitly publishes or uploads.
+Most document work happens in the browser. Local files and document state remain local until the user explicitly publishes, uploads or saves a private working draft.
 
-Micro.blog browser tokens are passed per request and are not stored in IndexedDB, `.handpub` files or Netlify configuration. Writing Hand's unattended email workflow is a separate opt-in boundary using dedicated credentials in the user's own deployment.
+Micro.blog browser tokens are passed per request and are not stored in IndexedDB, `.handpub` files or Netlify configuration. Writing Hand's unattended email workflow is a separate opt-in boundary using dedicated credentials in the user's own deployment. Private GitHub draft routing is another explicit boundary: the repository token stays server-side and the browser receives only the separate write-key interface.
 
-Netlify Functions handle the small Micropub bridges. Streamed audio/PDF uploads use a same-origin Netlify Edge Function so large media does not have to fit through the buffered photo bridge.
+Netlify Functions handle the small Micropub and GitHub bridges. Streamed audio/PDF uploads use a same-origin Netlify Edge Function so large media does not have to fit through the buffered photo bridge.
 
 See [`docs/architecture.md`](docs/architecture.md), [`docs/helping-hand.md`](docs/helping-hand.md) and [`docs/STATUS.md`](docs/STATUS.md).
 
@@ -109,7 +111,7 @@ Vite uses multiple entrypoints: the Helping Hand launcher is built from `index.h
 
 The core suite is feature-complete for its current use. Remaining ideas stay on the roadmap, but there is no release calendar: they should be implemented only when real use creates a need.
 
-Possible future work includes assisted transcription/accessibility metadata, richer revision/history, additional supported BUM Hand file types or outputs, PDF attachments through Writing Hand, deeper tablet integrations, video if Micro.blog's API and a real use case justify it, and destination-neutral publishing adapters.
+Possible future work includes assisted transcription/accessibility metadata, richer revision/history, PDF attachments through Writing Hand, additional supported BUM Hand file types or outputs, deeper tablet integrations, video if Micro.blog's API and a real use case justify it, optional encrypted Micro.blog Notes creation/notebook selection, and other destination-neutral publishing adapters where there is a genuine workflow.
 
 The core rule remains: new features should remove repetitive publishing work without turning Helping Hand into another CMS.
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Markdown Hand
+
+- Add a private Southall-Research GitHub working-draft destination alongside Micro.blog.
+- Preserve selected Markdown unchanged when saving under `drafts/`, updating the same filename rather than creating duplicates.
+- Keep the GitHub repository token server-side behind a separate browser write key.
+- Update the Helping Hand launcher, setup, suite documentation and roadmap to describe the working-draft → publication boundary.
+
+### Roadmap
+
+- Record optional Micro.blog Notes support — encrypted note creation and notebook selection — as a possible future addition rather than a current priority.
+
 ## v1.0.0 — 2026-08-30
 
 Helping Hand reaches its first complete release: the four-tool suite now covers handwritten reMarkable publishing, mixed-media post building, batch file uploads and direct prepared-Markdown publishing to Micro.blog.
