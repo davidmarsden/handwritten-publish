@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <meta name="theme-color" content="#f3efe6">
-  <meta name="description" content="Markdown Hand sends prepared Markdown to Micro.blog or a private Southall-Research draft workflow without rewriting the source.">
+  <meta name="description" content="Markdown Hand sends prepared Markdown to Micro.blog or a private working-draft workflow without rewriting the source.">
   <meta property="og:title" content="Markdown Hand — Helping Hand">
   <meta property="og:description" content="Your Markdown. Hands off.">
   <link rel="icon" href="/brand/markdown-hand.svg" type="image/svg+xml">
@@ -17,17 +17,17 @@
   <main class="shell">
     <nav class="product-nav" aria-label="Helping Hand product navigation"><a href="/">Helping Hand</a><span>→</span><strong>Markdown Hand</strong></nav>
     <header class="hero">
-      <div><p class="eyebrow">Prepared Markdown → working draft or publication</p><h1>Markdown<br>Hand</h1><p class="lede"><strong>Your Markdown. Hands off.</strong> Choose a finished <code>.md</code> file. Send it unchanged to a private Southall-Research working draft, or publish it through Micro.blog when it is ready.</p></div>
+      <div><p class="eyebrow">Prepared Markdown → working draft or publication</p><h1>Markdown<br>Hand</h1><p class="lede"><strong>Your Markdown. Hands off.</strong> Choose a finished <code>.md</code> file. Send it unchanged to a private working draft, or publish it through Micro.blog when it is ready.</p></div>
       <img class="hero-mark" src="/brand/markdown-hand.svg" alt="" aria-hidden="true">
     </header>
 
     <section class="panel">
       <label for="target">Send to</label>
-      <select id="target"><option value="southall-research" selected>Southall-Research — private working draft</option><option value="microblog">Micro.blog — draft or publication</option></select>
-      <p id="target-note" class="destination-note"><strong>Working destination.</strong> Saves the Markdown unchanged under <code>Southall-Research/drafts/</code>, where the private draft-review workflow can inspect it.</p>
+      <select id="target"><option value="southall-research" selected>Private working draft</option><option value="microblog">Micro.blog — draft or publication</option></select>
+      <p id="target-note" class="destination-note"><strong>Working destination.</strong> Saves the Markdown unchanged to your configured private draft repository, where the review workflow can inspect it.</p>
 
       <div id="research-auth">
-        <label for="research-key">Southall-Research write key</label><input id="research-key" type="password" autocomplete="off"><p class="hint">Authorises this private destination. The GitHub repository token remains server-side in Netlify.</p>
+        <label for="research-key">Private draft write key</label><input id="research-key" type="password" autocomplete="off"><p class="hint">Authorises this private destination. The GitHub repository token remains server-side in Netlify.</p>
       </div>
 
       <div id="microblog-auth" hidden>
@@ -47,7 +47,7 @@
         <label for="summary">Summary <span class="hint">(optional)</span></label><textarea id="summary" placeholder="Optional Micro.blog summary"></textarea>
       </div>
 
-      <div class="actions"><button id="publish" type="button" disabled>Save draft to Southall-Research</button><span id="publish-status" class="status">Ready.</span></div>
+      <div class="actions"><button id="publish" type="button" disabled>Save private working draft</button><span id="publish-status" class="status">Ready.</span></div>
     </section>
 
     <section id="results" class="panel" hidden>
