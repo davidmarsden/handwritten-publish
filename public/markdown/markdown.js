@@ -61,10 +61,10 @@ function refreshTarget() {
   researchAuth.hidden = !research;
   microblogAuth.hidden = research;
   microblogMetadata.hidden = research;
-  publish.textContent = research ? 'Save draft to Southall-Research' : 'Send Markdown to Micro.blog';
+  publish.textContent = research ? 'Save private working draft' : 'Send Markdown to Micro.blog';
   openPost.textContent = research ? 'Open saved draft ↗' : 'Open in Micro.blog ↗';
   targetNote.innerHTML = research
-    ? '<strong>Working destination.</strong> Saves the Markdown unchanged under <code>Southall-Research/drafts/</code>, where the private draft-review workflow can inspect it.'
+    ? '<strong>Working destination.</strong> Saves the Markdown unchanged to your configured private draft repository, where the review workflow can inspect it.'
     : '<strong>Publication destination.</strong> Sends the raw Markdown through Micropub. Draft remains the safe default; published status requires explicit confirmation.';
   results.hidden = true;
   publishStatus.textContent = 'Ready.';
@@ -138,7 +138,7 @@ publish.addEventListener('click', async () => {
     const markdown = await selected.text();
 
     if (selectedTarget === 'southall-research') {
-      publishStatus.textContent = 'Saving private working draft to Southall-Research…';
+      publishStatus.textContent = 'Saving private working draft…';
       const payload = await requestJson('/api/southall-research/draft', {
         writeKey: researchWriteKey,
         filename: selected.name,
@@ -147,9 +147,9 @@ publish.addEventListener('click', async () => {
 
       openPost.href = payload.url;
       results.hidden = false;
-      verdict.textContent = payload.updated ? 'Southall-Research draft updated ✓' : 'Southall-Research draft saved ✓';
+      verdict.textContent = payload.updated ? 'Private working draft updated ✓' : 'Private working draft saved ✓';
       verdict.className = 'result good';
-      verification.textContent = `${payload.path} · ${payload.originalLength} characters preserved unchanged. The private draft-review workflow will run from this commit.`;
+      verification.textContent = `${payload.originalLength} characters preserved unchanged. The private draft-review workflow will run from this commit.`;
       publishStatus.textContent = payload.updated ? 'Private working draft updated successfully.' : 'Private working draft saved successfully.';
       return;
     }
