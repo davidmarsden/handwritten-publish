@@ -25,7 +25,7 @@ export default async (request: Request) => {
   const githubToken = Netlify.env.get('SOUTHALL_RESEARCH_GITHUB_TOKEN')?.trim() || '';
   const expectedWriteKey = Netlify.env.get('SOUTHALL_RESEARCH_WRITE_KEY') || '';
   if (!githubToken || !expectedWriteKey) {
-    return json({ error: 'Southall-Research destination is not configured on this Helping Hand deployment.' }, 503);
+    return json({ error: 'Private draft destination is not configured on this Helping Hand deployment.' }, 503);
   }
 
   const body = await request.json().catch(() => ({})) as {
@@ -37,10 +37,10 @@ export default async (request: Request) => {
   const filename = safeFilename(body.filename || '');
   const markdown = body.markdown ?? '';
 
-  if (!authorized(writeKey, expectedWriteKey)) return json({ error: 'Southall-Research write key is not valid.' }, 401);
+  if (!authorized(writeKey, expectedWriteKey)) return json({ error: 'Private draft write key is not valid.' }, 401);
   if (!filename) return json({ error: 'Choose a Markdown file with a safe .md filename.' }, 400);
   if (!markdown.trim()) return json({ error: 'Choose a non-empty Markdown file.' }, 400);
-  if (Buffer.byteLength(markdown, 'utf8') > 1_000_000) return json({ error: 'Southall-Research accepts Markdown files up to 1 MB.' }, 413);
+  if (Buffer.byteLength(markdown, 'utf8') > 1_000_000) return json({ error: 'Private drafts accept Markdown files up to 1 MB.' }, 413);
 
   const repository = 'davidmarsden/Southall-Research';
   const path = `drafts/${filename}`;
@@ -61,10 +61,10 @@ export default async (request: Request) => {
       const existing = await existingResponse.json() as { sha?: string };
       existingSha = existing.sha;
     } else if (existingResponse.status !== 404) {
-      return json({ error: `GitHub could not inspect the existing Southall-Research draft (HTTP ${existingResponse.status}).` }, 502);
+      return json({ error: `GitHub could not inspect the existing private draft (HTTP ${existingResponse.status}).` }, 502);
     }
   } catch {
-    return json({ error: 'Helping Hand could not reach GitHub to inspect the Southall-Research draft.' }, 502);
+    return json({ error: 'Helping Hand could not reach GitHub to inspect the private draft.' }, 502);
   }
 
   const commitBody = {
@@ -82,11 +82,11 @@ export default async (request: Request) => {
       body: JSON.stringify(commitBody),
     });
   } catch {
-    return json({ error: 'Helping Hand could not reach GitHub to save the Southall-Research draft.' }, 502);
+    return json({ error: 'Helping Hand could not reach GitHub to save the private draft.' }, 502);
   }
 
   if (!writeResponse.ok) {
-    return json({ error: `GitHub could not save the Southall-Research draft (HTTP ${writeResponse.status}).` }, writeResponse.status === 409 ? 409 : 502);
+    return json({ error: `GitHub could not save the private draft (HTTP ${writeResponse.status}).` }, writeResponse.status === 409 ? 409 : 502);
   }
 
   const result = await writeResponse.json().catch(() => null) as {
