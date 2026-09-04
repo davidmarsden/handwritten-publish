@@ -4,13 +4,17 @@ import { publicPublishingDisabledResponse, publicUsageLimitResponse } from './_s
 const MAX_MEDIA_BYTES = 5_000_000;
 const SUPPORTED_MEDIA_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 
-function decodedFilename(value: string | null): string {
-  if (!value) return 'handwritten-media';
+function decodedHeader(value: string | null): string {
+  if (!value) return '';
   try {
-    return decodeURIComponent(value).trim() || 'handwritten-media';
+    return decodeURIComponent(value).trim();
   } catch {
-    return 'handwritten-media';
+    return '';
   }
+}
+
+function decodedFilename(value: string | null): string {
+  return decodedHeader(value) || 'handwritten-media';
 }
 
 export default async (request: Request) => {
@@ -21,6 +25,7 @@ export default async (request: Request) => {
   if (limitResponse) return limitResponse;
 
   const token = request.headers.get('x-microblog-token')?.trim() ?? '';
+  const destination = decodedHeader(request.headers.get('x-microblog-destination'));
   const filename = decodedFilename(request.headers.get('x-file-name'));
   const contentType = request.headers.get('content-type') || 'application/octet-stream';
 
@@ -53,6 +58,7 @@ export default async (request: Request) => {
   if (!config['media-endpoint']) return json({ error: 'Micro.blog did not return a media endpoint.' }, 502);
 
   const outgoing = new FormData();
+  if (destination) outgoing.append('mp-destination', destination);
   outgoing.append('file', new Blob([bytes], { type: contentType }), filename);
 
   let response: Response;
