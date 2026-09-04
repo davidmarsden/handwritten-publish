@@ -13,7 +13,7 @@ describe('publishing core Micro.blog client', () => {
     expect(inferImageMediaType({ name: 'notes.txt', type: '' })).toBe('');
   });
 
-  it('uses the shared media bridge contract', async () => {
+  it('uses the shared media bridge contract and forwards a selected destination', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ url: 'https://example.com/photo.jpg' }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -21,16 +21,32 @@ describe('publishing core Micro.blog client', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const file = new File(['abc'], 'photo.jpg', { type: 'image/jpeg' });
-    await expect(uploadMicroblogMedia(' token ', file)).resolves.toBe('https://example.com/photo.jpg');
+    await expect(uploadMicroblogMedia(' token ', file, file.name, file.type, ' https://example.micro.blog/ '))
+      .resolves.toBe('https://example.com/photo.jpg');
     expect(fetchMock).toHaveBeenCalledWith('/api/microblog/media', expect.objectContaining({
       method: 'POST',
       headers: expect.objectContaining({
         'Content-Type': 'image/jpeg',
         'X-Microblog-Token': 'token',
+        'X-Microblog-Destination': 'https%3A%2F%2Fexample.micro.blog%2F',
         'X-File-Name': 'photo.jpg',
       }),
       body: file,
     }));
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps the destination header optional for existing callers', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ url: 'https://example.com/photo.jpg' }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const file = new File(['abc'], 'photo.jpg', { type: 'image/jpeg' });
+    await uploadMicroblogMedia('token', file);
+    const options = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(options.headers).not.toHaveProperty('X-Microblog-Destination');
     vi.unstubAllGlobals();
   });
 
