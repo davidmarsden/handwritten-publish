@@ -317,7 +317,13 @@ async function uploadItem(item, token, destination) {
       const prepared = await preparePhotoForMicroblog(item.file, item.mediaType);
       item.optimizedBytes = prepared.optimized ? prepared.uploadBytes : null;
       item.state = 'uploading'; render();
-      item.url = await uploadMicroblogMedia(token, prepared.file, prepared.file.name, prepared.optimized ? prepared.file.type : item.mediaType);
+      item.url = await uploadMicroblogMedia(
+        token,
+        prepared.file,
+        prepared.file.name,
+        prepared.optimized ? prepared.file.type : item.mediaType,
+        destination,
+      );
     }
     item.state = 'uploaded'; item.retryable = false; item.collectionState = 'none';
   } catch (error) {
