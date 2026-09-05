@@ -28,11 +28,13 @@ Publish Hand remains destination-neutral at the document-model level. Micro.blog
 
 A focused mixed-file uploader for JPEG/PNG/WebP images, MP3/M4A audio and PDFs. One chooser feeds one queue; the files are routed to the correct upload path behind the scenes. Successful photos can be added directly to Micro.blog Photo Collections, while all supported files return useful canonical URL/Markdown/HTML results.
 
+BUM Hand discovers the blogs available to the supplied Micro.blog token and treats the selected blog as part of the upload contract. Buffered image uploads and streamed audio/PDF uploads all forward the chosen destination to Micro.blog, so multi-blog accounts do not rely on an implicit default.
+
 ### Markdown Hand
 
 **Prepared Markdown → private working draft or publication.**
 
-A deliberately tiny router for finished `.md` files. It reads the chosen file locally and sends it unchanged either to a private GitHub research draft or to Micro.blog. The current private route stores Southall Stories working material under `Southall-Research/drafts/` and updates an existing draft when the same filename is saved again. The Micro.blog route keeps title/summary/categories separate as optional metadata, defaults to draft, and fetches the created post source back with `q=source` to verify an exact round trip.
+A deliberately tiny router for finished `.md` files. It reads the chosen file locally and sends it unchanged either to a configured private GitHub working-draft repository or to Micro.blog. Saving the same filename updates the existing private draft. The Micro.blog route keeps title/summary/categories separate as optional metadata, defaults to draft, and fetches the created post source back with `q=source` to verify an exact round trip.
 
 Tagline: **Your Markdown. Hands off.**
 
@@ -69,7 +71,7 @@ The root `/` route is the Helping Hand launcher. `/publish/` is Publish Hand, `/
 Shared code belongs in common plumbing when it is genuinely shared:
 
 - Micro.blog/Micropub authentication and destination discovery;
-- media upload primitives;
+- media upload primitives, including destination-aware image upload headers;
 - post create/update operations;
 - categories and post status;
 - image optimisation;
@@ -88,7 +90,8 @@ Product-specific code stays outside the shared core:
 Helping Hand no longer assumes that every useful intermediate state is a Micro.blog post.
 
 - Micro.blog remains the publication platform used by all four tools where publication is required.
-- Markdown Hand can instead stop at a private GitHub working draft when a piece is still research or newsroom material.
+- BUM Hand treats the selected Micro.blog blog as explicit request metadata for every supported media upload.
+- Markdown Hand can instead stop at a configured private GitHub working draft when a piece is still research or newsroom material.
 - The GitHub repository credential is server-side and narrowly scoped; the browser uses a separate write key.
 - Destination-specific adapters should remain small boundaries around human-owned source files, not reasons to reshape the core formats.
 
@@ -103,9 +106,16 @@ The original extraction/restructuring plan is complete, and the later Markdown r
 5. [x] Replace the root application page with the Helping Hand launcher.
 6. [x] Share Micro.blog/media primitives without collapsing the four product boundaries.
 7. [x] Add consistent suite navigation, setup and roadmap surfaces.
-8. [x] Add the first non-Micro.blog working destination: private Southall-Research GitHub drafts.
+8. [x] Add the first non-Micro.blog working destination: a configured private GitHub working-draft route.
+9. [x] Make BUM Hand media routing explicit for multi-blog Micro.blog accounts across images, audio and PDFs.
 
 Future work is intentionally need-driven. There is no requirement to add another product or another destination simply because the architecture allows it.
+
+## Reliability as roadmap work
+
+After v1.0, maintenance is a first-class part of the roadmap rather than an afterthought. The Android/provider-backed file staging fix and the multi-blog `mp-destination` fix are examples: neither adds a flashy feature, but both protect the exact workflows Helping Hand exists to make frictionless.
+
+Real-device regressions, API changes, browser quirks and destination-routing failures therefore take priority over speculative additions.
 
 ## Product principle
 
