@@ -71,21 +71,24 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 - [x] Local optimisation for larger photos
 - [x] Android/Google Photos eager file staging for reliable batch reads
 - [x] Choose a Micro.blog destination blog
+- [x] Route image uploads to the selected Micro.blog destination with `mp-destination`
+- [x] Route streamed audio/PDF uploads to the selected Micro.blog destination
 - [x] Add photos directly to existing Photo Collections
 - [x] Create new Photo Collections from BUM Hand
 - [x] Stream audio/PDF through a same-origin Netlify Edge proxy
 - [x] Per-file retry and separate collection retry
 - [x] Canonical URL, Markdown and HTML results
 - [x] Browser audio playback controls
+- [x] Regression coverage for destination-aware image uploads and multi-blog routing
 
 ## Markdown Hand — working
 
 - [x] Choose a local `.md` file on desktop or tablet
 - [x] Keep the selected Markdown unchanged whichever destination is chosen
-- [x] Save a private working draft to `Southall-Research/drafts/` on GitHub
+- [x] Save a private working draft to a configured GitHub repository
 - [x] Update an existing private draft when the same filename is saved again
 - [x] Keep the GitHub repository token server-side behind a separate browser write key
-- [x] Trigger the Southall-Research private draft-review workflow through ordinary `drafts/**` changes
+- [x] Trigger the configured private draft-review workflow through ordinary `drafts/**` changes
 - [x] Send raw Markdown directly as Micro.blog Micropub `content`
 - [x] Optional title, summary and category metadata for Micro.blog
 - [x] Choose a Micro.blog destination
@@ -106,6 +109,7 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 - Published tracked-post mutations require explicit confirmation and current-state verification.
 - Oversized image derivatives never replace local originals.
 - BUM Hand stages selected files locally and forwards them only after the user starts an upload.
+- BUM Hand forwards the chosen Micro.blog destination with every supported media upload so multi-blog accounts do not rely on an implicit default.
 - Markdown Hand reads the chosen file locally and sends its source only when the user explicitly saves or publishes it.
 
 ## After v1.0
