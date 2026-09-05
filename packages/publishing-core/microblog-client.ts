@@ -118,18 +118,22 @@ export async function uploadMicroblogMedia(
   file: File,
   filename: string = file.name,
   mediaType: string = inferImageMediaType(file),
+  destination: string = '',
 ): Promise<string> {
   if (file.size > MICROBLOG_MAX_MEDIA_BYTES) {
     throw new Error(`${filename} is ${(file.size / 1_000_000).toFixed(1)} MB; the current Micro.blog bridge supports media files up to 5 MB.`);
   }
 
+  const headers: Record<string, string> = {
+    'Content-Type': mediaType,
+    'X-Microblog-Token': token.trim(),
+    'X-File-Name': encodeURIComponent(filename),
+  };
+  if (destination.trim()) headers['X-Microblog-Destination'] = encodeURIComponent(destination.trim());
+
   const response = await fetch('/api/microblog/media', {
     method: 'POST',
-    headers: {
-      'Content-Type': mediaType,
-      'X-Microblog-Token': token.trim(),
-      'X-File-Name': encodeURIComponent(filename),
-    },
+    headers,
     body: file,
   });
   if (!response.ok) throw new Error(await responseError(response, `Could not upload ${filename}.`));
