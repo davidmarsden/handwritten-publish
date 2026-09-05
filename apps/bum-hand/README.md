@@ -24,7 +24,7 @@ BUM Hand uses one mixed-file chooser and queue rather than separate uploaders. I
 
 Images use the buffered Micro.blog media bridge after local optimisation. BUM Hand passes the chosen destination through the browser client and Netlify bridge, which forwards it to Micro.blog as multipart `mp-destination`. Audio and PDFs use the streamed Edge route and include the same destination field, so all media types behave consistently for tokens that can access multiple blogs.
 
-The destination-routing path and the Android/provider-backed staging path both have regression coverage because each can otherwise appear healthy in a simple desktop or single-blog test while failing in real use.
+The destination-aware image path has automated regression coverage. Provider-backed Android/Google Photos staging is also a shipped reliability safeguard, but it is not currently claimed as covered by the automated test suite.
 
 Micro.blog tokens remain in page memory and are sent only for requested operations.
 
