@@ -46,7 +46,7 @@
     <div class="callout"><strong>Quick reminder:</strong> Publish Hand, BUM Hand and Markdown Hand do not require email configuration. Markdown Hand's private GitHub destination is optional; Micro.blog remains available independently. Writing Hand posts are drafts by default; only an explicit <code>Status: published</code> line publishes immediately.</div>
 
     <h2>What you need</h2>
-    <p>For the core browser tools: GitHub, Netlify, and a Micro.blog account if you want to publish or upload there. For Writing Hand: Resend inbound email plus a dedicated Micro.blog token. For Markdown Hand's private GitHub working-draft destination: a narrowly-scoped repository token stored server-side and a separate browser write key.</p>
+    <p>For the core browser tools: GitHub, Netlify, and a Micro.blog account if you want to publish or upload there. For Writing Hand: Resend inbound email plus a dedicated Micro.blog token. For an optional private GitHub working-draft destination: a narrowly-scoped repository token stored server-side and a separate browser write key.</p>
 
     <h2>1. Fork or clone</h2>
     <pre><code>git clone https://github.com/davidmarsden/handwritten-publish.git
@@ -68,9 +68,9 @@ npm run build</code></pre>
     <p>Create Micro.blog app tokens under <strong>Account → App tokens / Edit Apps</strong>. If you have several Micro.blog-hosted blogs, the browser tools use Micropub destinations to let you select one. Publish Hand and Markdown Hand are draft-first when creating Micro.blog posts.</p>
 
     <h2>4. Optional: private GitHub working drafts</h2>
-    <p>Markdown Hand can save a chosen <code>.md</code> file unchanged to a private GitHub repository before it is ready for publication. The current Southall-Research route writes only to <code>drafts/</code> on <code>main</code>; saving the same filename again updates that working draft.</p>
-    <p>The GitHub credential never goes to the browser. Configure a fine-grained token with access only to the intended private repository and <strong>Contents: read and write</strong>, then store it in Netlify as <code>SOUTHALL_RESEARCH_GITHUB_TOKEN</code>. Create a separate long random <code>SOUTHALL_RESEARCH_WRITE_KEY</code> for browser authorisation.</p>
-    <p>See <a href="https://github.com/davidmarsden/handwritten-publish/blob/main/docs/southall-research-destination.md"><strong>the Southall-Research destination guide</strong></a> for the exact security boundary and setup.</p>
+    <p>Markdown Hand can be extended with a private GitHub working-draft destination so a chosen <code>.md</code> file can be saved unchanged before it is ready for publication. Keep that route deliberately narrow: write only to the intended repository and working-draft path, and update the same filename rather than creating accidental duplicates.</p>
+    <p>The GitHub credential must never go to the browser. Use a fine-grained token restricted to the intended private repository with only the permissions the route needs, store it server-side in your deployment, and protect browser requests with a separate long random write key.</p>
+    <p>The included implementation is intentionally project-specific. If you enable or adapt this optional route in your own fork, treat the repository name, credentials and destination path as deployment configuration rather than public site content.</p>
 
     <h2>5. Optional: enable Writing Hand</h2>
     <div class="flow">reMarkable
