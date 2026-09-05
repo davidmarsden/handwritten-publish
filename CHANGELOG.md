@@ -2,9 +2,16 @@
 
 ## Unreleased
 
+### BUM Hand
+
+- Route JPEG/PNG/WebP uploads to the selected Micro.blog blog by carrying the chosen destination through the browser client and Netlify image bridge as `mp-destination`.
+- Keep image routing consistent with the existing streamed MP3/M4A/PDF path, which already sends `mp-destination`.
+- Add regression coverage for destination-aware image uploads so multi-blog tokens cannot silently fall back to an implicit media destination.
+- Refresh BUM Hand, suite, architecture, status and public roadmap documentation to treat real-device and multi-blog reliability work as first-class maintenance.
+
 ### Markdown Hand
 
-- Add a private Southall-Research GitHub working-draft destination alongside Micro.blog.
+- Add a configured private GitHub working-draft destination alongside Micro.blog.
 - Preserve selected Markdown unchanged when saving under `drafts/`, updating the same filename rather than creating duplicates.
 - Keep the GitHub repository token server-side behind a separate browser write key.
 - Update the Helping Hand launcher, setup, suite documentation and roadmap to describe the working-draft → publication boundary.
@@ -12,6 +19,7 @@
 ### Roadmap
 
 - Record optional Micro.blog Notes support — encrypted note creation and notebook selection — as a possible future addition rather than a current priority.
+- Make reliability work explicit: browser/provider regressions, API compatibility and destination-routing failures take priority over speculative features.
 
 ## v1.0.0 — 2026-08-30
 
