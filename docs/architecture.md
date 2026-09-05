@@ -1,28 +1,28 @@
 # Architecture
 
-Handwritten Publish is built around a destination-neutral document model.
+Helping Hand is built around small product surfaces that share publishing primitives without collapsing into one application. Publish Hand also keeps its handwritten document model destination-neutral.
 
 ```text
-PNG/photo/tablet input
+human source material
         ↓
-HandwrittenDocument
+Writing Hand / Publish Hand / BUM Hand / Markdown Hand
         ↓
-local preview / annotations / transcript / photo assets
+local parsing, staging, editing or validation
         ↓
-IndexedDB + portable .hwpublish bundle
+shared publishing primitives where useful
         ↓
-publisher adapters
-  ├── Micro.blog Micropub (v0.1.0)
-  └── handwritten.blog (planned)
+explicit destination adapter
+  ├── Micro.blog Micropub / media APIs
+  └── configured private GitHub working-draft route
 ```
 
 ## Core rule
 
-The page image is canonical. A transcript, hyperlink region, photograph overlay, alt text, or publishing destination enriches the page but does not replace it.
+The human-created source remains canonical. A transcript, hyperlink region, photograph overlay, alt text, optimisation derivative, upload destination or publication adapter may enrich or route that source, but should not silently replace it.
 
-That rule is both a product choice and a portability guarantee: the user's handwriting remains readable independently of transcription services, publisher APIs or this application.
+That rule is both a product choice and a portability guarantee.
 
-## Document model
+## Publish Hand document model
 
 A `HandwrittenDocument` has a stable UUID across edits. Ordered pages carry SHA-256 content hashes and media metadata. Handwritten pages may contain normalized link/photo annotations; standalone photo pages can occupy their own positions in the same sequence. Original photo assets are first-class document content rather than temporary publishing files.
 
@@ -30,38 +30,55 @@ Normalized annotation coordinates are stored from `0..1`, so overlays remain ali
 
 ## Local persistence and portable format
 
-Working state is stored browser-locally in IndexedDB, including source page/photo files. The same logical document can be exported to a `.hwpublish` ZIP bundle and imported again with SHA-256 verification.
+Publish Hand working state is stored browser-locally in IndexedDB, including source page/photo files. The same logical document can be exported to a `.handpub` ZIP bundle and imported again with SHA-256 verification.
 
 The portable format is intended to remain inspectable and destination-neutral. See `format.md`.
 
-## Publisher adapters
+BUM Hand and Markdown Hand do not create a second local content store: they stage or read the selected files only for the operation the user has requested.
 
-Publisher code consumes a `HandwrittenDocument`; it must not dictate the core schema.
+## Micro.blog adapters
 
-### Micro.blog
+Micro.blog integration uses Micropub and media APIs through same-origin Netlify boundaries. The bridges exist to avoid browser CORS/CSRF inconsistencies, keep transport rules explicit and avoid persisting browser tokens or uploaded content.
 
-The v0.1.0 publisher uses Micro.blog's Micropub/media APIs through thin same-origin Netlify Functions. The bridge exists to avoid browser CORS/CSRF inconsistencies and does not persist credentials or document content.
-
-New remote posts are always created as private drafts. A tracked post can later be updated as either a draft or published post after status verification; live published updates require explicit user confirmation.
+Publish Hand creates new remote posts as private drafts. A tracked post can later be updated as either a draft or published post after status verification; live published updates require explicit user confirmation.
 
 When Micro.blog replaces the original private-draft URL after publication, the adapter can recover the canonical published URL by finding a unique post containing all previously tracked page-media URLs. Zero or multiple matches fail safely rather than using title/slug guesses.
 
 Micro.blog-visible content has its own revision fingerprint so annotation/title/transcript changes can mark a remote post stale without forcing unchanged source media to be uploaded again.
 
+## BUM Hand media transport
+
+BUM Hand has two media transport paths:
+
+- JPEG/PNG/WebP images use the buffered Netlify Function bridge after local optimisation when required;
+- MP3/M4A audio and PDFs use a same-origin Netlify Edge Function so larger request bodies can be streamed to Micro.blog.
+
+The selected Micro.blog destination is part of both contracts. For images, the browser client sends `X-Microblog-Destination` to the Function and the Function forwards the value as multipart `mp-destination`. The Edge path likewise writes `mp-destination` into its streamed multipart body.
+
+This matters for tokens that can access more than one blog: destination selection must control the media upload itself, not only later post creation or Photo Collection assignment. The destination field is request metadata and is not persisted by Helping Hand.
+
 ## Media derivatives
 
-Source files remain canonical locally. If a JPEG/PNG/WebP photo is too large for the current Micro.blog bridge, the browser creates a temporary web JPEG derivative for upload. That derivative does not replace the original file, original hash or `.hwpublish` asset.
+Source files remain canonical locally. If a JPEG/PNG/WebP photo is too large for the current Micro.blog bridge, the browser creates a temporary web JPEG derivative for upload. That derivative does not replace the original file, original hash or `.handpub` asset.
 
 Handwritten source pages are not silently subjected to lossy optimisation.
 
+## Private GitHub working drafts
+
+Markdown Hand can route an unchanged `.md` file to a configured private GitHub working-draft repository. The repository credential stays server-side behind a separate browser write key; the public browser surface does not need to expose the private repository identity.
+
+The GitHub route is an intermediate working state, not a replacement for the source Markdown file and not a requirement for using the rest of Helping Hand.
+
 ## Privacy and credentials
 
-Page processing remains browser-local unless the user explicitly chooses a publishing operation.
+Page processing and file preparation remain browser-local unless the user explicitly chooses a publishing, upload or save operation.
 
-Micro.blog app tokens are kept in browser memory and passed to Netlify Functions per request. They are not persisted in IndexedDB, source documents, `.hwpublish` bundles or Netlify configuration.
+Micro.blog app tokens are kept in browser memory and passed per request. They are not persisted in IndexedDB, source documents, `.handpub` bundles or Netlify configuration.
 
-Any future publisher or assisted-transcription feature should keep this network boundary obvious and preserve a useful non-AI/local document workflow.
+Writing Hand's unattended email workflow and Markdown Hand's private GitHub route use separate server-side credentials appropriate to those opt-in workflows.
+
+Any future publisher or assisted-transcription feature should keep this network boundary obvious and preserve a useful local workflow.
 
 ## Future adapters
 
-handwritten.blog publishing, assisted transcription/accessibility metadata, and safer native tablet input/send integrations should be adapters around the existing document model. They should not require rewriting the canonical representation of a handwritten document.
+Optional Micro.blog Notes, assisted transcription/accessibility metadata, deeper tablet integrations and other publisher adapters should remain boundaries around existing human-owned source material. They should be added only when they solve a concrete workflow and should not require rewriting the canonical representation of a handwritten document or prepared Markdown file.

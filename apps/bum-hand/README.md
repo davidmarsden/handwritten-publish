@@ -15,13 +15,16 @@ BUM Hand uses one mixed-file chooser and queue rather than separate uploaders. I
 - automatic local optimisation of larger photos;
 - eager browser-owned staging of provider-backed Android/Google Photos selections;
 - Micro.blog destination discovery;
+- destination-aware uploads for every supported media type;
 - direct assignment of image uploads to existing or newly-created Photo Collections;
 - streamed audio/PDF uploads through a same-origin Netlify Edge proxy;
 - per-file upload retry and separate Photo Collection retry;
 - canonical URLs, Markdown and type-appropriate HTML results;
 - browser playback controls for uploaded audio.
 
-Images use the existing buffered Micro.blog media bridge after local optimisation. Audio and PDFs use the streamed Edge route so normal media files are not constrained by the small Function request body ceiling.
+Images use the buffered Micro.blog media bridge after local optimisation. BUM Hand passes the chosen destination through the browser client and Netlify bridge, which forwards it to Micro.blog as multipart `mp-destination`. Audio and PDFs use the streamed Edge route and include the same destination field, so all media types behave consistently for tokens that can access multiple blogs.
+
+The destination-aware image path has automated regression coverage. Provider-backed Android/Google Photos staging is also a shipped reliability safeguard, but it is not currently claimed as covered by the automated test suite.
 
 Micro.blog tokens remain in page memory and are sent only for requested operations.
 
