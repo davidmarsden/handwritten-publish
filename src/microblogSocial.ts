@@ -59,7 +59,7 @@ export class MicroblogSocialClient {
     if (!options.token.trim()) throw new Error('A Micro.blog token is required.');
     this.token = options.token.trim();
     this.endpoint = options.endpoint || '/.netlify/functions/microblog-social';
-    this.fetchImpl = options.fetchImpl || fetch;
+    this.fetchImpl = options.fetchImpl || globalThis.fetch.bind(globalThis);
   }
 
   private async request<T>(op: string, init: RequestInit = {}, params?: URLSearchParams): Promise<T> {
