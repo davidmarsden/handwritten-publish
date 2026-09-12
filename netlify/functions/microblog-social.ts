@@ -19,6 +19,7 @@ type SocialOperation =
   | 'replies'
   | 'conversation'
   | 'profile'
+  | 'account'
   | 'destinations'
   | 'bookmark'
   | 'unbookmark'
@@ -90,6 +91,40 @@ async function upstream(request: Request, path: string, init: RequestInit = {}):
   }
 }
 
+async function accountFor(request: Request): Promise<Response> {
+  const token = tokenFrom(request);
+  if (!token) return json({ error: 'Missing Micro.blog token.' }, 401);
+
+  const form = new URLSearchParams({ token });
+  const response = await fetch(`${API_ROOT}/account/verify`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: form,
+  });
+  if (!response.ok) return upstreamError(response, 'Could not identify the Micro.blog account.');
+
+  const payload = await response.json().catch(() => null) as {
+    token?: unknown;
+    name?: unknown;
+    username?: unknown;
+    avatar?: unknown;
+    default_site?: unknown;
+  } | null;
+  const username = safeUsername(typeof payload?.username === 'string' ? payload.username : null);
+  if (!username) return json({ error: 'Micro.blog did not return an account username.' }, 502);
+
+  return json({
+    username,
+    ...(typeof payload?.name === 'string' && payload.name.trim() ? { name: payload.name.trim() } : {}),
+    ...(typeof payload?.avatar === 'string' && payload.avatar.trim() ? { avatar: payload.avatar.trim() } : {}),
+    ...(typeof payload?.default_site === 'string' && payload.default_site.trim() ? { defaultSite: payload.default_site.trim() } : {}),
+    ...(typeof payload?.token === 'string' && payload.token.trim() ? { token: payload.token.trim() } : {}),
+  });
+}
+
 async function destinationsFor(token: string): Promise<{ response?: Response; destinations?: Destination[] }> {
   const configUrl = new URL(MICROPUB_ENDPOINT);
   configUrl.searchParams.set('q', 'config');
@@ -137,6 +172,8 @@ export default async (request: Request): Promise<Response> => {
       if (!username) return json({ error: 'Invalid username.' }, 400);
       return upstream(request, `/posts/${encodeURIComponent(username)}${suffix}`);
     }
+
+    if (operation === 'account') return accountFor(request);
 
     if (operation === 'destinations') {
       const token = tokenFrom(request);

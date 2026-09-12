@@ -69,6 +69,24 @@ describe('MicroblogSocialClient', () => {
     expect(result.items[0]?.author?.url).toBe('https://mastodon.social/@remote');
   });
 
+  it('loads the authenticated account identity', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({
+      name: 'David Marsden',
+      username: 'davidmarsden',
+      avatar: 'https://micro.blog/davidmarsden/avatar.jpg',
+      defaultSite: 'davidmarsden.info',
+      token: 'refreshed-token',
+    }));
+    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    await expect(client.account()).resolves.toMatchObject({
+      username: 'davidmarsden',
+      defaultSite: 'davidmarsden.info',
+      token: 'refreshed-token',
+    });
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toContain('op=account');
+  });
+
   it('loads explicit publishing destinations', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => response({ destinations: [{ uid: 'https://example.com/', name: 'Example' }] }));
     const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });

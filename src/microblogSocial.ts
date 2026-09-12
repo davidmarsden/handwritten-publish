@@ -36,6 +36,14 @@ export type MicroblogDestination = {
   name: string;
 };
 
+export type MicroblogAccount = {
+  name?: string;
+  username: string;
+  avatar?: string;
+  defaultSite?: string;
+  token?: string;
+};
+
 export type Paging = {
   count?: number;
   beforeId?: string;
@@ -152,6 +160,13 @@ export class MicroblogSocialClient {
     const params = new URLSearchParams({ username: cleaned });
     appendPaging(params, paging);
     return normalizeFeed(await this.request('profile', {}, params));
+  }
+
+  async account(): Promise<MicroblogAccount> {
+    const payload = await this.request<Partial<MicroblogAccount>>('account');
+    const username = validUsername(payload.username);
+    if (!username) throw new Error('Micro.blog did not return an account username.');
+    return { ...payload, username };
   }
 
   async destinations(): Promise<MicroblogDestination[]> {
