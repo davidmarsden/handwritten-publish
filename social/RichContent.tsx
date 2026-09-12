@@ -1,5 +1,6 @@
 import React from 'react';
 import type { MicroblogItem } from '../src/microblogSocial';
+import './rich-content.css';
 
 const SAFE_INLINE = new Set(['strong', 'b', 'em', 'i', 'code']);
 const SAFE_BLOCK = new Set(['p', 'blockquote', 'pre', 'ul', 'ol', 'li']);
