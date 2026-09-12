@@ -25,6 +25,50 @@ describe('MicroblogSocialClient', () => {
     expect(init?.headers).toMatchObject({ Authorization: 'Bearer abc123' });
   });
 
+  it('loads mentions with paging', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({ items: [] }));
+    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    await client.mentions({ count: 20, beforeId: '456' });
+
+    const call = fetchImpl.mock.calls[0];
+    expect(call).toBeDefined();
+    expect(String(call[0])).toContain('op=mentions');
+    expect(String(call[0])).toContain('count=20');
+    expect(String(call[0])).toContain('before_id=456');
+  });
+
+  it('promotes nested Micro.blog usernames into the author model', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({
+      items: [{ id: '1', author: { name: 'Claire', _microblog: { username: 'claire' } } }],
+    }));
+    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    const result = await client.timeline();
+    expect(result.items[0]?.author?.username).toBe('claire');
+  });
+
+  it('uses Micro.blog author URLs as a username fallback', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({
+      items: [{ id: '1', author: { name: 'Claire', url: 'https://micro.blog/claire' } }],
+    }));
+    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    const result = await client.timeline();
+    expect(result.items[0]?.author?.username).toBe('claire');
+  });
+
+  it('does not invent Micro.blog usernames from remote fediverse URLs', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({
+      items: [{ id: '1', author: { name: 'Remote', url: 'https://mastodon.social/@remote' } }],
+    }));
+    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    const result = await client.timeline();
+    expect(result.items[0]?.author?.username).toBeUndefined();
+    expect(result.items[0]?.author?.url).toBe('https://mastodon.social/@remote');
+  });
+
   it('loads explicit publishing destinations', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => response({ destinations: [{ uid: 'https://example.com/', name: 'Example' }] }));
     const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });

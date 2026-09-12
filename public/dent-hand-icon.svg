@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Dent Hand">
+  <rect width="512" height="512" rx="112" fill="#181818"/>
+  <circle cx="256" cy="256" r="150" fill="#f3f0e8"/>
+  <path d="M179 176h74c76 0 121 39 121 105 0 68-46 111-121 111h-74V176Zm73 165c44 0 67-20 67-59 0-37-23-55-67-55h-19v114h19Z" fill="#181818"/>
+</svg>
