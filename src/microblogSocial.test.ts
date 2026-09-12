@@ -25,6 +25,19 @@ describe('MicroblogSocialClient', () => {
     expect(init?.headers).toMatchObject({ Authorization: 'Bearer abc123' });
   });
 
+  it('loads mentions with paging', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({ items: [] }));
+    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    await client.mentions({ count: 20, beforeId: '456' });
+
+    const call = fetchImpl.mock.calls[0];
+    expect(call).toBeDefined();
+    expect(String(call[0])).toContain('op=mentions');
+    expect(String(call[0])).toContain('count=20');
+    expect(String(call[0])).toContain('before_id=456');
+  });
+
   it('promotes nested Micro.blog usernames into the author model', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => response({
       items: [{ id: '1', author: { name: 'Claire', _microblog: { username: 'claire' } } }],
