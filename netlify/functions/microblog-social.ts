@@ -1,4 +1,5 @@
-import { bearer, json, upstreamError } from './_shared/microblog';
+import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
+import { publicPublishingDisabledResponse, publicUsageLimitResponse, recordPublicUsage } from './_shared/public-usage';
 
 const API_ROOT = 'https://micro.blog';
 
@@ -17,9 +18,13 @@ type SocialOperation =
   | 'replies'
   | 'conversation'
   | 'profile'
+  | 'destinations'
   | 'bookmark'
   | 'unbookmark'
-  | 'reply';
+  | 'reply'
+  | 'micropost';
+
+type Destination = { uid: string; name: string };
 
 function tokenFrom(request: Request): string | null {
   const header = request.headers.get('authorization') || '';
@@ -84,6 +89,27 @@ async function upstream(request: Request, path: string, init: RequestInit = {}):
   }
 }
 
+async function destinationsFor(token: string): Promise<{ response?: Response; destinations?: Destination[] }> {
+  const configUrl = new URL(MICROPUB_ENDPOINT);
+  configUrl.searchParams.set('q', 'config');
+  const response = await fetch(configUrl, { headers: bearer(token) });
+  if (!response.ok) {
+    return { response: upstreamError(response, 'Could not load Micro.blog destinations.') };
+  }
+
+  const payload = await response.json().catch(() => null) as {
+    destination?: Array<{ uid?: unknown; name?: unknown }>;
+  } | null;
+  const destinations = (payload?.destination ?? [])
+    .filter((destination): destination is { uid: string; name?: unknown } => typeof destination.uid === 'string' && Boolean(destination.uid.trim()))
+    .map(destination => ({
+      uid: destination.uid.trim(),
+      name: typeof destination.name === 'string' && destination.name.trim() ? destination.name.trim() : destination.uid.trim(),
+    }));
+
+  return { destinations };
+}
+
 export default async (request: Request): Promise<Response> => {
   const url = new URL(request.url);
   const operation = url.searchParams.get('op') as SocialOperation | null;
@@ -108,6 +134,13 @@ export default async (request: Request): Promise<Response> => {
       const username = safeUsername(url.searchParams.get('username'));
       if (!username) return json({ error: 'Invalid username.' }, 400);
       return upstream(request, `/posts/${encodeURIComponent(username)}${suffix}`);
+    }
+
+    if (operation === 'destinations') {
+      const token = tokenFrom(request);
+      if (!token) return json({ error: 'Missing Micro.blog token.' }, 401);
+      const result = await destinationsFor(token);
+      return result.response ?? json({ destinations: result.destinations ?? [] });
     }
   }
 
@@ -137,6 +170,56 @@ export default async (request: Request): Promise<Response> => {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: form,
       });
+    }
+
+    if (operation === 'micropost') {
+      const disabled = publicPublishingDisabledResponse();
+      if (disabled) return disabled;
+
+      const token = tokenFrom(request);
+      if (!token) return json({ error: 'Missing Micro.blog token.' }, 401);
+      const content = typeof body.content === 'string' ? body.content.trim() : '';
+      const destination = typeof body.destination === 'string' ? body.destination.trim() : '';
+      if (!content) return json({ error: 'Micropost content is required.' }, 400);
+      if (!destination) return json({ error: 'Choose a Micro.blog destination before posting.' }, 400);
+      if (content.length > 10000) return json({ error: 'Micropost content is too long.' }, 400);
+
+      const configured = await destinationsFor(token);
+      if (configured.response) return configured.response;
+      if (!(configured.destinations ?? []).some(candidate => candidate.uid === destination)) {
+        return json({ error: 'That destination is not available for this Micro.blog account.' }, 400);
+      }
+
+      const limitResponse = await publicUsageLimitResponse();
+      if (limitResponse) return limitResponse;
+
+      const payload = {
+        type: ['h-entry'],
+        'mp-destination': destination,
+        properties: {
+          content: [content],
+          'post-status': ['published'],
+        },
+      };
+
+      const createResponse = await fetch(MICROPUB_ENDPOINT, {
+        method: 'POST',
+        headers: { ...bearer(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!createResponse.ok) {
+        return upstreamError(createResponse, `Micro.blog could not publish the micropost (HTTP ${createResponse.status}).`);
+      }
+
+      let created: { url?: string; preview?: string } = {};
+      try {
+        created = await createResponse.clone().json() as { url?: string; preview?: string };
+      } catch {
+        // Location fallback below.
+      }
+      const createdUrl = created.url || createResponse.headers.get('Location');
+      await recordPublicUsage('create');
+      return json({ ok: true, url: createdUrl || null, preview: created.preview || createdUrl || null });
     }
   }
 
