@@ -1,8 +1,8 @@
 # Helping Hand status
 
-## Current release: v1.0.0
+## Current release: v1.0.0 core + post-v1.0 additions
 
-Helping Hand is now a complete four-tool publishing suite for the workflows it was built to solve. The core v1.0 release is feature-complete for current use; future work is optional and should be driven by real needs rather than a release calendar.
+Helping Hand's original four-tool publishing suite reached feature-complete v1.0.0 status for the workflows it was built to solve. Dent Hand has since joined the family as a fifth, deliberately small Micro.blog social client. Future work remains optional and should be driven by real needs rather than a release calendar.
 
 ## Writing Hand — working
 
@@ -99,6 +99,24 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 - [x] Preserve the created post URL if source verification fails
 - [x] Dedicated app mark and page-specific favicon
 
+## Dent Hand — working
+
+- [x] Live `/social/` product surface
+- [x] Installable Dent Hand / dent.hand web-app identity
+- [x] Signed-in Micro.blog timeline
+- [x] Open conversations
+- [x] Reply to posts
+- [x] Bookmark and unbookmark posts
+- [x] Browse bookmarks and replies
+- [x] Browse profiles/user timelines
+- [x] Dedicated `/social/my-posts/` view for the user's own posts
+- [x] Typed browser client in `src/microblogSocial.ts`
+- [x] Allow-listed Netlify social bridge rather than a general proxy
+- [x] Ephemeral browser-supplied Micro.blog token
+- [x] Lightweight app-shell/service-worker support
+
+Further Dent Hand work should stay deliberately small and need-driven: better history/paging, guarded short-form posting, quote/embed helpers or interaction-state improvements only where they remove real friction.
+
 ## Safety and privacy boundary
 
 - Browser Micro.blog tokens remain ephemeral and are not persisted by Helping Hand.
@@ -111,6 +129,7 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 - BUM Hand stages selected files locally and forwards them only after the user starts an upload.
 - BUM Hand forwards the chosen Micro.blog destination with every supported media upload so multi-blog accounts do not rely on an implicit default.
 - Markdown Hand reads the chosen file locally and sends its source only when the user explicitly saves or publishes it.
+- Dent Hand forwards browser-authenticated requests only through its allow-listed social operations.
 
 ## After v1.0
 
@@ -123,6 +142,7 @@ There is no mandatory next phase. Possible future work remains intentionally ope
 - [ ] Video only when Micro.blog's API and a real use case justify the complexity
 - [ ] Optional Micro.blog Notes destination, including encrypted note creation and notebook selection, if it becomes useful in real use
 - [ ] Deeper native reMarkable or other tablet integration
+- [ ] Incremental Dent Hand improvements when real social-client friction appears
 - [ ] Additional destination-neutral publisher adapters when a real need appears
 
-The product rule is simple: add something when it removes a real publishing frustration, not because the roadmap has an empty box.
+The product rule is simple: add something when it removes a real publishing or interaction frustration, not because the roadmap has an empty box.
