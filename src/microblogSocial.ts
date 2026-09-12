@@ -26,6 +26,11 @@ export type MicroblogFeed = {
   [key: string]: unknown;
 };
 
+export type MicroblogDestination = {
+  uid: string;
+  name: string;
+};
+
 export type Paging = {
   count?: number;
   beforeId?: string;
@@ -108,6 +113,11 @@ export class MicroblogSocialClient {
     return this.request('profile', {}, params);
   }
 
+  async destinations(): Promise<MicroblogDestination[]> {
+    const payload = await this.request<{ destinations?: MicroblogDestination[] }>('destinations');
+    return Array.isArray(payload.destinations) ? payload.destinations : [];
+  }
+
   async bookmark(id: string): Promise<{ ok?: boolean }> {
     return this.request('bookmark', {
       method: 'POST',
@@ -127,6 +137,18 @@ export class MicroblogSocialClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: assertId(id), content: trimmed }),
+    });
+  }
+
+  async micropost(content: string, destination: string): Promise<{ ok?: boolean; url?: string | null; preview?: string | null }> {
+    const trimmed = content.trim();
+    const target = destination.trim();
+    if (!trimmed) throw new Error('Micropost content is required.');
+    if (!target) throw new Error('Choose a Micro.blog destination before posting.');
+    return this.request('micropost', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: trimmed, destination: target }),
     });
   }
 }
