@@ -78,29 +78,29 @@ export class MicroblogSocialClient {
     return payload;
   }
 
-  timeline(paging?: Paging): Promise<MicroblogFeed> {
+  async timeline(paging?: Paging): Promise<MicroblogFeed> {
     const params = new URLSearchParams();
     appendPaging(params, paging);
     return this.request('timeline', {}, params);
   }
 
-  bookmarks(paging?: Paging): Promise<MicroblogFeed> {
+  async bookmarks(paging?: Paging): Promise<MicroblogFeed> {
     const params = new URLSearchParams();
     appendPaging(params, paging);
     return this.request('bookmarks', {}, params);
   }
 
-  replies(paging?: Paging): Promise<MicroblogFeed> {
+  async replies(paging?: Paging): Promise<MicroblogFeed> {
     const params = new URLSearchParams();
     appendPaging(params, paging);
     return this.request('replies', {}, params);
   }
 
-  conversation(id: string): Promise<MicroblogFeed> {
+  async conversation(id: string): Promise<MicroblogFeed> {
     return this.request('conversation', {}, new URLSearchParams({ id: assertId(id) }));
   }
 
-  profile(username: string, paging?: Paging): Promise<MicroblogFeed> {
+  async profile(username: string, paging?: Paging): Promise<MicroblogFeed> {
     const cleaned = username.trim().replace(/^@/, '');
     if (!/^[A-Za-z0-9_-]{1,64}$/.test(cleaned)) throw new Error('Invalid Micro.blog username.');
     const params = new URLSearchParams({ username: cleaned });
@@ -108,7 +108,7 @@ export class MicroblogSocialClient {
     return this.request('profile', {}, params);
   }
 
-  bookmark(id: string): Promise<{ ok?: boolean }> {
+  async bookmark(id: string): Promise<{ ok?: boolean }> {
     return this.request('bookmark', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -116,11 +116,11 @@ export class MicroblogSocialClient {
     });
   }
 
-  unbookmark(id: string): Promise<{ ok?: boolean }> {
+  async unbookmark(id: string): Promise<{ ok?: boolean }> {
     return this.request('unbookmark', { method: 'DELETE' }, new URLSearchParams({ id: assertId(id) }));
   }
 
-  reply(id: string, content: string): Promise<{ ok?: boolean; [key: string]: unknown }> {
+  async reply(id: string, content: string): Promise<{ ok?: boolean; [key: string]: unknown }> {
     const trimmed = content.trim();
     if (!trimmed) throw new Error('Reply content is required.');
     return this.request('reply', {
