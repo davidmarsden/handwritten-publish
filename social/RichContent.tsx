@@ -12,13 +12,50 @@ function safeUrl(value?: string | null): string | undefined {
   return undefined;
 }
 
+function splitLinkSuffix(value: string): { href: string; suffix: string } {
+  let href = value;
+  let suffix = '';
+
+  while (/[.,!?;:'"]$/.test(href)) {
+    suffix = href.slice(-1) + suffix;
+    href = href.slice(0, -1);
+  }
+
+  const pairs: Array<[string, string]> = [['(', ')'], ['[', ']'], ['{', '}']];
+  let changed = true;
+  while (changed && href) {
+    changed = false;
+    for (const [open, close] of pairs) {
+      if (!href.endsWith(close)) continue;
+      const opens = href.split(open).length - 1;
+      const closes = href.split(close).length - 1;
+      if (closes > opens) {
+        suffix = close + suffix;
+        href = href.slice(0, -1);
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  return { href, suffix };
+}
+
 function textWithLinks(text: string, keyPrefix: string): React.ReactNode[] {
   const parts = text.split(/(https?:\/\/[^\s<]+)/g);
-  return parts.filter(Boolean).map((part, index) => {
-    const href = safeUrl(part);
-    return href
-      ? <a key={`${keyPrefix}-${index}`} href={href} target="_blank" rel="noreferrer">{part}</a>
-      : <React.Fragment key={`${keyPrefix}-${index}`}>{part}</React.Fragment>;
+  return parts.filter(Boolean).flatMap((part, index) => {
+    if (!/^https?:\/\//i.test(part)) {
+      return [<React.Fragment key={`${keyPrefix}-${index}`}>{part}</React.Fragment>];
+    }
+
+    const { href: candidate, suffix } = splitLinkSuffix(part);
+    const href = safeUrl(candidate);
+    if (!href) return [<React.Fragment key={`${keyPrefix}-${index}`}>{part}</React.Fragment>];
+
+    return [
+      <a key={`${keyPrefix}-${index}-link`} href={href} target="_blank" rel="noreferrer">{candidate}</a>,
+      ...(suffix ? [<React.Fragment key={`${keyPrefix}-${index}-suffix`}>{suffix}</React.Fragment>] : []),
+    ];
   });
 }
 
