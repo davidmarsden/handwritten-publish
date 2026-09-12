@@ -1,6 +1,6 @@
 # Helping Hand
 
-Helping Hand is the umbrella for a small family of human-first publishing tools. The suite reached its first complete release at v1.0.0.
+Helping Hand is the umbrella for a small family of human-first publishing tools. The original four-tool publishing suite reached its first complete release at v1.0.0; Dent Hand later joined the family as the lightweight social side of the same Micro.blog-centred toolkit.
 
 The tools share publishing infrastructure, but each has one clear job and should be usable without exposing the complexity of the others.
 
@@ -40,6 +40,14 @@ Tagline: **Your Markdown. Hands off.**
 
 Markdown Hand intentionally has no editor. Its job is to keep a prepared Markdown file as the source of truth while routing it to the right next stage.
 
+### Dent Hand
+
+**The social side of Micro.blog, without the clutter.**
+
+Dent Hand is a minimal Micro.blog client at `/social/`. It is for reading and responding rather than long-form publishing: timelines, conversations, bookmarks, replies, profiles and the user's own posts stay close at hand, while proper writing remains in the dedicated publishing tools.
+
+Its social API layer is deliberately allow-listed rather than a general proxy, and the browser-supplied Micro.blog token remains ephemeral. The product keeps social reading and interaction separate from the longer-form publishing workflows elsewhere in Helping Hand.
+
 ## Repository strategy
 
 Helping Hand deliberately remains one repository with shared infrastructure. Separate products do not require separate codebases.
@@ -58,13 +66,14 @@ public/
   markdown/
   roadmap/
   setup/
+social/
 publish/
 netlify/
   functions/
   edge-functions/
 ```
 
-The root `/` route is the Helping Hand launcher. `/publish/` is Publish Hand, `/setup/email/` is Writing Hand's product/setup surface, `/bum/` is BUM Hand, and `/markdown/` is Markdown Hand.
+The root `/` route is the Helping Hand launcher. `/publish/` is Publish Hand, `/setup/email/` is Writing Hand's product/setup surface, `/bum/` is BUM Hand, `/markdown/` is Markdown Hand, and `/social/` is Dent Hand.
 
 ## Shared publishing core
 
@@ -83,15 +92,17 @@ Product-specific code stays outside the shared core:
 - reMarkable/Resend email parsing belongs to Writing Hand;
 - handwritten document/page models and annotation editing belong to Publish Hand;
 - queue/batch selection, streamed-file routing and upload-result presentation belong to BUM Hand;
-- raw Markdown file reading, private GitHub draft routing and Micro.blog source-verification behaviour belong to Markdown Hand.
+- raw Markdown file reading, private GitHub draft routing and Micro.blog source-verification behaviour belong to Markdown Hand;
+- timeline, conversation, bookmark, reply and profile interactions belong to Dent Hand.
 
 ## Destination boundaries
 
 Helping Hand no longer assumes that every useful intermediate state is a Micro.blog post.
 
-- Micro.blog remains the publication platform used by all four tools where publication is required.
+- Micro.blog remains the main publication and social platform used across the family where those functions are required.
 - BUM Hand treats the selected Micro.blog blog as explicit request metadata for every supported media upload.
 - Markdown Hand can instead stop at a configured private GitHub working draft when a piece is still research or newsroom material.
+- Dent Hand uses a narrow allow-listed bridge for Micro.blog social actions rather than exposing a general upstream proxy.
 - The GitHub repository credential is server-side and narrowly scoped; the browser uses a separate write key.
 - Destination-specific adapters should remain small boundaries around human-owned source files, not reasons to reshape the core formats.
 
@@ -104,10 +115,12 @@ The original extraction/restructuring plan is complete, and the later Markdown r
 3. [x] Give the reMarkable email workflow the Writing Hand identity and setup surface.
 4. [x] Add Markdown Hand behind `/markdown/` for editor-free `.md` routing and publishing.
 5. [x] Replace the root application page with the Helping Hand launcher.
-6. [x] Share Micro.blog/media primitives without collapsing the four product boundaries.
+6. [x] Share Micro.blog/media primitives without collapsing the four original product boundaries.
 7. [x] Add consistent suite navigation, setup and roadmap surfaces.
 8. [x] Add the first non-Micro.blog working destination: a configured private GitHub working-draft route.
 9. [x] Make BUM Hand media routing explicit for multi-blog Micro.blog accounts across images, audio and PDFs.
+
+Dent Hand is post-v1.0 work: a fifth product boundary created because an actual need emerged, not because the architecture had room for another box.
 
 Future work is intentionally need-driven. There is no requirement to add another product or another destination simply because the architecture allows it.
 
@@ -119,6 +132,6 @@ Real-device regressions, API changes, browser quirks and destination-routing fai
 
 ## Product principle
 
-Helping Hand exists to reduce the machinery between human-made material and publication.
+Helping Hand exists to reduce the machinery between human-made material and publication or conversation.
 
-The software may transcribe, route, upload and automate, but the human-created source remains the point. New features should preserve that authorship, solve a concrete publishing frustration, and avoid turning the suite into a second CMS.
+The software may transcribe, route, upload, automate, read or reply, but the human-created source and human interaction remain the point. New features should preserve that authorship, solve a concrete frustration, and avoid turning the suite into a second CMS or a bloated social dashboard.
