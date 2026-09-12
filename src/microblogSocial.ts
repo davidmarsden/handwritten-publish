@@ -130,6 +130,12 @@ export class MicroblogSocialClient {
     return normalizeFeed(await this.request('bookmarks', {}, params));
   }
 
+  async mentions(paging?: Paging): Promise<MicroblogFeed> {
+    const params = new URLSearchParams();
+    appendPaging(params, paging);
+    return normalizeFeed(await this.request('mentions', {}, params));
+  }
+
   async replies(paging?: Paging): Promise<MicroblogFeed> {
     const params = new URLSearchParams();
     appendPaging(params, paging);
