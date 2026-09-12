@@ -10,6 +10,7 @@ export default defineConfig({
       input: {
         helpingHand: resolve(rootDir, 'index.html'),
         publishHand: resolve(rootDir, 'publish/index.html'),
+        social: resolve(rootDir, 'social/index.html'),
       },
     },
   },
