@@ -427,7 +427,7 @@ function App() {
               autoFocus
             />
             <div className="composer-footer">
-              <span>{composedMicropost.length.toLocaleString()} characters including {quotedItem ? 'quote' : 'post'}</span>
+              <span>{composedMicropost.length.toLocaleString()} characters{quotedItem ? ' including quote' : ''}</span>
               <button className="primary" type="submit" disabled={publishing || !composedMicropost || !selectedDestination}>{publishing ? 'Publishing…' : quotedItem ? 'Publish quote' : 'Publish micropost'}</button>
             </div>
             {composerError && <div className="composer-warning error" role="alert">{composerError}</div>}
