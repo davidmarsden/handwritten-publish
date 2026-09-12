@@ -1,0 +1,132 @@
+export type MicroblogAuthor = {
+  name?: string;
+  username?: string;
+  avatar?: string;
+  url?: string;
+};
+
+export type MicroblogItem = {
+  id: string;
+  url?: string;
+  content_html?: string;
+  content_text?: string;
+  date_published?: string;
+  author?: MicroblogAuthor;
+  _microblog?: {
+    is_bookmark?: boolean;
+    is_deletable?: boolean;
+    date_relative?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+export type MicroblogFeed = {
+  items: MicroblogItem[];
+  [key: string]: unknown;
+};
+
+export type Paging = {
+  count?: number;
+  beforeId?: string;
+  sinceId?: string;
+};
+
+export type MicroblogSocialClientOptions = {
+  token: string;
+  endpoint?: string;
+  fetchImpl?: typeof fetch;
+};
+
+function assertId(id: string): string {
+  if (!/^\d+$/.test(id)) throw new Error('Micro.blog post id must be numeric.');
+  return id;
+}
+
+function appendPaging(params: URLSearchParams, paging?: Paging): void {
+  if (!paging) return;
+  if (paging.count && paging.count > 0) params.set('count', String(Math.trunc(paging.count)));
+  if (paging.beforeId) params.set('before_id', assertId(paging.beforeId));
+  if (paging.sinceId) params.set('since_id', assertId(paging.sinceId));
+}
+
+export class MicroblogSocialClient {
+  private readonly token: string;
+  private readonly endpoint: string;
+  private readonly fetchImpl: typeof fetch;
+
+  constructor(options: MicroblogSocialClientOptions) {
+    if (!options.token.trim()) throw new Error('A Micro.blog token is required.');
+    this.token = options.token.trim();
+    this.endpoint = options.endpoint || '/.netlify/functions/microblog-social';
+    this.fetchImpl = options.fetchImpl || fetch;
+  }
+
+  private async request<T>(op: string, init: RequestInit = {}, params?: URLSearchParams): Promise<T> {
+    const query = params || new URLSearchParams();
+    query.set('op', op);
+    const response = await this.fetchImpl(`${this.endpoint}?${query.toString()}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        ...(init.headers || {}),
+      },
+    });
+
+    const payload = await response.json().catch(() => ({})) as { error?: string } & T;
+    if (!response.ok) throw new Error(payload.error || `Micro.blog request failed (${response.status}).`);
+    return payload;
+  }
+
+  timeline(paging?: Paging): Promise<MicroblogFeed> {
+    const params = new URLSearchParams();
+    appendPaging(params, paging);
+    return this.request('timeline', {}, params);
+  }
+
+  bookmarks(paging?: Paging): Promise<MicroblogFeed> {
+    const params = new URLSearchParams();
+    appendPaging(params, paging);
+    return this.request('bookmarks', {}, params);
+  }
+
+  replies(paging?: Paging): Promise<MicroblogFeed> {
+    const params = new URLSearchParams();
+    appendPaging(params, paging);
+    return this.request('replies', {}, params);
+  }
+
+  conversation(id: string): Promise<MicroblogFeed> {
+    return this.request('conversation', {}, new URLSearchParams({ id: assertId(id) }));
+  }
+
+  profile(username: string, paging?: Paging): Promise<MicroblogFeed> {
+    const cleaned = username.trim().replace(/^@/, '');
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(cleaned)) throw new Error('Invalid Micro.blog username.');
+    const params = new URLSearchParams({ username: cleaned });
+    appendPaging(params, paging);
+    return this.request('profile', {}, params);
+  }
+
+  bookmark(id: string): Promise<{ ok?: boolean }> {
+    return this.request('bookmark', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: assertId(id) }),
+    });
+  }
+
+  unbookmark(id: string): Promise<{ ok?: boolean }> {
+    return this.request('unbookmark', { method: 'DELETE' }, new URLSearchParams({ id: assertId(id) }));
+  }
+
+  reply(id: string, content: string): Promise<{ ok?: boolean; [key: string]: unknown }> {
+    const trimmed = content.trim();
+    if (!trimmed) throw new Error('Reply content is required.');
+    return this.request('reply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: assertId(id), content: trimmed }),
+    });
+  }
+}
