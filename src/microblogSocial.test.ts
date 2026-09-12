@@ -25,26 +25,35 @@ describe('MicroblogSocialClient', () => {
     expect(init?.headers).toMatchObject({ Authorization: 'Bearer abc123' });
   });
 
-  it('fills a missing username from a Micro.blog author URL', async () => {
+  it('promotes nested Micro.blog usernames into the author model', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => response({
-      items: [{ id: '1', author: { name: 'Claire', url: 'https://micro.blog/claire/' } }],
+      items: [{ id: '1', author: { name: 'Claire', _microblog: { username: 'claire' } } }],
     }));
     const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
 
     const result = await client.timeline();
-
     expect(result.items[0]?.author?.username).toBe('claire');
   });
 
-  it('does not invent a username from a non-Micro.blog author URL', async () => {
+  it('uses Micro.blog author URLs as a username fallback', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => response({
-      items: [{ id: '1', author: { name: 'Claire', url: 'https://example.com/claire/' } }],
+      items: [{ id: '1', author: { name: 'Claire', url: 'https://micro.blog/claire' } }],
     }));
     const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
 
     const result = await client.timeline();
+    expect(result.items[0]?.author?.username).toBe('claire');
+  });
 
+  it('does not invent Micro.blog usernames from remote fediverse URLs', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({
+      items: [{ id: '1', author: { name: 'Remote', url: 'https://mastodon.social/@remote' } }],
+    }));
+    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    const result = await client.timeline();
     expect(result.items[0]?.author?.username).toBeUndefined();
+    expect(result.items[0]?.author?.url).toBe('https://mastodon.social/@remote');
   });
 
   it('loads explicit publishing destinations', async () => {
