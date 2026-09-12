@@ -2,6 +2,15 @@ import { bearer, json, upstreamError } from './_shared/microblog';
 
 const API_ROOT = 'https://micro.blog';
 
+export const config = {
+  path: '/api/microblog/social',
+  rateLimit: {
+    windowLimit: 60,
+    windowSize: 60,
+    aggregateBy: ['ip', 'domain'],
+  },
+};
+
 type SocialOperation =
   | 'timeline'
   | 'bookmarks'
