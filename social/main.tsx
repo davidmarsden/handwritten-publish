@@ -1,19 +1,76 @@
 import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MicroblogDestination, MicroblogFeed, MicroblogItem, MicroblogSocialClient } from '../src/microblogSocial';
+import { MicroblogAuthor, MicroblogDestination, MicroblogFeed, MicroblogItem, MicroblogSocialClient } from '../src/microblogSocial';
 import './social.css';
 
 type View = 'timeline' | 'circle' | 'bookmarks' | 'replies';
 type PublishNotice = { message: string; url?: string | null } | null;
-type ProfileState = { username: string; feed: MicroblogFeed; hasMore: boolean } | null;
+type CirclePerson = { id: string; name: string; username?: string; url?: string; avatar?: string };
+type ProfileState = {
+  person: CirclePerson;
+  feed: MicroblogFeed;
+  hasMore: boolean;
+  loading: boolean;
+  isMicroblog: boolean;
+  loadError?: string;
+} | null;
 
 const PAGE_SIZE = 40;
 const CIRCLE_KEY = 'dent-hand-circle';
 
-function readCircle(): string[] {
+function canonicalUrl(value?: string): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    url.hash = '';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return undefined;
+  }
+}
+
+function isMicroblogUrl(value?: string): boolean {
+  if (!value) return false;
+  try {
+    return new URL(value).hostname.toLowerCase() === 'micro.blog';
+  } catch {
+    return false;
+  }
+}
+
+function personFromAuthor(author?: MicroblogAuthor): CirclePerson | null {
+  if (!author) return null;
+  const username = author.username?.trim().replace(/^@/, '');
+  const url = canonicalUrl(author.url);
+  const id = url ? `url:${url.toLowerCase()}` : username ? `microblog:${username.toLowerCase()}` : '';
+  if (!id) return null;
+  return {
+    id,
+    name: author.name || (username ? `@${username}` : 'Fediverse account'),
+    ...(username ? { username } : {}),
+    ...(url ? { url } : {}),
+    ...(author.avatar ? { avatar: author.avatar } : {}),
+  };
+}
+
+function personFromItem(item: MicroblogItem): CirclePerson | null {
+  return personFromAuthor(item.author);
+}
+
+function readCircle(): CirclePerson[] {
   try {
     const value = JSON.parse(localStorage.getItem(CIRCLE_KEY) || '[]');
-    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+    if (!Array.isArray(value)) return [];
+    return value.flatMap((item): CirclePerson[] => {
+      if (typeof item === 'string') {
+        const username = item.trim().replace(/^@/, '');
+        return username ? [{ id: `microblog:${username.toLowerCase()}`, name: `@${username}`, username }] : [];
+      }
+      if (!item || typeof item !== 'object') return [];
+      const candidate = item as Partial<CirclePerson>;
+      if (typeof candidate.id !== 'string' || typeof candidate.name !== 'string') return [];
+      return [{ id: candidate.id, name: candidate.name, username: candidate.username, url: candidate.url, avatar: candidate.avatar }];
+    });
   } catch {
     return [];
   }
@@ -49,7 +106,7 @@ function App() {
   const [conversation, setConversation] = useState<MicroblogFeed | null>(null);
   const [conversationTitle, setConversationTitle] = useState('Conversation');
   const [profile, setProfile] = useState<ProfileState>(null);
-  const [circle, setCircle] = useState<string[]>(readCircle);
+  const [circle, setCircle] = useState<CirclePerson[]>(readCircle);
   const [busy, setBusy] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -65,18 +122,25 @@ function App() {
   const [composerError, setComposerError] = useState('');
   const [publishNotice, setPublishNotice] = useState<PublishNotice>(null);
   const generationRef = useRef(0);
+  const profileCacheRef = useRef(new Map<string, MicroblogFeed>());
 
   const client = useMemo(() => connectedToken ? new MicroblogSocialClient({ token: connectedToken }) : null, [connectedToken]);
-  const circleSet = useMemo(() => new Set(circle.map(username => username.toLowerCase())), [circle]);
+  const circleSet = useMemo(() => new Set(circle.map(person => person.id)), [circle]);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/dent-hand-sw.js', { scope: '/social/' }).catch(() => undefined);
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/dent-hand-sw.js', { scope: '/social/', updateViaCache: 'none' }).catch(() => undefined);
   }, []);
 
-  function saveCircle(next: string[]) {
-    const clean = [...new Set(next.map(name => name.trim().replace(/^@/, '').toLowerCase()).filter(Boolean))].sort();
+  function saveCircle(next: CirclePerson[]) {
+    const unique = new Map<string, CirclePerson>();
+    next.forEach(person => { if (person.id) unique.set(person.id, person); });
+    const clean = [...unique.values()].sort((a, b) => a.name.localeCompare(b.name));
     setCircle(clean);
     localStorage.setItem(CIRCLE_KEY, JSON.stringify(clean));
+  }
+
+  function localPostsFor(person: CirclePerson): MicroblogItem[] {
+    return feed.items.filter(item => personFromItem(item)?.id === person.id);
   }
 
   async function feedFor(requestClient: MicroblogSocialClient, nextView: View, beforeId?: string) {
@@ -126,21 +190,47 @@ function App() {
     }
   }
 
-  async function openProfileUsername(username: string) {
+  function openProfile(person: CirclePerson) {
     if (!client) return;
-    const clean = username.trim().replace(/^@/, '');
-    if (!clean) return;
     const generation = ++generationRef.current;
-    setBusy(true); setError(''); setConversation(null);
-    try {
-      const result = await client.profile(clean, { count: PAGE_SIZE });
+    setError(''); setConversation(null);
+
+    const localFeed: MicroblogFeed = { items: localPostsFor(person) };
+    const isMicroblog = isMicroblogUrl(person.url) || (!person.url && Boolean(person.username));
+    const cached = profileCacheRef.current.get(person.id);
+    setProfile({
+      person,
+      feed: cached || localFeed,
+      hasMore: cached ? cached.items.length >= PAGE_SIZE : false,
+      loading: Boolean(isMicroblog && person.username && !cached),
+      isMicroblog,
+    });
+
+    if (!isMicroblog || !person.username || cached) return;
+
+    client.profile(person.username, { count: PAGE_SIZE }).then(result => {
       if (generation !== generationRef.current) return;
-      setProfile({ username: clean, feed: result, hasMore: result.items.length >= PAGE_SIZE });
-    } catch (err) {
-      if (generation === generationRef.current) setError(err instanceof Error ? err.message : 'Could not load profile.');
-    } finally {
-      if (generation === generationRef.current) setBusy(false);
-    }
+      profileCacheRef.current.set(person.id, result);
+      setProfile(current => current?.person.id === person.id ? {
+        ...current,
+        feed: result,
+        hasMore: result.items.length >= PAGE_SIZE,
+        loading: false,
+        loadError: undefined,
+      } : current);
+    }).catch(err => {
+      if (generation !== generationRef.current) return;
+      setProfile(current => current?.person.id === person.id ? {
+        ...current,
+        loading: false,
+        loadError: err instanceof Error ? err.message : 'Could not load full Micro.blog history.',
+      } : current);
+    });
+  }
+
+  function openProfileItem(item: MicroblogItem) {
+    const person = personFromItem(item);
+    if (person) openProfile(person);
   }
 
   async function loadOlder() {
@@ -152,10 +242,16 @@ function App() {
     const generation = generationRef.current;
     setLoadingOlder(true); setError('');
     try {
-      const result = profile ? await client.profile(profile.username, { count: PAGE_SIZE, beforeId: lastId }) : await feedFor(client, view, lastId);
+      const result = profile?.person.username && profile.isMicroblog
+        ? await client.profile(profile.person.username, { count: PAGE_SIZE, beforeId: lastId })
+        : await feedFor(client, view, lastId);
       if (generation !== generationRef.current) return;
       if (profile) {
-        setProfile(current => current ? { ...current, feed: { ...current.feed, items: [...current.feed.items, ...result.items.filter(item => !current.feed.items.some(existing => existing.id === item.id))] }, hasMore: result.items.length >= PAGE_SIZE } : current);
+        setProfile(current => current ? {
+          ...current,
+          feed: { ...current.feed, items: [...current.feed.items, ...result.items.filter(item => !current.feed.items.some(existing => existing.id === item.id))] },
+          hasMore: result.items.length >= PAGE_SIZE,
+        } : current);
       } else {
         setFeed(current => ({ ...current, items: [...current.items, ...result.items.filter(item => !current.items.some(existing => existing.id === item.id))] }));
         setHasMore(result.items.length >= PAGE_SIZE);
@@ -226,9 +322,8 @@ function App() {
     finally { setPublishing(false); }
   }
 
-  function toggleCircle(username: string) {
-    const clean = username.trim().replace(/^@/, '').toLowerCase();
-    saveCircle(circleSet.has(clean) ? circle.filter(item => item.toLowerCase() !== clean) : [...circle, clean]);
+  function toggleCircle(person: CirclePerson) {
+    saveCircle(circleSet.has(person.id) ? circle.filter(item => item.id !== person.id) : [...circle, person]);
   }
 
   function forgetToken() {
@@ -238,20 +333,22 @@ function App() {
     setReplyingTo(null); setReplyText(''); setDestinations([]); setSelectedDestination(''); setComposing(false);
     setQuotedItem(null); setMicropostText(''); setComposerError(''); setPublishNotice(null);
     setBusy(false); setLoadingOlder(false); setPublishing(false); setError('');
+    profileCacheRef.current.clear();
   }
 
   const sourceItems = conversation?.items || profile?.feed.items || feed.items || [];
-  const items = !conversation && !profile && view === 'circle' ? sourceItems.filter(item => item.author?.username && circleSet.has(item.author.username.toLowerCase())) : sourceItems;
-  const profileAuthor = profile?.feed.items[0]?.author;
-  const headerTitle = conversation ? conversationTitle : profile ? (profileAuthor?.name || `@${profile.username}`) : view === 'circle' ? 'Circle' : view === 'bookmarks' ? 'Bookmarks' : view === 'replies' ? 'Replies' : 'Timeline';
+  const items = !conversation && !profile && view === 'circle'
+    ? sourceItems.filter(item => { const person = personFromItem(item); return person ? circleSet.has(person.id) : false; })
+    : sourceItems;
+  const headerTitle = conversation ? conversationTitle : profile ? profile.person.name : view === 'circle' ? 'Circle' : view === 'bookmarks' ? 'Bookmarks' : view === 'replies' ? 'Replies' : 'Timeline';
 
   return <div className="social-shell">
     <header className="social-header"><div><a className="back-link" href="/">Helping Hand</a><p className="eyebrow">Dent Hand · Micro.blog</p><h1>{headerTitle}</h1><p className="lede">Chronological dents from people you chose. Read, reply, bookmark and quote. No algorithm required.</p></div><div className="token-card"><label htmlFor="token">Micro.blog app token</label><div className="token-row"><input id="token" type="password" value={token} onChange={event => setToken(event.target.value)} placeholder="Paste token" autoComplete="off"/><button onClick={() => load(view, token)} disabled={busy || !token.trim()}>{busy ? 'Loading…' : 'Connect'}</button></div><div className="token-note">Kept in this browser session only. <button className="text-button" onClick={forgetToken}>Forget token</button></div></div></header>
     <nav className="tabs" aria-label="Dent Hand views"><button className={!conversation && !profile && view === 'timeline' ? 'active' : ''} onClick={() => load('timeline')} disabled={!client}>Timeline</button><button className={!conversation && !profile && view === 'circle' ? 'active' : ''} onClick={() => load('circle')} disabled={!client}>Circle</button><button className={!conversation && !profile && view === 'bookmarks' ? 'active' : ''} onClick={() => load('bookmarks')} disabled={!client}>Bookmarks</button><button className={!conversation && !profile && view === 'replies' ? 'active' : ''} onClick={() => load('replies')} disabled={!client}>Replies</button>{(conversation || profile) && <button className="active" onClick={() => conversation ? setConversation(null) : setProfile(null)}>← Back</button>}<button className="compose-launch" onClick={() => openComposer()} disabled={!client}>+ New dent</button></nav>
     {error && <div className="notice error" role="alert">{error}</div>}{publishNotice && <div className="notice success" role="status">{publishNotice.message} {publishNotice.url && <a href={publishNotice.url} target="_blank" rel="noreferrer">View dent ↗</a>}</div>}{!client && !error && <div className="notice">Add your Micro.blog app token to load the timeline.</div>}
-    {profile && <section className="profile-card"><div className="profile-main">{profileAuthor?.avatar && <img className="profile-avatar" src={profileAuthor.avatar} alt=""/>}<div><p className="eyebrow">Profile</p><h2>{profileAuthor?.name || `@${profile.username}`}</h2><p>@{profile.username}</p></div></div><button className="circle-toggle" onClick={() => toggleCircle(profile.username)}>{circleSet.has(profile.username.toLowerCase()) ? '★ In Circle' : '☆ Add to Circle'}</button></section>}
-    {!conversation && !profile && view === 'circle' && <section className="circle-bar"><strong>Circle</strong>{circle.length ? circle.map(username => <button key={username} onClick={() => openProfileUsername(username)}>@{username}</button>) : <span>Add people from their profiles. Your Circle stays on this device.</span>}</section>}
-    <main className="feed" aria-live="polite">{items.map(item => <article className="post-card" key={`${conversation ? 'c' : profile ? 'p' : view}-${item.id}`}><button className="author-button" onClick={() => item.author?.username && openProfileUsername(item.author.username)} disabled={!item.author?.username}>{item.author?.avatar ? <img className="avatar" src={item.author.avatar} alt=""/> : <span className="avatar fallback"/>}<span><strong>{authorLabel(item)}</strong><span className="meta">{item.author?.username && <span>@{item.author.username}</span>}{item._microblog?.date_relative && <span>{item._microblog.date_relative}</span>}</span></span></button><p className="post-text">{displayText(item)}</p><div className="actions"><button onClick={() => openConversation(item)}>Conversation</button><button onClick={() => setReplyingTo(item)}>Reply</button><button onClick={() => toggleBookmark(item)}>{item._microblog?.is_bookmark ? 'Bookmarked' : 'Bookmark'}</button>{item.url && <a href={item.url} target="_blank" rel="noreferrer">Original ↗</a>}<button onClick={() => openComposer(item)}>Quote</button></div></article>)}{client && items.length === 0 && !busy && <div className="notice inline">{view === 'circle' ? (circle.length ? 'No Circle dents in this slice of the timeline yet.' : 'Your Circle is empty. Open a profile and add someone.') : 'Nothing here yet.'}</div>}{!conversation && sourceItems.length > 0 && ((profile?.hasMore ?? hasMore) ? <div className="load-more-wrap"><button className="load-more" onClick={loadOlder} disabled={loadingOlder || busy}>{loadingOlder ? 'Loading older dents…' : 'Load older dents'}</button></div> : <div className="load-more-wrap"><span>You’ve reached the end.</span></div>)}</main>
+    {profile && <section className="profile-card"><div className="profile-main">{profile.person.avatar && <img className="profile-avatar" src={profile.person.avatar} alt=""/>}<div><p className="eyebrow">Profile</p><h2>{profile.person.name}</h2>{profile.person.username && <p>@{profile.person.username}</p>}{profile.loading && <p className="profile-status">Loading full Micro.blog history…</p>}{profile.loadError && <p className="profile-status">Showing dents already in your timeline.</p>}</div></div><div className="profile-actions"><button className="circle-toggle" onClick={() => toggleCircle(profile.person)}>{circleSet.has(profile.person.id) ? '★ In Circle' : '☆ Add to Circle'}</button>{profile.person.url && <a className="profile-link" href={profile.person.url} target="_blank" rel="noreferrer">Open profile ↗</a>}</div></section>}
+    {!conversation && !profile && view === 'circle' && <section className="circle-bar"><strong>Circle</strong>{circle.length ? circle.map(person => <button key={person.id} onClick={() => openProfile(person)}>{person.name}</button>) : <span>Add people from their profiles. Your Circle stays on this device.</span>}</section>}
+    <main className="feed" aria-live="polite">{items.map(item => { const person = personFromItem(item); return <article className="post-card" key={`${conversation ? 'c' : profile ? 'p' : view}-${item.id}`}><button className="author-button" onClick={() => person && openProfileItem(item)} disabled={!person}>{item.author?.avatar ? <img className="avatar" src={item.author.avatar} alt=""/> : <span className="avatar fallback"/>}<span><strong>{authorLabel(item)}</strong><span className="meta">{item.author?.username && <span>@{item.author.username}</span>}{item._microblog?.date_relative && <span>{item._microblog.date_relative}</span>}</span></span></button><p className="post-text">{displayText(item)}</p><div className="actions"><button onClick={() => openConversation(item)}>Conversation</button><button onClick={() => setReplyingTo(item)}>Reply</button><button onClick={() => toggleBookmark(item)}>{item._microblog?.is_bookmark ? 'Bookmarked' : 'Bookmark'}</button>{item.url && <a href={item.url} target="_blank" rel="noreferrer">Original ↗</a>}<button onClick={() => openComposer(item)}>Quote</button></div></article>; })}{client && items.length === 0 && !busy && <div className="notice inline">{view === 'circle' ? (circle.length ? 'No Circle dents in this slice of the timeline yet.' : 'Your Circle is empty. Open a profile and add someone.') : profile ? 'No dents from this account are in the loaded timeline yet.' : 'Nothing here yet.'}</div>}{!conversation && sourceItems.length > 0 && ((profile?.hasMore ?? hasMore) ? <div className="load-more-wrap"><button className="load-more" onClick={loadOlder} disabled={loadingOlder || busy || Boolean(profile?.loading)}>{loadingOlder ? 'Loading older dents…' : 'Load older dents'}</button></div> : !profile?.loading && <div className="load-more-wrap"><span>{profile && !profile.isMicroblog ? 'Showing dents from your loaded timeline.' : 'You’ve reached the end.'}</span></div>)}</main>
     {replyingTo && <div className="reply-drawer" role="dialog" aria-modal="true" aria-label={`Reply to ${authorLabel(replyingTo)}`}><form onSubmit={submitReply}><div className="reply-head"><div><span className="eyebrow">Replying to</span><strong>{authorLabel(replyingTo)}</strong></div><button type="button" className="text-button" onClick={() => setReplyingTo(null)}>Close</button></div><blockquote>{displayText(replyingTo)}</blockquote><textarea value={replyText} onChange={event => setReplyText(event.target.value)} placeholder="Write a reply…" autoFocus/><button className="primary" type="submit" disabled={busy || !replyText.trim()}>{busy ? 'Sending…' : 'Send reply'}</button></form></div>}
     {composing && <div className="reply-drawer composer-drawer" role="dialog" aria-modal="true" aria-label={quotedItem ? 'Quote dent' : 'New dent'}><form onSubmit={submitMicropost}><div className="reply-head"><div><span className="eyebrow">Dent Hand</span><strong>{quotedItem ? 'Quote dent' : 'New dent'}</strong></div><button type="button" className="text-button" onClick={() => setComposing(false)}>Close</button></div>{quotedItem && <blockquote>{displayText(quotedItem)}<footer>— {authorLabel(quotedItem)}</footer></blockquote>}<p className="composer-note">Choose the destination explicitly. Dent Hand never falls back to Micro.blog’s current site.</p><label className="field-label" htmlFor="destination">Post to</label><select id="destination" value={selectedDestination} onChange={event => setSelectedDestination(event.target.value)} disabled={publishing}><option value="">Choose a blog…</option>{destinations.map(destination => <option key={destination.uid} value={destination.uid}>{destinationLabel(destination)}</option>)}</select><label className="field-label" htmlFor="micropost">{quotedItem ? 'Your comment (optional)' : 'Dent'}</label><textarea id="micropost" value={micropostText} onChange={event => setMicropostText(event.target.value)} placeholder={quotedItem ? 'Add a comment…' : 'What’s happening?'} autoFocus/><div className="composer-footer"><span>{micropostText.length.toLocaleString()} characters</span><button className="primary" type="submit" disabled={publishing || !selectedDestination || (!quotedItem && !micropostText.trim())}>{publishing ? 'Publishing…' : 'Publish dent'}</button></div>{composerError && <div className="composer-warning error" role="alert">{composerError}</div>}</form></div>}
   </div>;
