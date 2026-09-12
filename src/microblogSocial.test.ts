@@ -25,6 +25,28 @@ describe('MicroblogSocialClient', () => {
     expect(init?.headers).toMatchObject({ Authorization: 'Bearer abc123' });
   });
 
+  it('fills a missing username from a Micro.blog author URL', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({
+      items: [{ id: '1', author: { name: 'Claire', url: 'https://micro.blog/claire/' } }],
+    }));
+    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    const result = await client.timeline();
+
+    expect(result.items[0]?.author?.username).toBe('claire');
+  });
+
+  it('does not invent a username from a non-Micro.blog author URL', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({
+      items: [{ id: '1', author: { name: 'Claire', url: 'https://example.com/claire/' } }],
+    }));
+    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    const result = await client.timeline();
+
+    expect(result.items[0]?.author?.username).toBeUndefined();
+  });
+
   it('loads explicit publishing destinations', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => response({ destinations: [{ uid: 'https://example.com/', name: 'Example' }] }));
     const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
