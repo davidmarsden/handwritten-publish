@@ -12,7 +12,8 @@ The useful loop is:
 2. open a conversation;
 3. reply or bookmark;
 4. browse bookmarks, the user's own posts/replies, or another user's timeline;
-5. keep short social interaction separate from proper writing and publishing.
+5. write a short micropost to an explicitly chosen destination blog, including quote-style posts when useful;
+6. keep short social interaction separate from proper writing and publishing.
 
 Proper writing remains in the existing publishing/editorial tools.
 
@@ -20,7 +21,7 @@ Proper writing remains in the existing publishing/editorial tools.
 
 The browser supplies the user's Micro.blog app token with each request. The token is forwarded in the `Authorization: Bearer …` header and is not stored in Netlify configuration, IndexedDB or source files.
 
-The Netlify function is an allow-listed bridge, not an arbitrary proxy. Only known Micro.blog social operations are accepted, and ids / usernames are validated before an upstream request is made.
+The Netlify function is an allow-listed bridge, not an arbitrary proxy. Only known Micro.blog social operations are accepted, and ids / usernames / publishing destinations are validated before an upstream request is made.
 
 ## Implemented bridge operations
 
@@ -32,6 +33,7 @@ The Netlify function is an allow-listed bridge, not an arbitrary proxy. Only kno
 - `POST bookmark` → `/posts/bookmarks`
 - `DELETE unbookmark` → `/posts/bookmarks/[id]`
 - `POST reply` → `/posts/reply`
+- `POST micropost` → guarded short-form publishing to an explicitly selected destination blog
 
 Timeline-style calls support `count`, `before_id` and `since_id` for paging.
 
@@ -46,6 +48,7 @@ Timeline-style calls support `count`, `before_id` and `since_id` for paging.
 - `replies()`
 - `reply(id, content)`
 - `profile(username)`
+- `micropost(...)`
 
 ## Product surface
 
@@ -53,13 +56,15 @@ Dent Hand now has a real UI rather than being plumbing for a hypothetical future
 
 - `/social/` — the main Dent Hand timeline/client surface;
 - `/social/my-posts/` — the signed-in user's own posts;
+- guarded short-form posting that requires an explicit destination blog before publishing;
+- quote-style post helpers built by the social UI before submission;
 - `public/dent-hand.webmanifest` — installable app metadata;
 - `public/dent-hand-icon.svg` and the Dent Hand brand assets — app identity;
 - `public/dent-hand-sw.js` — lightweight app-shell caching.
 
 ## Next layers
 
-Further work should stay need-driven and keep the client deliberately small. Useful additions may include better paging/history, guarded short-form posting with an explicit destination blog, quote/embed helpers, optimistic interaction state and lightweight caching where they solve real friction.
+Further work should stay need-driven and keep the client deliberately small. Useful additions may include better paging/history, optimistic interaction state and lightweight caching where they solve real friction.
 
 Mentions should remain optional/degraded until the relevant Micro.blog endpoint is reliable enough to depend on.
 
