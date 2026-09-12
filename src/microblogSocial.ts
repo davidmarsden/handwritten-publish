@@ -58,7 +58,7 @@ export class MicroblogSocialClient {
   constructor(options: MicroblogSocialClientOptions) {
     if (!options.token.trim()) throw new Error('A Micro.blog token is required.');
     this.token = options.token.trim();
-    this.endpoint = options.endpoint || '/.netlify/functions/microblog-social';
+    this.endpoint = options.endpoint || '/api/microblog/social';
     this.fetchImpl = options.fetchImpl || globalThis.fetch.bind(globalThis);
   }
 
