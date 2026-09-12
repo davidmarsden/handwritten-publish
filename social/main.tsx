@@ -6,6 +6,7 @@ import './social.css';
 type View = 'timeline' | 'circle' | 'bookmarks' | 'mentions' | 'replies';
 type PublishNotice = { message: string; url?: string | null } | null;
 type CirclePerson = { id: string; name: string; username?: string; url?: string; avatar?: string };
+type ComposerDraft = { text: string; destination?: string };
 type ProfileState = {
   person: CirclePerson;
   feed: MicroblogFeed;
@@ -17,6 +18,7 @@ type ProfileState = {
 
 const PAGE_SIZE = 40;
 const CIRCLE_KEY = 'dent-hand-circle';
+const DRAFT_KEY = 'dent-hand-draft';
 
 function canonicalUrl(value?: string): string | undefined {
   if (!value) return undefined;
@@ -31,11 +33,7 @@ function canonicalUrl(value?: string): string | undefined {
 
 function isMicroblogUrl(value?: string): boolean {
   if (!value) return false;
-  try {
-    return new URL(value).hostname.toLowerCase() === 'micro.blog';
-  } catch {
-    return false;
-  }
+  try { return new URL(value).hostname.toLowerCase() === 'micro.blog'; } catch { return false; }
 }
 
 function personFromAuthor(author?: MicroblogAuthor): CirclePerson | null {
@@ -53,9 +51,7 @@ function personFromAuthor(author?: MicroblogAuthor): CirclePerson | null {
   };
 }
 
-function personFromItem(item: MicroblogItem): CirclePerson | null {
-  return personFromAuthor(item.author);
-}
+function personFromItem(item: MicroblogItem): CirclePerson | null { return personFromAuthor(item.author); }
 
 function readCircle(): CirclePerson[] {
   try {
@@ -71,9 +67,25 @@ function readCircle(): CirclePerson[] {
       if (typeof candidate.id !== 'string' || typeof candidate.name !== 'string') return [];
       return [{ id: candidate.id, name: candidate.name, username: candidate.username, url: candidate.url, avatar: candidate.avatar }];
     });
-  } catch {
-    return [];
+  } catch { return []; }
+}
+
+function readDraft(): ComposerDraft {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || '{}') as Partial<ComposerDraft>;
+    return {
+      text: typeof value.text === 'string' ? value.text : '',
+      ...(typeof value.destination === 'string' ? { destination: value.destination } : {}),
+    };
+  } catch { return { text: '' }; }
+}
+
+function saveDraft(text: string, destination?: string) {
+  if (!text && !destination) {
+    sessionStorage.removeItem(DRAFT_KEY);
+    return;
   }
+  sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ text, ...(destination ? { destination } : {}) }));
 }
 
 function displayText(item: MicroblogItem): string {
@@ -108,6 +120,8 @@ function App() {
   const [profile, setProfile] = useState<ProfileState>(null);
   const [circle, setCircle] = useState<CirclePerson[]>(readCircle);
   const [busy, setBusy] = useState(false);
+  const [checkingNew, setCheckingNew] = useState(false);
+  const [pendingNew, setPendingNew] = useState<MicroblogItem[]>([]);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState('');
@@ -122,6 +136,7 @@ function App() {
   const [composerError, setComposerError] = useState('');
   const [publishNotice, setPublishNotice] = useState<PublishNotice>(null);
   const generationRef = useRef(0);
+  const refreshRequestRef = useRef(0);
   const profileCacheRef = useRef(new Map<string, MicroblogFeed>());
 
   const client = useMemo(() => connectedToken ? new MicroblogSocialClient({ token: connectedToken }) : null, [connectedToken]);
@@ -130,6 +145,12 @@ function App() {
   useEffect(() => {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/dent-hand-sw.js', { scope: '/social/', updateViaCache: 'none' }).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!client || view !== 'timeline' || conversation || profile || feed.items.length === 0) return;
+    const timer = window.setInterval(() => { void checkForNew(); }, 60000);
+    return () => window.clearInterval(timer);
+  }, [client, view, conversation, profile, feed.items[0]?.id]);
 
   function saveCircle(next: CirclePerson[]) {
     const unique = new Map<string, CirclePerson>();
@@ -160,21 +181,17 @@ function App() {
       setComposerError('');
     } catch (err) {
       if (generation !== generationRef.current) return;
-      setDestinations([]);
-      setSelectedDestination('');
+      setDestinations([]); setSelectedDestination('');
       setComposerError(err instanceof Error ? err.message : 'Could not load destinations.');
     }
   }
 
   async function load(nextView: View = view, tokenOverride?: string) {
     const credential = (tokenOverride ?? connectedToken).trim();
-    if (!credential) {
-      setError('Add your Micro.blog app token first.');
-      return;
-    }
+    if (!credential) { setError('Add your Micro.blog app token first.'); return; }
     const generation = ++generationRef.current;
     const requestClient = new MicroblogSocialClient({ token: credential });
-    setBusy(true); setError(''); setConversation(null); setProfile(null); setPublishNotice(null);
+    setBusy(true); setError(''); setConversation(null); setProfile(null); setPublishNotice(null); setPendingNew([]);
     try {
       const result = await feedFor(requestClient, nextView);
       if (generation !== generationRef.current) return;
@@ -190,53 +207,61 @@ function App() {
           ? 'Mentions are temporarily unavailable from Micro.blog. Timeline, Circle, Bookmarks and Replies still work.'
           : err instanceof Error ? err.message : 'Could not load Micro.blog.');
       }
+    } finally { if (generation === generationRef.current) setBusy(false); }
+  }
+
+  async function checkForNew() {
+    if (!client || checkingNew || conversation || profile || view !== 'timeline') return;
+    const firstId = feed.items[0]?.id;
+    if (!firstId) { await load('timeline'); return; }
+    const generation = generationRef.current;
+    const refreshRequest = ++refreshRequestRef.current;
+    setCheckingNew(true); setError('');
+    try {
+      const result = await client.timeline({ count: PAGE_SIZE, sinceId: firstId });
+      if (generation !== generationRef.current) return;
+      const existing = new Set(feed.items.map(item => item.id));
+      setPendingNew(current => {
+        const seen = new Set([...existing, ...current.map(item => item.id)]);
+        return [...result.items.filter(item => !seen.has(item.id)), ...current];
+      });
+    } catch (err) {
+      if (generation === generationRef.current) setError(err instanceof Error ? err.message : 'Could not check for new dents.');
     } finally {
-      if (generation === generationRef.current) setBusy(false);
+      if (refreshRequest === refreshRequestRef.current) setCheckingNew(false);
     }
+  }
+
+  function revealNew() {
+    if (!pendingNew.length) return;
+    setFeed(current => {
+      const existing = new Set(current.items.map(item => item.id));
+      return { ...current, items: [...pendingNew.filter(item => !existing.has(item.id)), ...current.items] };
+    });
+    setPendingNew([]);
+    window.requestAnimationFrame(() => document.querySelector('.feed')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
   function openProfile(person: CirclePerson) {
     if (!client) return;
     const generation = ++generationRef.current;
     setError(''); setConversation(null);
-
     const localFeed: MicroblogFeed = { items: localPostsFor(person) };
     const isMicroblog = isMicroblogUrl(person.url) || (!person.url && Boolean(person.username));
     const cached = profileCacheRef.current.get(person.id);
-    setProfile({
-      person,
-      feed: cached || localFeed,
-      hasMore: cached ? cached.items.length >= PAGE_SIZE : false,
-      loading: Boolean(isMicroblog && person.username && !cached),
-      isMicroblog,
-    });
-
+    setProfile({ person, feed: cached || localFeed, hasMore: cached ? cached.items.length >= PAGE_SIZE : false, loading: Boolean(isMicroblog && person.username && !cached), isMicroblog });
     if (!isMicroblog || !person.username || cached) return;
-
     client.profile(person.username, { count: PAGE_SIZE }).then(result => {
       if (generation !== generationRef.current) return;
       profileCacheRef.current.set(person.id, result);
-      setProfile(current => current?.person.id === person.id ? {
-        ...current,
-        feed: result,
-        hasMore: result.items.length >= PAGE_SIZE,
-        loading: false,
-        loadError: undefined,
-      } : current);
+      setProfile(current => current?.person.id === person.id ? { ...current, feed: result, hasMore: result.items.length >= PAGE_SIZE, loading: false, loadError: undefined } : current);
     }).catch(err => {
       if (generation !== generationRef.current) return;
-      setProfile(current => current?.person.id === person.id ? {
-        ...current,
-        loading: false,
-        loadError: err instanceof Error ? err.message : 'Could not load full Micro.blog history.',
-      } : current);
+      setProfile(current => current?.person.id === person.id ? { ...current, loading: false, loadError: err instanceof Error ? err.message : 'Could not load full Micro.blog history.' } : current);
     });
   }
 
-  function openProfileItem(item: MicroblogItem) {
-    const person = personFromItem(item);
-    if (person) openProfile(person);
-  }
+  function openProfileItem(item: MicroblogItem) { const person = personFromItem(item); if (person) openProfile(person); }
 
   async function loadOlder() {
     if (!client || conversation || loadingOlder) return;
@@ -252,24 +277,16 @@ function App() {
         : await feedFor(client, view, lastId);
       if (generation !== generationRef.current) return;
       if (profile) {
-        setProfile(current => current ? {
-          ...current,
-          feed: { ...current.feed, items: [...current.feed.items, ...result.items.filter(item => !current.feed.items.some(existing => existing.id === item.id))] },
-          hasMore: result.items.length >= PAGE_SIZE,
-        } : current);
+        setProfile(current => current ? { ...current, feed: { ...current.feed, items: [...current.feed.items, ...result.items.filter(item => !current.feed.items.some(existing => existing.id === item.id))] }, hasMore: result.items.length >= PAGE_SIZE } : current);
       } else {
         setFeed(current => ({ ...current, items: [...current.items, ...result.items.filter(item => !current.items.some(existing => existing.id === item.id))] }));
         setHasMore(result.items.length >= PAGE_SIZE);
       }
     } catch (err) {
-      if (generation === generationRef.current) {
-        setError(view === 'mentions'
-          ? 'Mentions are temporarily unavailable from Micro.blog. Timeline, Circle, Bookmarks and Replies still work.'
-          : err instanceof Error ? err.message : 'Could not load older dents.');
-      }
-    } finally {
-      if (generation === generationRef.current) setLoadingOlder(false);
-    }
+      if (generation === generationRef.current) setError(view === 'mentions'
+        ? 'Mentions are temporarily unavailable from Micro.blog. Timeline, Circle, Bookmarks and Replies still work.'
+        : err instanceof Error ? err.message : 'Could not load older dents.');
+    } finally { if (generation === generationRef.current) setLoadingOlder(false); }
   }
 
   async function openConversation(item: MicroblogItem) {
@@ -280,11 +297,8 @@ function App() {
       const result = await client.conversation(item.id);
       if (generation !== generationRef.current) return;
       setConversation(result); setConversationTitle(`Conversation with ${authorLabel(item)}`);
-    } catch (err) {
-      if (generation === generationRef.current) setError(err instanceof Error ? err.message : 'Could not load conversation.');
-    } finally {
-      if (generation === generationRef.current) setBusy(false);
-    }
+    } catch (err) { if (generation === generationRef.current) setError(err instanceof Error ? err.message : 'Could not load conversation.'); }
+    finally { if (generation === generationRef.current) setBusy(false); }
   }
 
   async function toggleBookmark(item: MicroblogItem) {
@@ -312,36 +326,57 @@ function App() {
 
   function openComposer(item?: MicroblogItem) {
     if (!client) return;
-    setComposerError(''); setPublishNotice(null); setQuotedItem(item || null); setMicropostText('');
-    setSelectedDestination(destinations.length === 1 ? destinations[0].uid : ''); setComposing(true);
+    setComposerError(''); setPublishNotice(null); setQuotedItem(item || null);
+    if (item) {
+      setMicropostText('');
+      setSelectedDestination(destinations.length === 1 ? destinations[0].uid : '');
+    } else {
+      const draft = readDraft();
+      setMicropostText(draft.text);
+      setSelectedDestination(draft.destination && destinations.some(destination => destination.uid === draft.destination)
+        ? draft.destination
+        : destinations.length === 1 ? destinations[0].uid : '');
+    }
+    setComposing(true);
+  }
+
+  function updateMicropostText(value: string) {
+    setMicropostText(value);
+    if (!quotedItem) saveDraft(value, selectedDestination);
+  }
+
+  function updateDestination(value: string) {
+    setSelectedDestination(value);
+    if (!quotedItem) saveDraft(micropostText, value);
   }
 
   async function submitMicropost(event: FormEvent) {
     event.preventDefault();
     if (!client || !selectedDestination) return;
+    const wasQuote = Boolean(quotedItem);
     const body = quotedItem ? [micropostText.trim(), quoteMarkdown(quotedItem)].filter(Boolean).join('\n\n') : micropostText.trim();
     if (!body) return;
     setPublishing(true); setComposerError('');
     try {
       const result = await client.micropost(body, selectedDestination);
       const target = destinations.find(destination => destination.uid === selectedDestination);
+      if (!wasQuote) sessionStorage.removeItem(DRAFT_KEY);
       setComposing(false); setQuotedItem(null); setMicropostText(''); setSelectedDestination(destinations.length === 1 ? destinations[0].uid : '');
       setPublishNotice({ message: `Published to ${target?.name || selectedDestination}.`, url: result.preview || result.url });
     } catch (err) { setComposerError(err instanceof Error ? err.message : 'Could not publish dent.'); }
     finally { setPublishing(false); }
   }
 
-  function toggleCircle(person: CirclePerson) {
-    saveCircle(circleSet.has(person.id) ? circle.filter(item => item.id !== person.id) : [...circle, person]);
-  }
+  function toggleCircle(person: CirclePerson) { saveCircle(circleSet.has(person.id) ? circle.filter(item => item.id !== person.id) : [...circle, person]); }
 
   function forgetToken() {
     generationRef.current += 1;
+    refreshRequestRef.current += 1;
     sessionStorage.removeItem('microblog-social-token');
-    setToken(''); setConnectedToken(''); setFeed({ items: [] }); setConversation(null); setProfile(null);
+    setToken(''); setConnectedToken(''); setFeed({ items: [] }); setConversation(null); setProfile(null); setPendingNew([]);
     setReplyingTo(null); setReplyText(''); setDestinations([]); setSelectedDestination(''); setComposing(false);
     setQuotedItem(null); setMicropostText(''); setComposerError(''); setPublishNotice(null);
-    setBusy(false); setLoadingOlder(false); setPublishing(false); setError('');
+    setBusy(false); setCheckingNew(false); setLoadingOlder(false); setPublishing(false); setError('');
     profileCacheRef.current.clear();
   }
 
@@ -353,13 +388,14 @@ function App() {
 
   return <div className="social-shell">
     <header className="social-header"><div><a className="back-link" href="/">Helping Hand</a><p className="eyebrow">Dent Hand · Micro.blog</p><h1>{headerTitle}</h1><p className="lede">Chronological dents from people you chose. Read, reply, bookmark and quote. No algorithm required.</p></div><div className="token-card"><label htmlFor="token">Micro.blog app token</label><div className="token-row"><input id="token" type="password" value={token} onChange={event => setToken(event.target.value)} placeholder="Paste token" autoComplete="off"/><button onClick={() => load(view, token)} disabled={busy || !token.trim()}>{busy ? 'Loading…' : 'Connect'}</button></div><div className="token-note">Kept in this browser session only. <button className="text-button" onClick={forgetToken}>Forget token</button></div></div></header>
-    <nav className="tabs" aria-label="Dent Hand views"><button className={!conversation && !profile && view === 'timeline' ? 'active' : ''} onClick={() => load('timeline')} disabled={!client}>Timeline</button><button className={!conversation && !profile && view === 'circle' ? 'active' : ''} onClick={() => load('circle')} disabled={!client}>Circle</button><button className={!conversation && !profile && view === 'bookmarks' ? 'active' : ''} onClick={() => load('bookmarks')} disabled={!client}>Bookmarks</button><button className={!conversation && !profile && view === 'mentions' ? 'active' : ''} onClick={() => load('mentions')} disabled={!client}>Mentions</button><button className={!conversation && !profile && view === 'replies' ? 'active' : ''} onClick={() => load('replies')} disabled={!client}>Replies</button>{(conversation || profile) && <button className="active" onClick={() => conversation ? setConversation(null) : setProfile(null)}>← Back</button>}<button className="compose-launch" onClick={() => openComposer()} disabled={!client}>+ New dent</button></nav>
+    <nav className="tabs" aria-label="Dent Hand views"><button className={!conversation && !profile && view === 'timeline' ? 'active' : ''} onClick={() => load('timeline')} disabled={!client}>Timeline</button><button className={!conversation && !profile && view === 'circle' ? 'active' : ''} onClick={() => load('circle')} disabled={!client}>Circle</button><button className={!conversation && !profile && view === 'bookmarks' ? 'active' : ''} onClick={() => load('bookmarks')} disabled={!client}>Bookmarks</button><button className={!conversation && !profile && view === 'mentions' ? 'active' : ''} onClick={() => load('mentions')} disabled={!client}>Mentions</button><button className={!conversation && !profile && view === 'replies' ? 'active' : ''} onClick={() => load('replies')} disabled={!client}>Replies</button>{!conversation && !profile && view === 'timeline' && <button className="refresh-button" onClick={() => void checkForNew()} disabled={!client || checkingNew}>{checkingNew ? 'Checking…' : 'Refresh'}</button>}{(conversation || profile) && <button className="active" onClick={() => conversation ? setConversation(null) : setProfile(null)}>← Back</button>}<button className="compose-launch" onClick={() => openComposer()} disabled={!client}>+ New dent</button></nav>
     {error && <div className="notice error" role="alert">{error}</div>}{publishNotice && <div className="notice success" role="status">{publishNotice.message} {publishNotice.url && <a href={publishNotice.url} target="_blank" rel="noreferrer">View dent ↗</a>}</div>}{!client && !error && <div className="notice">Add your Micro.blog app token to load the timeline.</div>}
+    {!conversation && !profile && view === 'timeline' && pendingNew.length > 0 && <div className="new-dents-wrap"><button className="new-dents-button" onClick={revealNew}>{pendingNew.length.toLocaleString()} new {pendingNew.length === 1 ? 'dent' : 'dents'} ↑</button></div>}
     {profile && <section className="profile-card"><div className="profile-main">{profile.person.avatar && <img className="profile-avatar" src={profile.person.avatar} alt=""/>}<div><p className="eyebrow">Profile</p><h2>{profile.person.name}</h2>{profile.person.username && <p>@{profile.person.username}</p>}{profile.loading && <p className="profile-status">Loading full Micro.blog history…</p>}{profile.loadError && <p className="profile-status">Showing dents already in your timeline.</p>}</div></div><div className="profile-actions"><button className="circle-toggle" onClick={() => toggleCircle(profile.person)}>{circleSet.has(profile.person.id) ? '★ In Circle' : '☆ Add to Circle'}</button>{profile.person.url && <a className="profile-link" href={profile.person.url} target="_blank" rel="noreferrer">Open profile ↗</a>}</div></section>}
     {!conversation && !profile && view === 'circle' && <section className="circle-bar"><strong>Circle</strong>{circle.length ? circle.map(person => <button key={person.id} onClick={() => openProfile(person)}>{person.name}</button>) : <span>Add people from their profiles. Your Circle stays on this device.</span>}</section>}
     <main className="feed" aria-live="polite">{items.map(item => { const person = personFromItem(item); return <article className="post-card" key={`${conversation ? 'c' : profile ? 'p' : view}-${item.id}`}><button className="author-button" onClick={() => person && openProfileItem(item)} disabled={!person}>{item.author?.avatar ? <img className="avatar" src={item.author.avatar} alt=""/> : <span className="avatar fallback"/>}<span><strong>{authorLabel(item)}</strong><span className="meta">{item.author?.username && <span>@{item.author.username}</span>}{item._microblog?.date_relative && <span>{item._microblog.date_relative}</span>}</span></span></button><p className="post-text">{displayText(item)}</p><div className="actions"><button onClick={() => openConversation(item)}>Conversation</button><button onClick={() => setReplyingTo(item)}>Reply</button><button onClick={() => toggleBookmark(item)}>{item._microblog?.is_bookmark ? 'Bookmarked' : 'Bookmark'}</button>{item.url && <a href={item.url} target="_blank" rel="noreferrer">Original ↗</a>}<button onClick={() => openComposer(item)}>Quote</button></div></article>; })}{client && items.length === 0 && !busy && <div className="notice inline">{view === 'circle' ? (circle.length ? 'No Circle dents in this slice of the timeline yet.' : 'Your Circle is empty. Open a profile and add someone.') : profile ? 'No dents from this account are in the loaded timeline yet.' : 'Nothing here yet.'}</div>}{!conversation && sourceItems.length > 0 && ((profile?.hasMore ?? hasMore) ? <div className="load-more-wrap"><button className="load-more" onClick={loadOlder} disabled={loadingOlder || busy || Boolean(profile?.loading)}>{loadingOlder ? 'Loading older dents…' : 'Load older dents'}</button></div> : !profile?.loading && <div className="load-more-wrap"><span>{profile && !profile.isMicroblog ? 'Showing dents from your loaded timeline.' : 'You’ve reached the end.'}</span></div>)}</main>
     {replyingTo && <div className="reply-drawer" role="dialog" aria-modal="true" aria-label={`Reply to ${authorLabel(replyingTo)}`}><form onSubmit={submitReply}><div className="reply-head"><div><span className="eyebrow">Replying to</span><strong>{authorLabel(replyingTo)}</strong></div><button type="button" className="text-button" onClick={() => setReplyingTo(null)}>Close</button></div><blockquote>{displayText(replyingTo)}</blockquote><textarea value={replyText} onChange={event => setReplyText(event.target.value)} placeholder="Write a reply…" autoFocus/><button className="primary" type="submit" disabled={busy || !replyText.trim()}>{busy ? 'Sending…' : 'Send reply'}</button></form></div>}
-    {composing && <div className="reply-drawer composer-drawer" role="dialog" aria-modal="true" aria-label={quotedItem ? 'Quote dent' : 'New dent'}><form onSubmit={submitMicropost}><div className="reply-head"><div><span className="eyebrow">Dent Hand</span><strong>{quotedItem ? 'Quote dent' : 'New dent'}</strong></div><button type="button" className="text-button" onClick={() => setComposing(false)}>Close</button></div>{quotedItem && <blockquote>{displayText(quotedItem)}<footer>— {authorLabel(quotedItem)}</footer></blockquote>}<p className="composer-note">Choose the destination explicitly. Dent Hand never falls back to Micro.blog’s current site.</p><label className="field-label" htmlFor="destination">Post to</label><select id="destination" value={selectedDestination} onChange={event => setSelectedDestination(event.target.value)} disabled={publishing}><option value="">Choose a blog…</option>{destinations.map(destination => <option key={destination.uid} value={destination.uid}>{destinationLabel(destination)}</option>)}</select><label className="field-label" htmlFor="micropost">{quotedItem ? 'Your comment (optional)' : 'Dent'}</label><textarea id="micropost" value={micropostText} onChange={event => setMicropostText(event.target.value)} placeholder={quotedItem ? 'Add a comment…' : 'What’s happening?'} autoFocus/><div className="composer-footer"><span>{micropostText.length.toLocaleString()} characters</span><button className="primary" type="submit" disabled={publishing || !selectedDestination || (!quotedItem && !micropostText.trim())}>{publishing ? 'Publishing…' : 'Publish dent'}</button></div>{composerError && <div className="composer-warning error" role="alert">{composerError}</div>}</form></div>}
+    {composing && <div className="reply-drawer composer-drawer" role="dialog" aria-modal="true" aria-label={quotedItem ? 'Quote dent' : 'New dent'}><form onSubmit={submitMicropost}><div className="reply-head"><div><span className="eyebrow">Dent Hand</span><strong>{quotedItem ? 'Quote dent' : 'New dent'}</strong></div><button type="button" className="text-button" onClick={() => setComposing(false)}>Close</button></div>{quotedItem && <blockquote>{displayText(quotedItem)}<footer>— {authorLabel(quotedItem)}</footer></blockquote>}<p className="composer-note">Choose the destination explicitly. Dent Hand never falls back to Micro.blog’s current site.</p><label className="field-label" htmlFor="destination">Post to</label><select id="destination" value={selectedDestination} onChange={event => updateDestination(event.target.value)} disabled={publishing}><option value="">Choose a blog…</option>{destinations.map(destination => <option key={destination.uid} value={destination.uid}>{destinationLabel(destination)}</option>)}</select><label className="field-label" htmlFor="micropost">{quotedItem ? 'Your comment (optional)' : 'Dent'}</label><textarea id="micropost" value={micropostText} onChange={event => updateMicropostText(event.target.value)} placeholder={quotedItem ? 'Add a comment…' : 'What’s happening?'} autoFocus/>{!quotedItem && micropostText && <p className="draft-note">Draft saved for this browser session.</p>}<div className="composer-footer"><span>{micropostText.length.toLocaleString()} characters</span><button className="primary" type="submit" disabled={publishing || !selectedDestination || (!quotedItem && !micropostText.trim())}>{publishing ? 'Publishing…' : 'Publish dent'}</button></div>{composerError && <div className="composer-warning error" role="alert">{composerError}</div>}</form></div>}
   </div>;
 }
 
