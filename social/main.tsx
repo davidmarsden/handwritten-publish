@@ -33,6 +33,17 @@ function destinationLabel(destination: MicroblogDestination): string {
   return destination.name === destination.uid ? destination.name : `${destination.name} · ${destination.uid}`;
 }
 
+function quoteMarkdown(item: MicroblogItem): string {
+  const quote = displayText(item)
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(line => `> ${line}`)
+    .join('\n');
+  const author = authorLabel(item);
+  const attribution = item.url ? `[${author}](${item.url})` : author;
+  return `${quote}\n\n— ${attribution}`;
+}
+
 function App() {
   const storedToken = sessionStorage.getItem('microblog-social-token') || '';
   const [token, setToken] = useState(storedToken);
@@ -50,6 +61,7 @@ function App() {
   const [destinations, setDestinations] = useState<MicroblogDestination[]>([]);
   const [selectedDestination, setSelectedDestination] = useState('');
   const [composing, setComposing] = useState(false);
+  const [quotedItem, setQuotedItem] = useState<MicroblogItem | null>(null);
   const [micropostText, setMicropostText] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [composerError, setComposerError] = useState('');
@@ -211,31 +223,54 @@ function App() {
     }
   }
 
+  function resetComposer() {
+    setComposing(false);
+    setQuotedItem(null);
+    setMicropostText('');
+    setComposerError('');
+    setSelectedDestination(destinations.length === 1 ? destinations[0].uid : '');
+  }
+
   function openComposer() {
     if (!client) return;
     setComposerError('');
     setPublishNotice(null);
+    setQuotedItem(null);
+    setMicropostText('');
     setSelectedDestination(destinations.length === 1 ? destinations[0].uid : '');
     setComposing(true);
   }
 
+  function openQuoteComposer(item: MicroblogItem) {
+    if (!client) return;
+    setComposerError('');
+    setPublishNotice(null);
+    setQuotedItem(item);
+    setMicropostText('');
+    setSelectedDestination(destinations.length === 1 ? destinations[0].uid : '');
+    setComposing(true);
+  }
+
+  const quoteBody = quotedItem ? quoteMarkdown(quotedItem) : '';
+  const composedMicropost = quotedItem
+    ? [micropostText.trim(), quoteBody].filter(Boolean).join('\n\n')
+    : micropostText.trim();
+
   async function submitMicropost(event: FormEvent) {
     event.preventDefault();
-    if (!client || !micropostText.trim() || !selectedDestination) return;
+    if (!client || !composedMicropost || !selectedDestination) return;
     const requestGeneration = generationRef.current;
     setPublishing(true);
     setComposerError('');
     try {
-      const result = await client.micropost(micropostText, selectedDestination);
+      const result = await client.micropost(composedMicropost, selectedDestination);
       if (requestGeneration !== generationRef.current) return;
       const target = destinations.find(destination => destination.uid === selectedDestination);
-      setMicropostText('');
-      setComposing(false);
+      resetComposer();
       setPublishNotice({
         message: `Published to ${target?.name || selectedDestination}.`,
         url: result.preview || result.url,
       });
-      setSelectedDestination(destinations.length === 1 ? destinations[0].uid : '');
     } catch (err) {
       if (requestGeneration !== generationRef.current) return;
       setComposerError(err instanceof Error ? err.message : 'Could not publish the micropost.');
@@ -256,6 +291,7 @@ function App() {
     setDestinations([]);
     setSelectedDestination('');
     setComposing(false);
+    setQuotedItem(null);
     setMicropostText('');
     setComposerError('');
     setPublishNotice(null);
@@ -329,7 +365,7 @@ function App() {
               <button onClick={() => setReplyingTo(item)}>Reply</button>
               <button onClick={() => toggleBookmark(item)}>{item._microblog?.is_bookmark ? 'Bookmarked' : 'Bookmark'}</button>
               {item.url && <a href={item.url} target="_blank" rel="noreferrer">Original ↗</a>}
-              <button disabled title="Safe quote-post formatting is the next layer">Quote</button>
+              <button onClick={() => openQuoteComposer(item)}>Quote</button>
             </div>
           </article>
         ))}
@@ -358,11 +394,11 @@ function App() {
       )}
 
       {composing && (
-        <div className="reply-drawer composer-drawer" role="dialog" aria-modal="true" aria-label="New micropost">
+        <div className="reply-drawer composer-drawer" role="dialog" aria-modal="true" aria-label={quotedItem ? `Quote ${authorLabel(quotedItem)}` : 'New micropost'}>
           <form onSubmit={submitMicropost}>
             <div className="reply-head">
-              <div><span className="eyebrow">Micro.blog</span><strong>New micropost</strong></div>
-              <button type="button" className="text-button" onClick={() => setComposing(false)}>Close</button>
+              <div><span className="eyebrow">Micro.blog</span><strong>{quotedItem ? 'Quote post' : 'New micropost'}</strong></div>
+              <button type="button" className="text-button" onClick={resetComposer}>Close</button>
             </div>
             <p className="composer-note">Choose the destination explicitly. This client never falls back to Micro.blog’s current or default site.</p>
             <label className="field-label" htmlFor="destination">Post to</label>
@@ -376,11 +412,23 @@ function App() {
               {destinations.map(destination => <option key={destination.uid} value={destination.uid}>{destinationLabel(destination)}</option>)}
             </select>
             {destinations.length === 0 && <div className="composer-warning">No publishing destinations loaded. Reconnect your Micro.blog token to try again.</div>}
-            <label className="field-label" htmlFor="micropost">Post</label>
-            <textarea id="micropost" value={micropostText} onChange={event => setMicropostText(event.target.value)} placeholder="What’s happening?" autoFocus />
+            {quotedItem && (
+              <blockquote>
+                {displayText(quotedItem)}
+                <footer>— {authorLabel(quotedItem)}</footer>
+              </blockquote>
+            )}
+            <label className="field-label" htmlFor="micropost">{quotedItem ? 'Your comment (optional)' : 'Post'}</label>
+            <textarea
+              id="micropost"
+              value={micropostText}
+              onChange={event => setMicropostText(event.target.value)}
+              placeholder={quotedItem ? 'Add a comment…' : 'What’s happening?'}
+              autoFocus
+            />
             <div className="composer-footer">
-              <span>{micropostText.length.toLocaleString()} characters</span>
-              <button className="primary" type="submit" disabled={publishing || !micropostText.trim() || !selectedDestination}>{publishing ? 'Publishing…' : 'Publish micropost'}</button>
+              <span>{composedMicropost.length.toLocaleString()} characters including {quotedItem ? 'quote' : 'post'}</span>
+              <button className="primary" type="submit" disabled={publishing || !composedMicropost || !selectedDestination}>{publishing ? 'Publishing…' : quotedItem ? 'Publish quote' : 'Publish micropost'}</button>
             </div>
             {composerError && <div className="composer-warning error" role="alert">{composerError}</div>}
           </form>
