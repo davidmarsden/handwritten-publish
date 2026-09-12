@@ -1,4 +1,4 @@
-import React, { FormEvent, useMemo, useState } from 'react';
+import React, { FormEvent, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MicroblogFeed, MicroblogItem, MicroblogSocialClient } from '../src/microblogSocial';
 import './social.css';
@@ -18,7 +18,9 @@ function authorLabel(item: MicroblogItem): string {
 }
 
 function App() {
-  const [token, setToken] = useState(() => sessionStorage.getItem('microblog-social-token') || '');
+  const storedToken = sessionStorage.getItem('microblog-social-token') || '';
+  const [token, setToken] = useState(storedToken);
+  const [connectedToken, setConnectedToken] = useState(storedToken);
   const [view, setView] = useState<View>('timeline');
   const [feed, setFeed] = useState<MicroblogFeed>({ items: [] });
   const [conversation, setConversation] = useState<MicroblogFeed | null>(null);
@@ -27,50 +29,69 @@ function App() {
   const [error, setError] = useState('');
   const [replyingTo, setReplyingTo] = useState<MicroblogItem | null>(null);
   const [replyText, setReplyText] = useState('');
+  const generationRef = useRef(0);
 
-  const client = useMemo(() => token.trim() ? new MicroblogSocialClient({ token: token.trim() }) : null, [token]);
+  const client = useMemo(
+    () => connectedToken ? new MicroblogSocialClient({ token: connectedToken }) : null,
+    [connectedToken],
+  );
 
-  async function load(nextView: View = view) {
-    if (!client) {
+  async function load(nextView: View = view, tokenOverride?: string) {
+    const credential = (tokenOverride ?? connectedToken).trim();
+    if (!credential) {
       setError('Add your Micro.blog app token first.');
       return;
     }
+
+    const requestGeneration = ++generationRef.current;
+    const requestClient = new MicroblogSocialClient({ token: credential });
     setBusy(true);
     setError('');
     setConversation(null);
     try {
       const result = nextView === 'timeline'
-        ? await client.timeline({ count: 40 })
+        ? await requestClient.timeline({ count: 40 })
         : nextView === 'bookmarks'
-          ? await client.bookmarks({ count: 40 })
-          : await client.replies({ count: 40 });
+          ? await requestClient.bookmarks({ count: 40 })
+          : await requestClient.replies({ count: 40 });
+
+      if (requestGeneration !== generationRef.current) return;
       setFeed(result);
       setView(nextView);
-      sessionStorage.setItem('microblog-social-token', token.trim());
+
+      if (tokenOverride !== undefined) {
+        setConnectedToken(credential);
+        sessionStorage.setItem('microblog-social-token', credential);
+      }
     } catch (err) {
+      if (requestGeneration !== generationRef.current) return;
       setError(err instanceof Error ? err.message : 'Could not load Micro.blog.');
     } finally {
-      setBusy(false);
+      if (requestGeneration === generationRef.current) setBusy(false);
     }
   }
 
   async function openConversation(item: MicroblogItem) {
     if (!client) return;
+    const requestGeneration = generationRef.current;
     setBusy(true);
     setError('');
     try {
       const result = await client.conversation(item.id);
+      if (requestGeneration !== generationRef.current) return;
       setConversation(result);
       setConversationTitle(`Conversation with ${authorLabel(item)}`);
     } catch (err) {
+      if (requestGeneration !== generationRef.current) return;
       setError(err instanceof Error ? err.message : 'Could not load the conversation.');
     } finally {
-      setBusy(false);
+      if (requestGeneration === generationRef.current) setBusy(false);
     }
   }
 
   async function toggleBookmark(item: MicroblogItem) {
     if (!client) return;
+    const requestGeneration = generationRef.current;
     setError('');
     try {
       if (item._microblog?.is_bookmark) {
@@ -78,13 +99,16 @@ function App() {
       } else {
         await client.bookmark(item.id);
       }
-      setFeed(current => ({
-        ...current,
-        items: current.items.map(existing => existing.id === item.id
-          ? { ...existing, _microblog: { ...(existing._microblog || {}), is_bookmark: !item._microblog?.is_bookmark } }
-          : existing),
-      }));
+      if (requestGeneration !== generationRef.current) return;
+
+      const updateItem = (existing: MicroblogItem): MicroblogItem => existing.id === item.id
+        ? { ...existing, _microblog: { ...(existing._microblog || {}), is_bookmark: !item._microblog?.is_bookmark } }
+        : existing;
+
+      setFeed(current => ({ ...current, items: current.items.map(updateItem) }));
+      setConversation(current => current ? ({ ...current, items: current.items.map(updateItem) }) : current);
     } catch (err) {
+      if (requestGeneration !== generationRef.current) return;
       setError(err instanceof Error ? err.message : 'Bookmark action failed.');
     }
   }
@@ -92,26 +116,34 @@ function App() {
   async function submitReply(event: FormEvent) {
     event.preventDefault();
     if (!client || !replyingTo || !replyText.trim()) return;
+    const requestGeneration = generationRef.current;
     setBusy(true);
     setError('');
     try {
       await client.reply(replyingTo.id, replyText.trim());
+      if (requestGeneration !== generationRef.current) return;
+      const repliedTo = replyingTo;
       setReplyText('');
       setReplyingTo(null);
-      if (conversation) await openConversation(replyingTo);
+      if (conversation) await openConversation(repliedTo);
     } catch (err) {
+      if (requestGeneration !== generationRef.current) return;
       setError(err instanceof Error ? err.message : 'Reply failed.');
     } finally {
-      setBusy(false);
+      if (requestGeneration === generationRef.current) setBusy(false);
     }
   }
 
   function forgetToken() {
+    generationRef.current += 1;
     sessionStorage.removeItem('microblog-social-token');
     setToken('');
+    setConnectedToken('');
     setFeed({ items: [] });
     setConversation(null);
     setReplyingTo(null);
+    setReplyText('');
+    setBusy(false);
     setError('');
   }
 
@@ -137,16 +169,16 @@ function App() {
               placeholder="Paste token"
               autoComplete="off"
             />
-            <button onClick={() => load(view)} disabled={busy || !token.trim()}>{busy ? 'Loading…' : 'Connect'}</button>
+            <button onClick={() => load(view, token)} disabled={busy || !token.trim()}>{busy ? 'Loading…' : 'Connect'}</button>
           </div>
           <div className="token-note">Kept in this browser session only. <button className="text-button" onClick={forgetToken}>Forget token</button></div>
         </div>
       </header>
 
       <nav className="tabs" aria-label="Social views">
-        <button className={!conversation && view === 'timeline' ? 'active' : ''} onClick={() => load('timeline')}>Timeline</button>
-        <button className={!conversation && view === 'bookmarks' ? 'active' : ''} onClick={() => load('bookmarks')}>Bookmarks</button>
-        <button className={!conversation && view === 'replies' ? 'active' : ''} onClick={() => load('replies')}>Replies</button>
+        <button className={!conversation && view === 'timeline' ? 'active' : ''} onClick={() => load('timeline')} disabled={!client}>Timeline</button>
+        <button className={!conversation && view === 'bookmarks' ? 'active' : ''} onClick={() => load('bookmarks')} disabled={!client}>Bookmarks</button>
+        <button className={!conversation && view === 'replies' ? 'active' : ''} onClick={() => load('replies')} disabled={!client}>Replies</button>
         {conversation && <button className="active" onClick={() => setConversation(null)}>← Back to {view}</button>}
       </nav>
 
