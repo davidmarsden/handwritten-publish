@@ -1,9 +1,9 @@
-const CACHE = 'dent-hand-shell-v2';
+const CACHE = 'dent-hand-shell-v3';
 const SHELL = ['/social/', '/dent-hand.webmanifest', '/dent-hand-icon.svg'];
 
 async function precacheShell() {
   const cache = await caches.open(CACHE);
-  const response = await fetch('/social/');
+  const response = await fetch('/social/', { cache: 'no-store' });
   if (!response.ok) throw new Error('Could not fetch Dent Hand shell.');
 
   await cache.put('/social/', response.clone());
@@ -34,7 +34,7 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
 
   if (request.mode === 'navigate' && url.pathname.startsWith('/social')) {
-    event.respondWith(fetch(request).catch(() => caches.match('/social/')));
+    event.respondWith(fetch(request, { cache: 'no-store' }).catch(() => caches.match('/social/')));
     return;
   }
 
