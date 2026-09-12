@@ -1,12 +1,12 @@
 {
   "name": "Dent Hand",
   "short_name": "Dent Hand",
-  "description": "A minimal Micro.blog client for timelines, conversations, bookmarks and dents.",
+  "description": "A minimal federated Micro.blog client for timelines, replies, bookmarks and dents.",
   "start_url": "/social/",
   "scope": "/social/",
   "display": "standalone",
-  "background_color": "#f3f0e8",
-  "theme_color": "#181818",
+  "background_color": "#20211f",
+  "theme_color": "#839a42",
   "icons": [
     {
       "src": "/dent-hand-icon.svg",
