@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { MicroblogAuthor, MicroblogDestination, MicroblogFeed, MicroblogItem, MicroblogSocialClient } from '../src/microblogSocial';
 import './social.css';
 
-type View = 'timeline' | 'circle' | 'bookmarks' | 'replies';
+type View = 'timeline' | 'circle' | 'bookmarks' | 'mentions' | 'replies';
 type PublishNotice = { message: string; url?: string | null } | null;
 type CirclePerson = { id: string; name: string; username?: string; url?: string; avatar?: string };
 type ProfileState = {
@@ -146,6 +146,7 @@ function App() {
   async function feedFor(requestClient: MicroblogSocialClient, nextView: View, beforeId?: string) {
     const paging = { count: PAGE_SIZE, ...(beforeId ? { beforeId } : {}) };
     if (nextView === 'bookmarks') return requestClient.bookmarks(paging);
+    if (nextView === 'mentions') return requestClient.mentions(paging);
     if (nextView === 'replies') return requestClient.replies(paging);
     return requestClient.timeline(paging);
   }
@@ -184,7 +185,11 @@ function App() {
       }
       if (tokenOverride !== undefined || destinations.length === 0) await refreshDestinations(requestClient, generation);
     } catch (err) {
-      if (generation === generationRef.current) setError(err instanceof Error ? err.message : 'Could not load Micro.blog.');
+      if (generation === generationRef.current) {
+        setError(nextView === 'mentions'
+          ? 'Mentions are temporarily unavailable from Micro.blog. Timeline, Circle, Bookmarks and Replies still work.'
+          : err instanceof Error ? err.message : 'Could not load Micro.blog.');
+      }
     } finally {
       if (generation === generationRef.current) setBusy(false);
     }
@@ -257,7 +262,11 @@ function App() {
         setHasMore(result.items.length >= PAGE_SIZE);
       }
     } catch (err) {
-      if (generation === generationRef.current) setError(err instanceof Error ? err.message : 'Could not load older dents.');
+      if (generation === generationRef.current) {
+        setError(view === 'mentions'
+          ? 'Mentions are temporarily unavailable from Micro.blog. Timeline, Circle, Bookmarks and Replies still work.'
+          : err instanceof Error ? err.message : 'Could not load older dents.');
+      }
     } finally {
       if (generation === generationRef.current) setLoadingOlder(false);
     }
@@ -340,11 +349,11 @@ function App() {
   const items = !conversation && !profile && view === 'circle'
     ? sourceItems.filter(item => { const person = personFromItem(item); return person ? circleSet.has(person.id) : false; })
     : sourceItems;
-  const headerTitle = conversation ? conversationTitle : profile ? profile.person.name : view === 'circle' ? 'Circle' : view === 'bookmarks' ? 'Bookmarks' : view === 'replies' ? 'Replies' : 'Timeline';
+  const headerTitle = conversation ? conversationTitle : profile ? profile.person.name : view === 'circle' ? 'Circle' : view === 'bookmarks' ? 'Bookmarks' : view === 'mentions' ? 'Mentions' : view === 'replies' ? 'Replies' : 'Timeline';
 
   return <div className="social-shell">
     <header className="social-header"><div><a className="back-link" href="/">Helping Hand</a><p className="eyebrow">Dent Hand · Micro.blog</p><h1>{headerTitle}</h1><p className="lede">Chronological dents from people you chose. Read, reply, bookmark and quote. No algorithm required.</p></div><div className="token-card"><label htmlFor="token">Micro.blog app token</label><div className="token-row"><input id="token" type="password" value={token} onChange={event => setToken(event.target.value)} placeholder="Paste token" autoComplete="off"/><button onClick={() => load(view, token)} disabled={busy || !token.trim()}>{busy ? 'Loading…' : 'Connect'}</button></div><div className="token-note">Kept in this browser session only. <button className="text-button" onClick={forgetToken}>Forget token</button></div></div></header>
-    <nav className="tabs" aria-label="Dent Hand views"><button className={!conversation && !profile && view === 'timeline' ? 'active' : ''} onClick={() => load('timeline')} disabled={!client}>Timeline</button><button className={!conversation && !profile && view === 'circle' ? 'active' : ''} onClick={() => load('circle')} disabled={!client}>Circle</button><button className={!conversation && !profile && view === 'bookmarks' ? 'active' : ''} onClick={() => load('bookmarks')} disabled={!client}>Bookmarks</button><button className={!conversation && !profile && view === 'replies' ? 'active' : ''} onClick={() => load('replies')} disabled={!client}>Replies</button>{(conversation || profile) && <button className="active" onClick={() => conversation ? setConversation(null) : setProfile(null)}>← Back</button>}<button className="compose-launch" onClick={() => openComposer()} disabled={!client}>+ New dent</button></nav>
+    <nav className="tabs" aria-label="Dent Hand views"><button className={!conversation && !profile && view === 'timeline' ? 'active' : ''} onClick={() => load('timeline')} disabled={!client}>Timeline</button><button className={!conversation && !profile && view === 'circle' ? 'active' : ''} onClick={() => load('circle')} disabled={!client}>Circle</button><button className={!conversation && !profile && view === 'bookmarks' ? 'active' : ''} onClick={() => load('bookmarks')} disabled={!client}>Bookmarks</button><button className={!conversation && !profile && view === 'mentions' ? 'active' : ''} onClick={() => load('mentions')} disabled={!client}>Mentions</button><button className={!conversation && !profile && view === 'replies' ? 'active' : ''} onClick={() => load('replies')} disabled={!client}>Replies</button>{(conversation || profile) && <button className="active" onClick={() => conversation ? setConversation(null) : setProfile(null)}>← Back</button>}<button className="compose-launch" onClick={() => openComposer()} disabled={!client}>+ New dent</button></nav>
     {error && <div className="notice error" role="alert">{error}</div>}{publishNotice && <div className="notice success" role="status">{publishNotice.message} {publishNotice.url && <a href={publishNotice.url} target="_blank" rel="noreferrer">View dent ↗</a>}</div>}{!client && !error && <div className="notice">Add your Micro.blog app token to load the timeline.</div>}
     {profile && <section className="profile-card"><div className="profile-main">{profile.person.avatar && <img className="profile-avatar" src={profile.person.avatar} alt=""/>}<div><p className="eyebrow">Profile</p><h2>{profile.person.name}</h2>{profile.person.username && <p>@{profile.person.username}</p>}{profile.loading && <p className="profile-status">Loading full Micro.blog history…</p>}{profile.loadError && <p className="profile-status">Showing dents already in your timeline.</p>}</div></div><div className="profile-actions"><button className="circle-toggle" onClick={() => toggleCircle(profile.person)}>{circleSet.has(profile.person.id) ? '★ In Circle' : '☆ Add to Circle'}</button>{profile.person.url && <a className="profile-link" href={profile.person.url} target="_blank" rel="noreferrer">Open profile ↗</a>}</div></section>}
     {!conversation && !profile && view === 'circle' && <section className="circle-bar"><strong>Circle</strong>{circle.length ? circle.map(person => <button key={person.id} onClick={() => openProfile(person)}>{person.name}</button>) : <span>Add people from their profiles. Your Circle stays on this device.</span>}</section>}
