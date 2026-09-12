@@ -3,6 +3,11 @@ export type MicroblogAuthor = {
   username?: string;
   avatar?: string;
   url?: string;
+  _microblog?: {
+    username?: string;
+    is_following?: boolean;
+    [key: string]: unknown;
+  };
 };
 
 export type MicroblogItem = {
@@ -55,13 +60,18 @@ function appendPaging(params: URLSearchParams, paging?: Paging): void {
   if (paging.sinceId) params.set('since_id', assertId(paging.sinceId));
 }
 
+function validUsername(value?: string): string | undefined {
+  const cleaned = value?.trim().replace(/^@/, '');
+  return cleaned && /^[A-Za-z0-9_-]{1,64}$/.test(cleaned) ? cleaned : undefined;
+}
+
 function usernameFromAuthorUrl(url?: string): string | undefined {
   if (!url) return undefined;
   try {
     const parsed = new URL(url);
     if (parsed.hostname.toLowerCase() !== 'micro.blog') return undefined;
     const [username] = parsed.pathname.split('/').filter(Boolean);
-    return username && /^[A-Za-z0-9_-]{1,64}$/.test(username) ? username : undefined;
+    return validUsername(username);
   } catch {
     return undefined;
   }
@@ -73,7 +83,7 @@ function normalizeFeed(feed: MicroblogFeed): MicroblogFeed {
     items: Array.isArray(feed.items)
       ? feed.items.map(item => {
           if (!item.author || item.author.username) return item;
-          const username = usernameFromAuthorUrl(item.author.url);
+          const username = validUsername(item.author._microblog?.username) || usernameFromAuthorUrl(item.author.url);
           return username ? { ...item, author: { ...item.author, username } } : item;
         })
       : [],
