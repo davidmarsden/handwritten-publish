@@ -92,15 +92,21 @@ function App() {
       if (generation !== generationRef.current) return;
       setDestinations(targets);
       setSelectedDestination(targets.length === 1 ? targets[0].uid : '');
+      setComposerError('');
     } catch (err) {
       if (generation !== generationRef.current) return;
+      setDestinations([]);
+      setSelectedDestination('');
       setComposerError(err instanceof Error ? err.message : 'Could not load destinations.');
     }
   }
 
   async function load(nextView: View = view, tokenOverride?: string) {
     const credential = (tokenOverride ?? connectedToken).trim();
-    if (!credential) return setError('Add your Micro.blog app token first.');
+    if (!credential) {
+      setError('Add your Micro.blog app token first.');
+      return;
+    }
     const generation = ++generationRef.current;
     const requestClient = new MicroblogSocialClient({ token: credential });
     setBusy(true); setError(''); setConversation(null); setProfile(null); setPublishNotice(null);
@@ -124,7 +130,7 @@ function App() {
     if (!client) return;
     const clean = username.trim().replace(/^@/, '');
     if (!clean) return;
-    const generation = generationRef.current;
+    const generation = ++generationRef.current;
     setBusy(true); setError(''); setConversation(null);
     try {
       const result = await client.profile(clean, { count: PAGE_SIZE });
@@ -163,7 +169,7 @@ function App() {
 
   async function openConversation(item: MicroblogItem) {
     if (!client) return;
-    const generation = generationRef.current;
+    const generation = ++generationRef.current;
     setBusy(true); setError('');
     try {
       const result = await client.conversation(item.id);
@@ -228,7 +234,10 @@ function App() {
   function forgetToken() {
     generationRef.current += 1;
     sessionStorage.removeItem('microblog-social-token');
-    setToken(''); setConnectedToken(''); setFeed({ items: [] }); setConversation(null); setProfile(null); setReplyingTo(null); setDestinations([]); setComposing(false); setPublishNotice(null); setError('');
+    setToken(''); setConnectedToken(''); setFeed({ items: [] }); setConversation(null); setProfile(null);
+    setReplyingTo(null); setReplyText(''); setDestinations([]); setSelectedDestination(''); setComposing(false);
+    setQuotedItem(null); setMicropostText(''); setComposerError(''); setPublishNotice(null);
+    setBusy(false); setLoadingOlder(false); setPublishing(false); setError('');
   }
 
   const sourceItems = conversation?.items || profile?.feed.items || feed.items || [];
