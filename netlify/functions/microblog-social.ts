@@ -15,6 +15,7 @@ export const config = {
 type SocialOperation =
   | 'timeline'
   | 'bookmarks'
+  | 'mentions'
   | 'replies'
   | 'conversation'
   | 'profile'
@@ -122,6 +123,7 @@ export default async (request: Request): Promise<Response> => {
 
     if (operation === 'timeline') return upstream(request, `/posts/timeline${suffix}`);
     if (operation === 'bookmarks') return upstream(request, `/posts/bookmarks${suffix}`);
+    if (operation === 'mentions') return upstream(request, `/posts/mentions${suffix}`);
     if (operation === 'replies') return upstream(request, `/posts/replies${suffix}`);
 
     if (operation === 'conversation') {
