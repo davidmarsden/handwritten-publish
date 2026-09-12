@@ -13,8 +13,15 @@
     <link rel="icon" href="/dent-hand-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/dent-hand-icon.svg" />
     <title>Dent Hand — Helping Hand</title>
+    <style>
+      .my-posts-shortcut{position:absolute;z-index:6;top:34px;left:max(138px,calc((100vw - 1060px)/2 + 130px));color:#d7d0c5;text-decoration:none;font:750 .88rem/1 system-ui,sans-serif;border-left:1px solid #49453f;padding-left:14px}
+      .my-posts-shortcut:hover{text-decoration:underline;text-underline-offset:3px}
+      .my-posts-shortcut:focus-visible{outline:3px solid #8f7d62;outline-offset:4px}
+      @media(max-width:760px){.my-posts-shortcut{top:28px;left:126px}}
+    </style>
   </head>
   <body>
+    <a class="my-posts-shortcut" href="/social/my-posts/">My posts</a>
     <div id="social-root"></div>
     <script type="module" src="/social/main.tsx"></script>
   </body>
