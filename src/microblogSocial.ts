@@ -55,6 +55,31 @@ function appendPaging(params: URLSearchParams, paging?: Paging): void {
   if (paging.sinceId) params.set('since_id', assertId(paging.sinceId));
 }
 
+function usernameFromAuthorUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname.toLowerCase() !== 'micro.blog') return undefined;
+    const [username] = parsed.pathname.split('/').filter(Boolean);
+    return username && /^[A-Za-z0-9_-]{1,64}$/.test(username) ? username : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeFeed(feed: MicroblogFeed): MicroblogFeed {
+  return {
+    ...feed,
+    items: Array.isArray(feed.items)
+      ? feed.items.map(item => {
+          if (!item.author || item.author.username) return item;
+          const username = usernameFromAuthorUrl(item.author.url);
+          return username ? { ...item, author: { ...item.author, username } } : item;
+        })
+      : [],
+  };
+}
+
 export class MicroblogSocialClient {
   private readonly token: string;
   private readonly endpoint: string;
@@ -86,23 +111,23 @@ export class MicroblogSocialClient {
   async timeline(paging?: Paging): Promise<MicroblogFeed> {
     const params = new URLSearchParams();
     appendPaging(params, paging);
-    return this.request('timeline', {}, params);
+    return normalizeFeed(await this.request('timeline', {}, params));
   }
 
   async bookmarks(paging?: Paging): Promise<MicroblogFeed> {
     const params = new URLSearchParams();
     appendPaging(params, paging);
-    return this.request('bookmarks', {}, params);
+    return normalizeFeed(await this.request('bookmarks', {}, params));
   }
 
   async replies(paging?: Paging): Promise<MicroblogFeed> {
     const params = new URLSearchParams();
     appendPaging(params, paging);
-    return this.request('replies', {}, params);
+    return normalizeFeed(await this.request('replies', {}, params));
   }
 
   async conversation(id: string): Promise<MicroblogFeed> {
-    return this.request('conversation', {}, new URLSearchParams({ id: assertId(id) }));
+    return normalizeFeed(await this.request('conversation', {}, new URLSearchParams({ id: assertId(id) })));
   }
 
   async profile(username: string, paging?: Paging): Promise<MicroblogFeed> {
@@ -110,7 +135,7 @@ export class MicroblogSocialClient {
     if (!/^[A-Za-z0-9_-]{1,64}$/.test(cleaned)) throw new Error('Invalid Micro.blog username.');
     const params = new URLSearchParams({ username: cleaned });
     appendPaging(params, paging);
-    return this.request('profile', {}, params);
+    return normalizeFeed(await this.request('profile', {}, params));
   }
 
   async destinations(): Promise<MicroblogDestination[]> {
