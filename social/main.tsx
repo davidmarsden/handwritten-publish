@@ -136,6 +136,7 @@ function App() {
   const [composerError, setComposerError] = useState('');
   const [publishNotice, setPublishNotice] = useState<PublishNotice>(null);
   const generationRef = useRef(0);
+  const refreshRequestRef = useRef(0);
   const profileCacheRef = useRef(new Map<string, MicroblogFeed>());
 
   const client = useMemo(() => connectedToken ? new MicroblogSocialClient({ token: connectedToken }) : null, [connectedToken]);
@@ -190,8 +191,7 @@ function App() {
     if (!credential) { setError('Add your Micro.blog app token first.'); return; }
     const generation = ++generationRef.current;
     const requestClient = new MicroblogSocialClient({ token: credential });
-    setBusy(true); setError(''); setConversation(null); setProfile(null); setPublishNotice(null);
-    if (nextView !== 'timeline') setPendingNew([]);
+    setBusy(true); setError(''); setConversation(null); setProfile(null); setPublishNotice(null); setPendingNew([]);
     try {
       const result = await feedFor(requestClient, nextView);
       if (generation !== generationRef.current) return;
@@ -215,6 +215,7 @@ function App() {
     const firstId = feed.items[0]?.id;
     if (!firstId) { await load('timeline'); return; }
     const generation = generationRef.current;
+    const refreshRequest = ++refreshRequestRef.current;
     setCheckingNew(true); setError('');
     try {
       const result = await client.timeline({ count: PAGE_SIZE, sinceId: firstId });
@@ -226,7 +227,9 @@ function App() {
       });
     } catch (err) {
       if (generation === generationRef.current) setError(err instanceof Error ? err.message : 'Could not check for new dents.');
-    } finally { if (generation === generationRef.current) setCheckingNew(false); }
+    } finally {
+      if (refreshRequest === refreshRequestRef.current) setCheckingNew(false);
+    }
   }
 
   function revealNew() {
@@ -368,6 +371,7 @@ function App() {
 
   function forgetToken() {
     generationRef.current += 1;
+    refreshRequestRef.current += 1;
     sessionStorage.removeItem('microblog-social-token');
     setToken(''); setConnectedToken(''); setFeed({ items: [] }); setConversation(null); setProfile(null); setPendingNew([]);
     setReplyingTo(null); setReplyText(''); setDestinations([]); setSelectedDestination(''); setComposing(false);
