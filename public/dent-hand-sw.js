@@ -1,4 +1,4 @@
-const CACHE = 'dent-hand-shell-v8';
+const CACHE = 'dent-hand-shell-v9';
 const SHELL = ['/social/', '/dent-hand.webmanifest', '/dent-hand-icon.svg', '/dent-hand-brand.css', '/dent-hand-wordmark.svg'];
 
 async function precacheShell() {
