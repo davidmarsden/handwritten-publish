@@ -44,9 +44,11 @@ Markdown Hand intentionally has no editor. Its job is to keep a prepared Markdow
 
 **The social side of Micro.blog, without the clutter.**
 
-Dent Hand is a minimal Micro.blog client at `/social/`. It is for reading and responding rather than long-form publishing: timelines, conversations, bookmarks, replies, profiles and the user's own posts stay close at hand, while proper writing remains in the dedicated publishing tools.
+Dent Hand is a minimal Micro.blog client at `/social/`. It is for reading and responding rather than long-form publishing: timelines, conversations, bookmarks, replies, profiles and the user's own posts stay close at hand, while proper writing remains in the dedicated publishing tools. Short-form microposting is available as a secondary action with an explicit destination.
 
-Its social API layer is deliberately allow-listed rather than a general proxy, and the browser-supplied Micro.blog token remains ephemeral. The product keeps social reading and interaction separate from the longer-form publishing workflows elsewhere in Helping Hand.
+Dent Hand signs in through Micro.blog OAuth / IndieAuth with the `profile read create update` scopes its actual features require. The access token is encrypted server-side; browser JavaScript receives only an opaque `HttpOnly` session cookie. Its social API layer is deliberately allow-listed rather than a general proxy.
+
+Public Mastodon profiles/statuses can also be read through the compatibility layer without turning Dent Hand into a second full social dashboard. Authenticated Mastodon support remains a possible future provider rather than part of the current core.
 
 ## Repository strategy
 
@@ -93,7 +95,7 @@ Product-specific code stays outside the shared core:
 - handwritten document/page models and annotation editing belong to Publish Hand;
 - queue/batch selection, streamed-file routing and upload-result presentation belong to BUM Hand;
 - raw Markdown file reading, private GitHub draft routing and Micro.blog source-verification behaviour belong to Markdown Hand;
-- timeline, conversation, bookmark, reply and profile interactions belong to Dent Hand.
+- timeline, conversation, bookmark, reply, profile and social-session behaviour belong to Dent Hand.
 
 ## Destination boundaries
 
@@ -103,6 +105,7 @@ Helping Hand no longer assumes that every useful intermediate state is a Micro.b
 - BUM Hand treats the selected Micro.blog blog as explicit request metadata for every supported media upload.
 - Markdown Hand can instead stop at a configured private GitHub working draft when a piece is still research or newsroom material.
 - Dent Hand uses a narrow allow-listed bridge for Micro.blog social actions rather than exposing a general upstream proxy.
+- Dent Hand's OAuth token remains server-side and encrypted; its browser session is represented only by an opaque cookie.
 - The GitHub repository credential is server-side and narrowly scoped; the browser uses a separate write key.
 - Destination-specific adapters should remain small boundaries around human-owned source files, not reasons to reshape the core formats.
 
@@ -120,15 +123,15 @@ The original extraction/restructuring plan is complete, and the later Markdown r
 8. [x] Add the first non-Micro.blog working destination: a configured private GitHub working-draft route.
 9. [x] Make BUM Hand media routing explicit for multi-blog Micro.blog accounts across images, audio and PDFs.
 
-Dent Hand is post-v1.0 work: a fifth product boundary created because an actual need emerged, not because the architecture had room for another box.
+Dent Hand is post-v1.0 work: a fifth product boundary created because an actual need emerged, not because the architecture had room for another box. Its secure OAuth/session layer is now complete for Micro.blog: sign-in, account verification, required social scopes and encrypted token persistence all work without exposing the bearer token to browser storage.
 
 Future work is intentionally need-driven. There is no requirement to add another product or another destination simply because the architecture allows it.
 
 ## Reliability as roadmap work
 
-After v1.0, maintenance is a first-class part of the roadmap rather than an afterthought. The Android/provider-backed file staging fix and the multi-blog `mp-destination` fix are examples: neither adds a flashy feature, but both protect the exact workflows Helping Hand exists to make frictionless.
+After v1.0, maintenance is a first-class part of the roadmap rather than an afterthought. The Android/provider-backed file staging fix, the multi-blog `mp-destination` fix and Dent Hand's OAuth/scope hardening are examples: none is a flashy feature, but each protects the exact workflows Helping Hand exists to make frictionless.
 
-Real-device regressions, API changes, browser quirks and destination-routing failures therefore take priority over speculative additions.
+Real-device regressions, API changes, browser quirks, OAuth/scope changes and destination-routing failures therefore take priority over speculative additions.
 
 ## Product principle
 
