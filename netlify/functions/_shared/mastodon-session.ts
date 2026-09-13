@@ -1,10 +1,13 @@
 import { getDatabase } from '@netlify/database';
 import { isIP } from 'node:net';
 import { resolve4, resolve6 } from 'node:dns/promises';
+import { request as httpsRequest } from 'node:https';
 
 const SESSION_COOKIE = 'dent_hand_mastodon_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 const OAUTH_TTL_SECONDS = 600;
+
+type PinnedAddress = { address: string; family: 4 | 6 };
 
 function env(name: string): string {
   const netlifyEnv = (globalThis as typeof globalThis & {
@@ -74,19 +77,25 @@ async function ensureTables(): Promise<void> {
       expires_at TIMESTAMPTZ NOT NULL
     )
   `;
+  // v2 keys app registrations by both remote instance and Dent Hand origin.
+  // The same database can serve custom domains, netlify.app and deploy previews,
+  // each of which has a distinct registered OAuth redirect URI.
   await db.sql`
-    CREATE TABLE IF NOT EXISTS dent_hand_mastodon_apps (
-      instance_origin TEXT PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS dent_hand_mastodon_apps_v2 (
+      instance_origin TEXT NOT NULL,
+      redirect_origin TEXT NOT NULL,
       client_id TEXT NOT NULL,
       secret_ciphertext TEXT NOT NULL,
       secret_iv TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL
+      created_at TIMESTAMPTZ NOT NULL,
+      PRIMARY KEY (instance_origin, redirect_origin)
     )
   `;
   await db.sql`
-    CREATE TABLE IF NOT EXISTS dent_hand_mastodon_oauth (
+    CREATE TABLE IF NOT EXISTS dent_hand_mastodon_oauth_v2 (
       state TEXT PRIMARY KEY,
       instance_origin TEXT NOT NULL,
+      redirect_origin TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL,
       expires_at TIMESTAMPTZ NOT NULL
     )
@@ -129,26 +138,77 @@ export function normalizeMastodonInstance(value: string): string {
   return `https://${hostname}`;
 }
 
-export async function assertPublicMastodonInstance(instanceOrigin: string): Promise<void> {
+export async function resolvePublicMastodonInstance(instanceOrigin: string): Promise<PinnedAddress> {
   const hostname = new URL(instanceOrigin).hostname;
   const results = await Promise.allSettled([resolve4(hostname), resolve6(hostname)]);
-  const addresses = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+  const addresses: PinnedAddress[] = [];
+  if (results[0].status === 'fulfilled') addresses.push(...results[0].value.map(address => ({ address, family: 4 as const })));
+  if (results[1].status === 'fulfilled') addresses.push(...results[1].value.map(address => ({ address, family: 6 as const })));
   if (!addresses.length) throw new Error('Could not resolve that server.');
-  if (addresses.some(address => address.includes(':') ? ipv6IsPrivate(address) : ipv4IsPrivate(address))) {
+  if (addresses.some(({ address, family }) => family === 6 ? ipv6IsPrivate(address) : ipv4IsPrivate(address))) {
     throw new Error('That server resolves to a private or reserved network address.');
   }
+  return addresses[0];
+}
+
+function pinnedHttpsFetch(url: URL, pinned: PinnedAddress, init: RequestInit): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const headers = new Headers(init.headers || {});
+    if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+
+    const req = httpsRequest({
+      protocol: 'https:',
+      hostname: url.hostname,
+      port: 443,
+      path: `${url.pathname}${url.search}`,
+      method: init.method || 'GET',
+      headers: Object.fromEntries(headers.entries()),
+      servername: url.hostname,
+      lookup: (_hostname, _options, callback) => callback(null, pinned.address, pinned.family),
+    }, response => {
+      const chunks: Uint8Array[] = [];
+      response.on('data', chunk => chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk));
+      response.on('end', () => {
+        const responseHeaders = new Headers();
+        for (let index = 0; index < response.rawHeaders.length; index += 2) {
+          responseHeaders.append(response.rawHeaders[index], response.rawHeaders[index + 1]);
+        }
+        resolve(new Response(Buffer.concat(chunks), {
+          status: response.statusCode || 502,
+          statusText: response.statusMessage || '',
+          headers: responseHeaders,
+        }));
+      });
+    });
+
+    req.setTimeout(12000, () => req.destroy(new Error('Mastodon request timed out.')));
+    req.on('error', reject);
+
+    const body = init.body;
+    if (body !== undefined && body !== null) {
+      if (typeof body === 'string') req.write(body);
+      else if (body instanceof URLSearchParams) req.write(body.toString());
+      else if (body instanceof ArrayBuffer) req.write(Buffer.from(body));
+      else if (ArrayBuffer.isView(body)) req.write(Buffer.from(body.buffer, body.byteOffset, body.byteLength));
+      else {
+        req.destroy();
+        reject(new Error('Unsupported Mastodon request body.'));
+        return;
+      }
+    }
+    req.end();
+  });
 }
 
 export async function mastodonFetch(instanceOrigin: string, path: string, init: RequestInit = {}): Promise<Response> {
-  await assertPublicMastodonInstance(instanceOrigin);
+  const pinned = await resolvePublicMastodonInstance(instanceOrigin);
   const url = new URL(path, instanceOrigin);
   if (url.origin !== instanceOrigin) throw new Error('Invalid Mastodon API path.');
-  const response = await fetch(url, {
-    ...init,
-    redirect: 'manual',
-    signal: AbortSignal.timeout(12000),
-    headers: { Accept: 'application/json', ...(init.headers || {}) },
-  });
+
+  // Pin the connection to the address that passed our public-network validation.
+  // Keeping hostname/servername unchanged preserves Host routing and TLS SNI while
+  // preventing a second DNS lookup from being rebound to a private address.
+  const response = await pinnedHttpsFetch(url, pinned, init);
   if (response.status >= 300 && response.status < 400) throw new Error('Mastodon API redirects are not followed.');
   return response;
 }
@@ -204,11 +264,13 @@ export async function deleteMastodonSession(request: Request): Promise<void> {
   await db.sql`DELETE FROM dent_hand_mastodon_sessions WHERE session_id = ${sessionId}`;
 }
 
-export async function mastodonApp(instanceOrigin: string): Promise<{ clientId: string; clientSecret: string } | null> {
+export async function mastodonApp(instanceOrigin: string, redirectOrigin: string): Promise<{ clientId: string; clientSecret: string } | null> {
   await ensureTables();
   const db = getDatabase();
   const [row] = await db.sql`
-    SELECT client_id, secret_ciphertext, secret_iv FROM dent_hand_mastodon_apps WHERE instance_origin = ${instanceOrigin}
+    SELECT client_id, secret_ciphertext, secret_iv
+    FROM dent_hand_mastodon_apps_v2
+    WHERE instance_origin = ${instanceOrigin} AND redirect_origin = ${redirectOrigin}
   ` as Array<{ client_id: string; secret_ciphertext: string; secret_iv: string }>;
   if (!row) return null;
   try {
@@ -218,14 +280,14 @@ export async function mastodonApp(instanceOrigin: string): Promise<{ clientId: s
   }
 }
 
-export async function saveMastodonApp(instanceOrigin: string, clientId: string, clientSecret: string): Promise<void> {
+export async function saveMastodonApp(instanceOrigin: string, redirectOrigin: string, clientId: string, clientSecret: string): Promise<void> {
   await ensureTables();
   const encrypted = await encryptSecret(clientSecret);
   const db = getDatabase();
   await db.sql`
-    INSERT INTO dent_hand_mastodon_apps (instance_origin, client_id, secret_ciphertext, secret_iv, created_at)
-    VALUES (${instanceOrigin}, ${clientId}, ${encrypted.ciphertext}, ${encrypted.iv}, ${new Date().toISOString()})
-    ON CONFLICT (instance_origin) DO UPDATE SET
+    INSERT INTO dent_hand_mastodon_apps_v2 (instance_origin, redirect_origin, client_id, secret_ciphertext, secret_iv, created_at)
+    VALUES (${instanceOrigin}, ${redirectOrigin}, ${clientId}, ${encrypted.ciphertext}, ${encrypted.iv}, ${new Date().toISOString()})
+    ON CONFLICT (instance_origin, redirect_origin) DO UPDATE SET
       client_id = EXCLUDED.client_id,
       secret_ciphertext = EXCLUDED.secret_ciphertext,
       secret_iv = EXCLUDED.secret_iv,
@@ -233,28 +295,28 @@ export async function saveMastodonApp(instanceOrigin: string, clientId: string, 
   `;
 }
 
-export async function createMastodonOAuthState(instanceOrigin: string): Promise<string> {
+export async function createMastodonOAuthState(instanceOrigin: string, redirectOrigin: string): Promise<string> {
   await ensureTables();
   const state = randomId();
   const createdAt = new Date();
   const expiresAt = new Date(createdAt.getTime() + OAUTH_TTL_SECONDS * 1000);
   const db = getDatabase();
-  await db.sql`DELETE FROM dent_hand_mastodon_oauth WHERE expires_at <= ${createdAt.toISOString()}`;
+  await db.sql`DELETE FROM dent_hand_mastodon_oauth_v2 WHERE expires_at <= ${createdAt.toISOString()}`;
   await db.sql`
-    INSERT INTO dent_hand_mastodon_oauth (state, instance_origin, created_at, expires_at)
-    VALUES (${state}, ${instanceOrigin}, ${createdAt.toISOString()}, ${expiresAt.toISOString()})
+    INSERT INTO dent_hand_mastodon_oauth_v2 (state, instance_origin, redirect_origin, created_at, expires_at)
+    VALUES (${state}, ${instanceOrigin}, ${redirectOrigin}, ${createdAt.toISOString()}, ${expiresAt.toISOString()})
   `;
   return state;
 }
 
-export async function consumeMastodonOAuthState(state: string): Promise<string | null> {
+export async function consumeMastodonOAuthState(state: string): Promise<{ instanceOrigin: string; redirectOrigin: string } | null> {
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(state)) return null;
   await ensureTables();
   const db = getDatabase();
   const [row] = await db.sql`
-    SELECT instance_origin FROM dent_hand_mastodon_oauth
+    SELECT instance_origin, redirect_origin FROM dent_hand_mastodon_oauth_v2
     WHERE state = ${state} AND expires_at > ${new Date().toISOString()}
-  ` as Array<{ instance_origin: string }>;
-  await db.sql`DELETE FROM dent_hand_mastodon_oauth WHERE state = ${state}`;
-  return row?.instance_origin || null;
+  ` as Array<{ instance_origin: string; redirect_origin: string }>;
+  await db.sql`DELETE FROM dent_hand_mastodon_oauth_v2 WHERE state = ${state}`;
+  return row ? { instanceOrigin: row.instance_origin, redirectOrigin: row.redirect_origin } : null;
 }
