@@ -2,7 +2,7 @@
 
 ## Current release: v1.0.0 core + post-v1.0 additions
 
-Helping Hand's original four-tool publishing suite reached feature-complete v1.0.0 status for the workflows it was built to solve. Dent Hand has since joined the family as a fifth, deliberately small Micro.blog social client. Future work remains optional and should be driven by real needs rather than a release calendar.
+Helping Hand's original four-tool publishing suite reached feature-complete v1.0.0 status for the workflows it was built to solve. Dent Hand has since joined the family as a fifth, deliberately small multi-network social client for Micro.blog and Mastodon-compatible servers. Future work remains optional and should be driven by real needs rather than a release calendar.
 
 ## Writing Hand — working
 
@@ -101,8 +101,17 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 
 ## Dent Hand — working
 
+### Shared product surface
+
 - [x] Live `/social/` product surface
 - [x] Installable Dent Hand / dent.hand web-app identity
+- [x] Provider abstraction separating the UI from network-specific clients
+- [x] Network chooser and account switching between Micro.blog and Mastodon-compatible servers
+- [x] Local Dent Hand Circle that remains independent of either provider
+- [x] Lightweight app-shell/service-worker support
+
+### Micro.blog provider
+
 - [x] Micro.blog OAuth / IndieAuth sign-in
 - [x] Server-side encrypted Micro.blog access tokens
 - [x] Opaque `HttpOnly` session cookie in the browser
@@ -117,15 +126,33 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 - [x] Guarded short-form posting to an explicitly chosen Micro.blog destination
 - [x] Typed browser client in `src/microblogSocial.ts`
 - [x] Allow-listed Netlify social bridge rather than a general proxy
-- [x] Lightweight app-shell/service-worker support
 
-Further Dent Hand work should stay deliberately small and need-driven: better history/paging, optimistic interaction state and lightweight caching only where they remove real friction. Mentions should remain optional/degraded until the relevant Micro.blog endpoint is reliable enough to depend on.
+### Mastodon / compatible-server provider
+
+- [x] Public Mastodon profile/status reading from Micro.blog-fed federated authors
+- [x] Secure instance-aware OAuth registration and sign-in
+- [x] DNS/private-network validation and pinned HTTPS requests for user-supplied server names
+- [x] Server-side encrypted Mastodon client secrets and user access tokens
+- [x] Opaque `HttpOnly` Mastodon session cookie in the browser
+- [x] Authenticated chronological home timeline
+- [x] Remote profile links from the timeline
+- [x] Reply to statuses
+- [x] Favourite and unfavourite statuses
+- [x] Bookmark and unbookmark statuses
+- [x] Boost and unboost statuses
+- [x] Publish new short-form statuses
+- [x] Preserve provider action state (`favourited`, `bookmarked`, `reblogged`) in normalized timeline items
+- [x] Typed browser client in `src/mastodonSocial.ts`
+
+Further Dent Hand work should stay deliberately small and need-driven: better history/paging, interaction-state polish, capability detection for compatible Fediverse servers, and lightweight caching only where they remove real friction. Micro.blog mentions should remain optional/degraded until the relevant endpoint is reliable enough to depend on.
 
 ## Safety and privacy boundary
 
 - Browser publishing tokens used by Publish Hand, BUM Hand and Markdown Hand remain ephemeral unless that product explicitly documents otherwise.
-- Dent Hand does **not** keep a reusable Micro.blog bearer token in browser storage: OAuth tokens are encrypted server-side and browser JavaScript receives only an opaque `HttpOnly` session cookie.
-- Dent Hand's production deployment requires `DENT_HAND_SESSION_SECRET` (at least 32 characters) for server-side token encryption.
+- Dent Hand does **not** keep reusable Micro.blog or Mastodon bearer tokens in browser storage: provider access tokens are encrypted server-side and browser JavaScript receives only opaque `HttpOnly` session cookies.
+- Mastodon OAuth application secrets are also encrypted server-side rather than embedded in browser JavaScript.
+- Dent Hand's production deployment requires `DENT_HAND_SESSION_SECRET` (at least 32 characters) for server-side token and OAuth-secret encryption.
+- User-supplied Mastodon server names are restricted to public HTTPS hosts; Dent Hand validates DNS results and pins outbound HTTPS connections to the validated public address to reduce SSRF/DNS-rebinding risk while preserving the intended Host header and TLS SNI.
 - Writing Hand uses separate, revocable server-side credentials in the user's own deployment.
 - Private GitHub working drafts use a narrowly-scoped server-side repository token plus a separate browser write key.
 - New Publish Hand and Markdown Hand Micro.blog posts are draft-first.
@@ -135,7 +162,7 @@ Further Dent Hand work should stay deliberately small and need-driven: better hi
 - BUM Hand stages selected files locally and forwards them only after the user starts an upload.
 - BUM Hand forwards the chosen Micro.blog destination with every supported media upload so multi-blog accounts do not rely on an implicit default.
 - Markdown Hand reads the chosen file locally and sends its source only when the user explicitly saves or publishes it.
-- Dent Hand forwards authenticated requests only through its allow-listed social operations.
+- Dent Hand forwards authenticated requests only through provider-specific allow-listed operations rather than exposing a general-purpose proxy.
 
 ## After v1.0
 
@@ -149,7 +176,8 @@ There is no mandatory next phase. Possible future work remains intentionally ope
 - [ ] Optional Micro.blog Notes destination, including encrypted note creation and notebook selection, if it becomes useful in real use
 - [ ] Deeper native reMarkable or other tablet integration
 - [ ] Better Dent Hand history/paging and interaction-state polish when real use justifies it
-- [ ] Authenticated Mastodon support behind a provider abstraction if it solves a real use case; public Mastodon reading is already possible
+- [ ] Test and document additional Mastodon-compatible Fediverse servers, using capability detection rather than assuming every ActivityPub implementation exposes the same client API
+- [ ] Consider additional authenticated social providers only where they expose a suitable client API and solve a real use case
 - [ ] Additional destination-neutral publisher adapters when a real need appears
 
 The product rule is simple: add something when it removes a real publishing or interaction frustration, not because the roadmap has an empty box.
