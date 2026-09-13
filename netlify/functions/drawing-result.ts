@@ -19,7 +19,9 @@ export default async (request: Request) => {
       s.judge_comment,
       s.judged_at,
       c.id AS challenge_id,
-      c.title AS challenge_title
+      c.title AS challenge_title,
+      c.elijah_score,
+      c.elijah_grade
     FROM drawing_submissions s
     JOIN drawing_challenges c ON c.id = s.challenge_id
     WHERE s.result_token = ${token}
@@ -33,6 +35,8 @@ export default async (request: Request) => {
     judged_at: string | null;
     challenge_id: string;
     challenge_title: string;
+    elijah_score: string | number | null;
+    elijah_grade: string | null;
   }>;
 
   if (!row) return json({ error: 'Result not found.' }, 404);
@@ -49,6 +53,8 @@ export default async (request: Request) => {
         id: row.challenge_id,
         title: row.challenge_title,
         imageUrl: `/api/drawing-image?challenge=${encodeURIComponent(row.challenge_id)}`,
+        elijahScore: row.elijah_score === null ? null : Number(row.elijah_score),
+        elijahGrade: row.elijah_grade,
       },
       imageUrl: `/api/drawing-image?submissionToken=${encodeURIComponent(row.result_token)}`,
     },
