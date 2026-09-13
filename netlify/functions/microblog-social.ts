@@ -84,7 +84,10 @@ async function upstream(request: Request, path: string, init: RequestInit = {}):
     },
   });
 
-  if (!response.ok) return upstreamError(response, 'Micro.blog request failed.');
+  if (!response.ok) {
+    console.warn(`[dent-hand] Micro.blog upstream failed: ${path} -> ${response.status} ${response.statusText}; content-type=${response.headers.get('content-type') || 'unknown'}`);
+    return upstreamError(response, `Micro.blog request failed (HTTP ${response.status}).`);
+  }
 
   if (response.status === 204) return json({ ok: true });
   const text = await response.text();
