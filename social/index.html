@@ -24,6 +24,7 @@
   <body>
     <a class="my-posts-shortcut" href="/social/my-posts/">My posts</a>
     <div id="social-root"></div>
+    <script>try{sessionStorage.removeItem('microblog-social-token')}catch{}</script>
     <script type="module" src="/social/main.tsx"></script>
   </body>
 </html>

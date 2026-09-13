@@ -1,6 +1,6 @@
 import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MicroblogAuthor, MicroblogDestination, MicroblogFeed, MicroblogItem, MicroblogSocialClient } from '../src/microblogSocial';
+import { MicroblogAccount, MicroblogAuthor, MicroblogDestination, MicroblogFeed, MicroblogItem, MicroblogSocialClient } from '../src/microblogSocial';
 import { fetchMastodonProfile, isMastodonProfileUrl } from '../src/mastodonPublic';
 import './social.css';
 import { RichContent } from './RichContent';
@@ -117,9 +117,9 @@ function quoteMarkdown(item: MicroblogItem): string {
 }
 
 function App() {
-  const storedToken = sessionStorage.getItem('microblog-social-token') || '';
-  const [token, setToken] = useState(storedToken);
-  const [connectedToken, setConnectedToken] = useState(storedToken);
+  const [account, setAccount] = useState<MicroblogAccount | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
   const [view, setView] = useState<View>('timeline');
   const [feed, setFeed] = useState<MicroblogFeed>({ items: [] });
   const [conversation, setConversation] = useState<MicroblogFeed | null>(null);
@@ -146,18 +146,37 @@ function App() {
   const refreshRequestRef = useRef(0);
   const profileCacheRef = useRef(new Map<string, MicroblogFeed>());
 
-  const client = useMemo(() => connectedToken ? new MicroblogSocialClient({ token: connectedToken }) : null, [connectedToken]);
+  const client = useMemo(() => new MicroblogSocialClient(), []);
   const circleSet = useMemo(() => new Set(circle.map(person => person.id)), [circle]);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/dent-hand-sw.js', { scope: '/social/', updateViaCache: 'none' }).catch(() => undefined);
+    void restoreSession();
   }, []);
 
   useEffect(() => {
-    if (!client || view !== 'timeline' || conversation || profile || feed.items.length === 0) return;
+    if (!authenticated || view !== 'timeline' || conversation || profile || feed.items.length === 0) return;
     const timer = window.setInterval(() => { void checkForNew(); }, 60000);
     return () => window.clearInterval(timer);
-  }, [client, view, conversation, profile, feed.items[0]?.id]);
+  }, [authenticated, view, conversation, profile, feed.items[0]?.id]);
+
+  async function restoreSession() {
+    setAuthChecking(true);
+    const authResult = new URLSearchParams(window.location.search).get('auth');
+    try {
+      const identity = await client.account();
+      setAccount(identity);
+      setAuthenticated(true);
+      await load('timeline', true);
+    } catch {
+      setAccount(null);
+      setAuthenticated(false);
+      if (authResult === 'error') setError('Micro.blog sign-in was not completed. Please try again.');
+    } finally {
+      setAuthChecking(false);
+      if (authResult) window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+    }
+  }
 
   function saveCircle(next: CirclePerson[]) {
     const unique = new Map<string, CirclePerson>();
@@ -193,21 +212,15 @@ function App() {
     }
   }
 
-  async function load(nextView: View = view, tokenOverride?: string) {
-    const credential = (tokenOverride ?? connectedToken).trim();
-    if (!credential) { setError('Add your Micro.blog app token first.'); return; }
+  async function load(nextView: View = view, allowBeforeAuthState = false) {
+    if (!authenticated && !allowBeforeAuthState) { setError('Connect Dent Hand to Micro.blog first.'); return; }
     const generation = ++generationRef.current;
-    const requestClient = new MicroblogSocialClient({ token: credential });
     setBusy(true); setError(''); setConversation(null); setProfile(null); setPublishNotice(null); setPendingNew([]);
     try {
-      const result = await feedFor(requestClient, nextView);
+      const result = await feedFor(client, nextView);
       if (generation !== generationRef.current) return;
       setFeed(result); setHasMore(result.items.length >= PAGE_SIZE); setView(nextView);
-      if (tokenOverride !== undefined) {
-        setConnectedToken(credential);
-        sessionStorage.setItem('microblog-social-token', credential);
-      }
-      if (tokenOverride !== undefined || destinations.length === 0) await refreshDestinations(requestClient, generation);
+      if (destinations.length === 0) await refreshDestinations(client, generation);
     } catch (err) {
       if (generation === generationRef.current) {
         setError(nextView === 'mentions'
@@ -218,7 +231,7 @@ function App() {
   }
 
   async function checkForNew() {
-    if (!client || checkingNew || conversation || profile || view !== 'timeline') return;
+    if (!authenticated || checkingNew || conversation || profile || view !== 'timeline') return;
     const firstId = feed.items[0]?.id;
     if (!firstId) { await load('timeline'); return; }
     const generation = generationRef.current;
@@ -250,7 +263,7 @@ function App() {
   }
 
   function openProfile(person: CirclePerson) {
-    if (!client) return;
+    if (!authenticated) return;
     const generation = ++generationRef.current;
     setError(''); setConversation(null);
     const localFeed: MicroblogFeed = { items: localPostsFor(person) };
@@ -291,7 +304,7 @@ function App() {
   function openProfileItem(item: MicroblogItem) { const person = personFromItem(item); if (person) openProfile(person); }
 
   async function loadOlder() {
-    if (!client || conversation || loadingOlder) return;
+    if (!authenticated || conversation || loadingOlder) return;
     const sourceItems = profile?.feed.items || feed.items;
     const lastId = sourceItems[sourceItems.length - 1]?.id;
     const canLoad = profile ? profile.hasMore : hasMore;
@@ -318,7 +331,7 @@ function App() {
   }
 
   async function openConversation(item: MicroblogItem) {
-    if (!client) return;
+    if (!authenticated) return;
     if (isRemoteMastodonItem(item)) {
       setError('This is a public Mastodon status. Open the original to view its remote conversation.');
       return;
@@ -334,7 +347,7 @@ function App() {
   }
 
   async function toggleBookmark(item: MicroblogItem) {
-    if (!client) return;
+    if (!authenticated) return;
     if (isRemoteMastodonItem(item)) {
       setError('Remote Mastodon statuses are read-only while Dent Hand is connected through Micro.blog.');
       return;
@@ -350,7 +363,7 @@ function App() {
 
   async function submitReply(event: FormEvent) {
     event.preventDefault();
-    if (!client || !replyingTo || !replyText.trim()) return;
+    if (!authenticated || !replyingTo || !replyText.trim()) return;
     if (isRemoteMastodonItem(replyingTo)) {
       setError('Remote Mastodon statuses are read-only while Dent Hand is connected through Micro.blog.');
       setReplyingTo(null);
@@ -366,7 +379,7 @@ function App() {
   }
 
   function openComposer(item?: MicroblogItem) {
-    if (!client) return;
+    if (!authenticated) return;
     setComposerError(''); setPublishNotice(null); setQuotedItem(item || null);
     if (item) {
       setMicropostText('');
@@ -393,7 +406,7 @@ function App() {
 
   async function submitMicropost(event: FormEvent) {
     event.preventDefault();
-    if (!client || !selectedDestination) return;
+    if (!authenticated || !selectedDestination) return;
     const wasQuote = Boolean(quotedItem);
     const body = quotedItem ? [micropostText.trim(), quoteMarkdown(quotedItem)].filter(Boolean).join('\n\n') : micropostText.trim();
     if (!body) return;
@@ -410,11 +423,18 @@ function App() {
 
   function toggleCircle(person: CirclePerson) { saveCircle(circleSet.has(person.id) ? circle.filter(item => item.id !== person.id) : [...circle, person]); }
 
-  function forgetToken() {
+  async function signOut() {
+    setError('');
+    try {
+      const response = await fetch('/api/microblog/auth?op=logout', { method: 'POST', credentials: 'same-origin' });
+      if (!response.ok) throw new Error(`Sign out failed (${response.status}).`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not sign out. Your session is still active; please try again.');
+      return;
+    }
     generationRef.current += 1;
     refreshRequestRef.current += 1;
-    sessionStorage.removeItem('microblog-social-token');
-    setToken(''); setConnectedToken(''); setFeed({ items: [] }); setConversation(null); setProfile(null); setPendingNew([]);
+    setAccount(null); setAuthenticated(false); setFeed({ items: [] }); setConversation(null); setProfile(null); setPendingNew([]);
     setReplyingTo(null); setReplyText(''); setDestinations([]); setSelectedDestination(''); setComposing(false);
     setQuotedItem(null); setMicropostText(''); setComposerError(''); setPublishNotice(null);
     setBusy(false); setCheckingNew(false); setLoadingOlder(false); setPublishing(false); setError('');
@@ -428,13 +448,13 @@ function App() {
   const headerTitle = conversation ? conversationTitle : profile ? profile.person.name : view === 'circle' ? 'Circle' : view === 'bookmarks' ? 'Bookmarks' : view === 'mentions' ? 'Mentions' : view === 'replies' ? 'Replies' : 'Timeline';
 
   return <div className="social-shell">
-    <header className="social-header"><div><a className="back-link" href="/">Helping Hand</a><p className="eyebrow">Dent Hand · Micro.blog</p><h1>{headerTitle}</h1><p className="lede">Chronological dents from people you chose. Read, reply, bookmark and quote. No algorithm required.</p></div><div className="token-card"><label htmlFor="token">Micro.blog app token</label><div className="token-row"><input id="token" type="password" value={token} onChange={event => setToken(event.target.value)} placeholder="Paste token" autoComplete="off"/><button onClick={() => load(view, token)} disabled={busy || !token.trim()}>{busy ? 'Loading…' : 'Connect'}</button></div><div className="token-note">Kept in this browser session only. <button className="text-button" onClick={forgetToken}>Forget token</button></div></div></header>
-    <nav className="tabs" aria-label="Dent Hand views"><button className={!conversation && !profile && view === 'timeline' ? 'active' : ''} onClick={() => load('timeline')} disabled={!client}>Timeline</button><button className={!conversation && !profile && view === 'circle' ? 'active' : ''} onClick={() => load('circle')} disabled={!client}>Circle</button><button className={!conversation && !profile && view === 'bookmarks' ? 'active' : ''} onClick={() => load('bookmarks')} disabled={!client}>Bookmarks</button><button className={!conversation && !profile && view === 'mentions' ? 'active' : ''} onClick={() => load('mentions')} disabled={!client}>Mentions</button><button className={!conversation && !profile && view === 'replies' ? 'active' : ''} onClick={() => load('replies')} disabled={!client}>Replies</button>{!conversation && !profile && view === 'timeline' && <button className="refresh-button" onClick={() => void checkForNew()} disabled={!client || checkingNew}>{checkingNew ? 'Checking…' : 'Refresh'}</button>}{(conversation || profile) && <button className="active" onClick={() => conversation ? setConversation(null) : setProfile(null)}>← Back</button>}<button className="compose-launch" onClick={() => openComposer()} disabled={!client}>+ New dent</button></nav>
-    {error && <div className="notice error" role="alert">{error}</div>}{publishNotice && <div className="notice success" role="status">{publishNotice.message} {publishNotice.url && <a href={publishNotice.url} target="_blank" rel="noreferrer">View dent ↗</a>}</div>}{!client && !error && <div className="notice">Add your Micro.blog app token to load the timeline.</div>}
+    <header className="social-header"><div><a className="back-link" href="/">Helping Hand</a><p className="eyebrow">Dent Hand · Micro.blog</p><h1>{headerTitle}</h1><p className="lede">Chronological dents from people you chose. Read, reply, bookmark and quote. No algorithm required.</p></div><div className="token-card">{authChecking ? <div className="token-note">Checking Micro.blog sign-in…</div> : authenticated ? <><strong>{account?.name || `@${account?.username}`}</strong><div className="token-note">{account?.username && <>@{account.username} · </>}Connected securely. Your Micro.blog access token stays on the server. <button className="text-button" onClick={() => void signOut()}>Sign out</button></div></> : <><strong>Connect Micro.blog</strong><div className="token-note">Sign in on Micro.blog and approve Dent Hand. No app token to copy or store in this browser.</div><div className="token-row"><button onClick={() => window.location.assign('/api/microblog/auth?op=start')}>Connect Micro.blog</button></div></>}</div></header>
+    <nav className="tabs" aria-label="Dent Hand views"><button className={!conversation && !profile && view === 'timeline' ? 'active' : ''} onClick={() => load('timeline')} disabled={!authenticated}>Timeline</button><button className={!conversation && !profile && view === 'circle' ? 'active' : ''} onClick={() => load('circle')} disabled={!authenticated}>Circle</button><button className={!conversation && !profile && view === 'bookmarks' ? 'active' : ''} onClick={() => load('bookmarks')} disabled={!authenticated}>Bookmarks</button><button className={!conversation && !profile && view === 'mentions' ? 'active' : ''} onClick={() => load('mentions')} disabled={!authenticated}>Mentions</button><button className={!conversation && !profile && view === 'replies' ? 'active' : ''} onClick={() => load('replies')} disabled={!authenticated}>Replies</button>{!conversation && !profile && view === 'timeline' && <button className="refresh-button" onClick={() => void checkForNew()} disabled={!authenticated || checkingNew}>{checkingNew ? 'Checking…' : 'Refresh'}</button>}{(conversation || profile) && <button className="active" onClick={() => conversation ? setConversation(null) : setProfile(null)}>← Back</button>}<button className="compose-launch" onClick={() => openComposer()} disabled={!authenticated}>+ New dent</button></nav>
+    {error && <div className="notice error" role="alert">{error}</div>}{publishNotice && <div className="notice success" role="status">{publishNotice.message} {publishNotice.url && <a href={publishNotice.url} target="_blank" rel="noreferrer">View dent ↗</a>}</div>}{!authenticated && !authChecking && !error && <div className="notice">Connect your Micro.blog account to load your timeline.</div>}
     {!conversation && !profile && view === 'timeline' && pendingNew.length > 0 && <div className="new-dents-wrap"><button className="new-dents-button" onClick={revealNew}>{pendingNew.length.toLocaleString()} new {pendingNew.length === 1 ? 'dent' : 'dents'} ↑</button></div>}
     {profile && <section className="profile-card"><div className="profile-main">{profile.person.avatar && <img className="profile-avatar" src={profile.person.avatar} alt=""/>}<div><p className="eyebrow">Profile</p><h2>{profile.person.name}</h2>{profile.person.username && <p>@{profile.person.username}</p>}{profile.loading && <p className="profile-status">{profile.source === 'mastodon' ? 'Loading public Mastodon history…' : 'Loading full Micro.blog history…'}</p>}{profile.loadError && <p className="profile-status">Showing dents already in your timeline.</p>}</div></div><div className="profile-actions"><button className="circle-toggle" onClick={() => toggleCircle(profile.person)}>{circleSet.has(profile.person.id) ? '★ In Circle' : '☆ Add to Circle'}</button>{profile.person.url && <a className="profile-link" href={profile.person.url} target="_blank" rel="noreferrer">Open profile ↗</a>}</div></section>}
     {!conversation && !profile && view === 'circle' && <section className="circle-bar"><strong>Circle</strong>{circle.length ? circle.map(person => <button key={person.id} onClick={() => openProfile(person)}>{person.name}</button>) : <span>Add people from their profiles. Your Circle stays on this device.</span>}</section>}
-    <main className="feed" aria-live="polite">{items.map(item => { const person = personFromItem(item); const remoteMastodon = isRemoteMastodonItem(item); return <article className="post-card" key={`${conversation ? 'c' : profile ? 'p' : view}-${item.id}`}><button className="author-button" onClick={() => person && openProfileItem(item)} disabled={!person}>{item.author?.avatar ? <img className="avatar" src={item.author.avatar} alt=""/> : <span className="avatar fallback"/>}<span><strong>{authorLabel(item)}</strong><span className="meta">{item.author?.username && <span>@{item.author.username}</span>}{item._microblog?.date_relative && <span>{item._microblog.date_relative}</span>}</span></span></button><RichContent item={item}/><div className="actions">{!remoteMastodon && <button onClick={() => openConversation(item)}>Conversation</button>}{!remoteMastodon && <button onClick={() => setReplyingTo(item)}>Reply</button>}{!remoteMastodon && <button onClick={() => toggleBookmark(item)}>{item._microblog?.is_bookmark ? 'Bookmarked' : 'Bookmark'}</button>}{item.url && <a href={item.url} target="_blank" rel="noreferrer">Original ↗</a>}<button onClick={() => openComposer(item)}>Quote</button></div></article>; })}{client && items.length === 0 && !busy && <div className="notice inline">{view === 'circle' ? (circle.length ? 'No Circle dents in this slice of the timeline yet.' : 'Your Circle is empty. Open a profile and add someone.') : profile ? 'No dents from this account are in the loaded timeline yet.' : 'Nothing here yet.'}</div>}{!conversation && sourceItems.length > 0 && ((profile?.hasMore ?? hasMore) ? <div className="load-more-wrap"><button className="load-more" onClick={loadOlder} disabled={loadingOlder || busy || Boolean(profile?.loading)}>{loadingOlder ? 'Loading older dents…' : 'Load older dents'}</button></div> : !profile?.loading && <div className="load-more-wrap"><span>{profile && (profile.source === 'timeline' || profile.loadError) ? 'Showing dents from your loaded timeline.' : 'You’ve reached the end.'}</span></div>)}</main>
+    <main className="feed" aria-live="polite">{items.map(item => { const person = personFromItem(item); const remoteMastodon = isRemoteMastodonItem(item); return <article className="post-card" key={`${conversation ? 'c' : profile ? 'p' : view}-${item.id}`}><button className="author-button" onClick={() => person && openProfileItem(item)} disabled={!person}>{item.author?.avatar ? <img className="avatar" src={item.author.avatar} alt=""/> : <span className="avatar fallback"/>}<span><strong>{authorLabel(item)}</strong><span className="meta">{item.author?.username && <span>@{item.author.username}</span>}{item._microblog?.date_relative && <span>{item._microblog.date_relative}</span>}</span></span></button><RichContent item={item}/><div className="actions">{!remoteMastodon && <button onClick={() => openConversation(item)}>Conversation</button>}{!remoteMastodon && <button onClick={() => setReplyingTo(item)}>Reply</button>}{!remoteMastodon && <button onClick={() => toggleBookmark(item)}>{item._microblog?.is_bookmark ? 'Bookmarked' : 'Bookmark'}</button>}{item.url && <a href={item.url} target="_blank" rel="noreferrer">Original ↗</a>}<button onClick={() => openComposer(item)}>Quote</button></div></article>; })}{authenticated && items.length === 0 && !busy && <div className="notice inline">{view === 'circle' ? (circle.length ? 'No Circle dents in this slice of the timeline yet.' : 'Your Circle is empty. Open a profile and add someone.') : profile ? 'No dents from this account are in the loaded timeline yet.' : 'Nothing here yet.'}</div>}{!conversation && sourceItems.length > 0 && ((profile?.hasMore ?? hasMore) ? <div className="load-more-wrap"><button className="load-more" onClick={loadOlder} disabled={loadingOlder || busy || Boolean(profile?.loading)}>{loadingOlder ? 'Loading older dents…' : 'Load older dents'}</button></div> : !profile?.loading && <div className="load-more-wrap"><span>{profile && (profile.source === 'timeline' || profile.loadError) ? 'Showing dents from your loaded timeline.' : 'You’ve reached the end.'}</span></div>)}</main>
     {replyingTo && <div className="reply-drawer" role="dialog" aria-modal="true" aria-label={`Reply to ${authorLabel(replyingTo)}`}><form onSubmit={submitReply}><div className="reply-head"><div><span className="eyebrow">Replying to</span><strong>{authorLabel(replyingTo)}</strong></div><button type="button" className="text-button" onClick={() => setReplyingTo(null)}>Close</button></div><blockquote>{displayText(replyingTo)}</blockquote><textarea value={replyText} onChange={event => setReplyText(event.target.value)} placeholder="Write a reply…" autoFocus/><button className="primary" type="submit" disabled={busy || !replyText.trim()}>{busy ? 'Sending…' : 'Send reply'}</button></form></div>}
     {composing && <div className="reply-drawer composer-drawer" role="dialog" aria-modal="true" aria-label={quotedItem ? 'Quote dent' : 'New dent'}><form onSubmit={submitMicropost}><div className="reply-head"><div><span className="eyebrow">Dent Hand</span><strong>{quotedItem ? 'Quote dent' : 'New dent'}</strong></div><button type="button" className="text-button" onClick={() => setComposing(false)}>Close</button></div>{quotedItem && <blockquote>{displayText(quotedItem)}<footer>— {authorLabel(quotedItem)}</footer></blockquote>}<p className="composer-note">Choose the destination explicitly. Dent Hand never falls back to Micro.blog’s current site.</p><label className="field-label" htmlFor="destination">Post to</label><select id="destination" value={selectedDestination} onChange={event => updateDestination(event.target.value)} disabled={publishing}><option value="">Choose a blog…</option>{destinations.map(destination => <option key={destination.uid} value={destination.uid}>{destinationLabel(destination)}</option>)}</select><label className="field-label" htmlFor="micropost">{quotedItem ? 'Your comment (optional)' : 'Dent'}</label><textarea id="micropost" value={micropostText} onChange={event => updateMicropostText(event.target.value)} placeholder={quotedItem ? 'Add a comment…' : 'What’s happening?'} autoFocus/>{!quotedItem && micropostText && <p className="draft-note">Draft saved for this browser session.</p>}<div className="composer-footer"><span>{micropostText.length.toLocaleString()} characters</span><button className="primary" type="submit" disabled={publishing || !selectedDestination || (!quotedItem && !micropostText.trim())}>{publishing ? 'Publishing…' : 'Publish dent'}</button></div>{composerError && <div className="composer-warning error" role="alert">{composerError}</div>}</form></div>}
   </div>;

@@ -23,24 +23,14 @@ function App() {
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState('');
+  const client = new MicroblogSocialClient();
 
   useEffect(() => { void load(); }, []);
 
   async function load() {
-    const token = sessionStorage.getItem('microblog-social-token')?.trim() || '';
-    if (!token) {
-      setBusy(false);
-      setError('Connect Dent Hand to Micro.blog first, then come back to My posts.');
-      return;
-    }
-
     setBusy(true); setError('');
     try {
-      const bootstrap = new MicroblogSocialClient({ token });
-      const identity = await bootstrap.account();
-      const activeToken = identity.token?.trim() || token;
-      if (activeToken !== token) sessionStorage.setItem('microblog-social-token', activeToken);
-      const client = new MicroblogSocialClient({ token: activeToken });
+      const identity = await client.account();
       const result = await client.profile(identity.username, { count: PAGE_SIZE });
       setAccount(identity);
       setFeed(result);
@@ -55,12 +45,10 @@ function App() {
   async function loadOlder() {
     if (!account || loadingOlder || !hasMore) return;
     const lastId = feed.items[feed.items.length - 1]?.id;
-    const token = sessionStorage.getItem('microblog-social-token')?.trim() || '';
-    if (!token || !lastId) return;
+    if (!lastId) return;
 
     setLoadingOlder(true); setError('');
     try {
-      const client = new MicroblogSocialClient({ token });
       const result = await client.profile(account.username, { count: PAGE_SIZE, beforeId: lastId });
       setFeed(current => ({
         ...current,
@@ -87,7 +75,7 @@ function App() {
       </div>
     </header>
 
-    {error && <div className="notice error" role="alert">{error}</div>}
+    {error && <div className="notice error" role="alert">{error} <a href="/api/microblog/auth?op=start">Connect Micro.blog</a></div>}
     {busy && <div className="notice">Loading your Micro.blog profile…</div>}
 
     {account && <section className="profile-card">

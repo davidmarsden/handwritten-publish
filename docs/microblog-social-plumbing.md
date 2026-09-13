@@ -19,9 +19,31 @@ Proper writing remains in the existing publishing/editorial tools.
 
 ## Authentication and privacy
 
-The browser supplies the user's Micro.blog app token with each request. The token is forwarded in the `Authorization: Bearer …` header and is not stored in Netlify configuration, IndexedDB or source files.
+Dent Hand uses Micro.blog's OAuth / IndieAuth authorization-code flow. The browser redirects to Micro.blog for approval and receives only an opaque Dent Hand session cookie after the callback. The Micro.blog access token is encrypted server-side and is never exposed to browser JavaScript.
 
-The Netlify function is an allow-listed bridge, not an arbitrary proxy. Only known Micro.blog social operations are accepted, and ids / usernames / publishing destinations are validated before an upstream request is made.
+The session cookie is `HttpOnly`, `SameSite=Lax` and `Secure` on HTTPS deployments. Session rows live in Netlify Database and the encrypted token is protected with `DENT_HAND_SESSION_SECRET`.
+
+### Required self-hosted configuration
+
+Every Dent Hand deployment that enables Micro.blog sign-in must set a high-entropy `DENT_HAND_SESSION_SECRET` of at least 32 characters in the Netlify environment, scoped to Functions/runtime. Do not commit it to the repository.
+
+For example, generate a secret locally with:
+
+```bash
+openssl rand -base64 48
+```
+
+Then add the generated value to Netlify as:
+
+```text
+DENT_HAND_SESSION_SECRET
+```
+
+After adding or rotating the secret, redeploy the site. Rotating it invalidates the ability to decrypt existing Dent Hand sessions, so users will need to sign in again.
+
+The production `hand.davidmarsden.info` deployment already has this variable configured. Forks and fresh/self-hosted deployments must supply their own value.
+
+The Netlify social function remains an allow-listed bridge, not an arbitrary proxy. Only known Micro.blog social operations are accepted, and ids / usernames / publishing destinations are validated before an upstream request is made.
 
 ## Implemented bridge operations
 
@@ -30,6 +52,8 @@ The Netlify function is an allow-listed bridge, not an arbitrary proxy. Only kno
 - `GET replies` → `/posts/replies`
 - `GET conversation` → `/posts/conversation?id=…`
 - `GET profile` → `/posts/[username]`
+- `GET account` → the signed-in account resolved from the server session
+- `GET destinations` → the signed-in account's Micropub destinations
 - `POST bookmark` → `/posts/bookmarks`
 - `DELETE unbookmark` → `/posts/bookmarks/[id]`
 - `POST reply` → `/posts/reply`
@@ -39,7 +63,9 @@ Timeline-style calls support `count`, `before_id` and `since_id` for paging.
 
 ## Typed browser client
 
-`src/microblogSocial.ts` wraps the bridge so UI code never assembles Micro.blog API routes directly. The client exposes:
+`src/microblogSocial.ts` wraps the bridge so UI code never assembles Micro.blog API routes directly. In normal Dent Hand use it authenticates through the secure same-origin session cookie; the optional bearer-token constructor path remains only for compatibility/tests and self-hosted integrations.
+
+The client exposes:
 
 - `timeline()`
 - `conversation(id)`
@@ -48,7 +74,11 @@ Timeline-style calls support `count`, `before_id` and `since_id` for paging.
 - `replies()`
 - `reply(id, content)`
 - `profile(username)`
+- `account()`
+- `destinations()`
 - `micropost(...)`
+
+On construction the shared client also removes the legacy `microblog-social-token` value from `sessionStorage`, so older Dent Hand tabs migrate away from browser-held bearer tokens regardless of whether the user enters through `/social/` or `/social/my-posts/`.
 
 ## Product surface
 
