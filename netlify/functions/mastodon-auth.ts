@@ -14,7 +14,8 @@ import {
 
 const STATE_COOKIE = 'dent_hand_mastodon_oauth_state';
 const STATE_TTL_SECONDS = 600;
-const SCOPES = 'read';
+const SCOPES = 'read write';
+const APP_SCOPE_VERSION = 'rw1';
 
 export const config = {
   path: '/api/mastodon/auth',
@@ -55,9 +56,17 @@ function appUrls(request: Request) {
   };
 }
 
+function appRegistrationKey(origin: string): string {
+  // Keep the actual callback origin in OAuth state, while versioning stored app
+  // credentials when Dent Hand requests a broader scope set. Existing read-only
+  // registrations from the first Mastodon release must not be silently reused.
+  return `${origin}#${APP_SCOPE_VERSION}`;
+}
+
 async function getOrCreateApp(instanceOrigin: string, request: Request): Promise<{ clientId: string; clientSecret: string }> {
   const { origin, redirectUri, website } = appUrls(request);
-  const existing = await mastodonApp(instanceOrigin, origin);
+  const key = appRegistrationKey(origin);
+  const existing = await mastodonApp(instanceOrigin, key);
   if (existing) return existing;
 
   const response = await mastodonFetch(instanceOrigin, '/api/v1/apps', {
@@ -75,7 +84,7 @@ async function getOrCreateApp(instanceOrigin: string, request: Request): Promise
   const clientId = typeof payload?.client_id === 'string' ? payload.client_id.trim() : '';
   const clientSecret = typeof payload?.client_secret === 'string' ? payload.client_secret.trim() : '';
   if (!clientId || !clientSecret) throw new Error('That server did not return OAuth application credentials.');
-  await saveMastodonApp(instanceOrigin, origin, clientId, clientSecret);
+  await saveMastodonApp(instanceOrigin, key, clientId, clientSecret);
   return { clientId, clientSecret };
 }
 
@@ -122,7 +131,7 @@ async function callback(request: Request): Promise<Response> {
   const { instanceOrigin } = oauthState;
 
   try {
-    const app = await mastodonApp(instanceOrigin, origin);
+    const app = await mastodonApp(instanceOrigin, appRegistrationKey(origin));
     if (!app) throw new Error('Dent Hand no longer has OAuth credentials for that server and callback origin.');
 
     const form = new URLSearchParams({

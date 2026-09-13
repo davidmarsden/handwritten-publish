@@ -35,6 +35,9 @@ type MastodonStatus = {
   account?: MastodonAccount;
   reblog?: MastodonStatus | null;
   media_attachments?: unknown;
+  favourited?: unknown;
+  bookmarked?: unknown;
+  reblogged?: unknown;
 };
 
 function cleanText(value: unknown): string | undefined {
@@ -102,6 +105,9 @@ function normalizeStatus(status: MastodonStatus, host: string) {
       source: 'mastodon',
       remote_id: remoteId,
       visible_remote_id: visibleId,
+      is_bookmark: Boolean(visible.bookmarked),
+      is_favourite: Boolean(visible.favourited),
+      is_reblogged: Boolean(visible.reblogged),
       ...(status.reblog ? { reblogged_by: authorFrom(status.account || {}, host).name } : {}),
     },
   };
@@ -119,11 +125,30 @@ export function mastodonPagingId(value?: string): string | undefined {
   return candidate;
 }
 
+function mastodonStatusId(value: unknown): string | undefined {
+  return typeof value === 'string' ? mastodonPagingId(value) : undefined;
+}
+
 async function authenticated(request: Request) {
   const session = await mastodonSession(request);
   if (!session) return null;
   const host = new URL(session.instanceOrigin).hostname;
   return { ...session, host };
+}
+
+async function readBody(request: Request): Promise<Record<string, unknown>> {
+  return request.json().catch(() => ({})) as Promise<Record<string, unknown>>;
+}
+
+function upstreamStatus(status: number): number {
+  return status === 401 || status === 403 || status === 404 || status === 422 ? status : 502;
+}
+
+function writeError(status: number, fallback: string): Response {
+  const error = status === 403
+    ? 'This Mastodon session is read-only. Sign out and reconnect Dent Hand once to approve posting and interaction permissions.'
+    : `${fallback} (${status}).`;
+  return json({ error }, upstreamStatus(status));
 }
 
 async function account(request: Request): Promise<Response> {
@@ -168,10 +193,72 @@ async function timeline(request: Request): Promise<Response> {
   return json({ items });
 }
 
+async function statusAction(request: Request, action: 'favourite' | 'unfavourite' | 'bookmark' | 'unbookmark' | 'reblog' | 'unreblog'): Promise<Response> {
+  const session = await authenticated(request);
+  if (!session) return json({ error: 'Connect a Mastodon account first.' }, 401);
+  const body = await readBody(request);
+  const id = mastodonStatusId(body.id);
+  if (!id) return json({ error: 'Invalid Mastodon status id.' }, 400);
+
+  const response = await mastodonFetch(session.instanceOrigin, `/api/v1/statuses/${encodeURIComponent(id)}/${action}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.token}` },
+  });
+  if (!response.ok) return writeError(response.status, `Mastodon ${action} failed`);
+  const payload = await response.json().catch(() => null) as MastodonStatus | null;
+  const item = payload ? normalizeStatus(payload, session.host) : null;
+  return json({ ok: true, ...(item ? { item } : {}) });
+}
+
+async function reply(request: Request): Promise<Response> {
+  const session = await authenticated(request);
+  if (!session) return json({ error: 'Connect a Mastodon account first.' }, 401);
+  const body = await readBody(request);
+  const id = mastodonStatusId(body.id);
+  const content = cleanText(body.content);
+  if (!id) return json({ error: 'Invalid Mastodon status id.' }, 400);
+  if (!content) return json({ error: 'Reply text is required.' }, 400);
+  if (content.length > 5000) return json({ error: 'Reply is too long for Dent Hand.' }, 400);
+
+  const response = await mastodonFetch(session.instanceOrigin, '/api/v1/statuses', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: content, in_reply_to_id: id }),
+  });
+  if (!response.ok) return writeError(response.status, 'Mastodon reply failed');
+  const payload = await response.json().catch(() => null) as MastodonStatus | null;
+  return json({ ok: true, url: cleanText(payload?.url) || cleanText(payload?.uri) || null });
+}
+
+async function publish(request: Request): Promise<Response> {
+  const session = await authenticated(request);
+  if (!session) return json({ error: 'Connect a Mastodon account first.' }, 401);
+  const body = await readBody(request);
+  const content = cleanText(body.content);
+  if (!content) return json({ error: 'Dent text is required.' }, 400);
+  if (content.length > 5000) return json({ error: 'Dent is too long for Dent Hand.' }, 400);
+
+  const response = await mastodonFetch(session.instanceOrigin, '/api/v1/statuses', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${session.token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: content }),
+  });
+  if (!response.ok) return writeError(response.status, 'Mastodon publish failed');
+  const payload = await response.json().catch(() => null) as MastodonStatus | null;
+  return json({ ok: true, url: cleanText(payload?.url) || cleanText(payload?.uri) || null });
+}
+
 export default async (request: Request): Promise<Response> => {
-  if (request.method !== 'GET') return json({ error: 'Unsupported Mastodon social operation.' }, 405);
   const op = new URL(request.url).searchParams.get('op');
-  if (op === 'account') return account(request);
-  if (op === 'timeline') return timeline(request);
+  if (request.method === 'GET' && op === 'account') return account(request);
+  if (request.method === 'GET' && op === 'timeline') return timeline(request);
+  if (request.method === 'POST' && op === 'favourite') return statusAction(request, 'favourite');
+  if (request.method === 'POST' && op === 'unfavourite') return statusAction(request, 'unfavourite');
+  if (request.method === 'POST' && op === 'bookmark') return statusAction(request, 'bookmark');
+  if (request.method === 'POST' && op === 'unbookmark') return statusAction(request, 'unbookmark');
+  if (request.method === 'POST' && op === 'boost') return statusAction(request, 'reblog');
+  if (request.method === 'POST' && op === 'unboost') return statusAction(request, 'unreblog');
+  if (request.method === 'POST' && op === 'reply') return reply(request);
+  if (request.method === 'POST' && op === 'publish') return publish(request);
   return json({ error: 'Unsupported Mastodon social operation.' }, 405);
 };
