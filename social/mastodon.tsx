@@ -272,6 +272,7 @@ function App() {
           </div>
           <RichContent item={item}/>
           <div className="actions">
+            <span hidden aria-hidden="true" />
             <button onClick={() => setReplyingTo(item)}>Reply</button>
             <button onClick={() => void runToggle(item, 'favourite')} disabled={acting === `favourite:${item.id}`}>{favourite ? 'Favourited' : 'Favourite'}</button>
             <button onClick={() => void runToggle(item, 'bookmark')} disabled={acting === `bookmark:${item.id}`}>{bookmarked ? 'Bookmarked' : 'Bookmark'}</button>
