@@ -426,7 +426,14 @@ function App() {
   async function signOut() {
     generationRef.current += 1;
     refreshRequestRef.current += 1;
-    try { await fetch('/api/microblog/auth?op=logout', { method: 'POST', credentials: 'same-origin' }); } catch { /* local UI still signs out */ }
+    setError('');
+    try {
+      const response = await fetch('/api/microblog/auth?op=logout', { method: 'POST', credentials: 'same-origin' });
+      if (!response.ok) throw new Error(`Sign out failed (${response.status}).`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not sign out. Your session is still active; please try again.');
+      return;
+    }
     setAccount(null); setAuthenticated(false); setFeed({ items: [] }); setConversation(null); setProfile(null); setPendingNew([]);
     setReplyingTo(null); setReplyText(''); setDestinations([]); setSelectedDestination(''); setComposing(false);
     setQuotedItem(null); setMicropostText(''); setComposerError(''); setPublishNotice(null);
