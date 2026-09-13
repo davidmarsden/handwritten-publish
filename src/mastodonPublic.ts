@@ -26,6 +26,14 @@ type MastodonAccount = {
   url?: unknown;
 };
 
+type MastodonMediaAttachment = {
+  type?: unknown;
+  url?: unknown;
+  remote_url?: unknown;
+  preview_url?: unknown;
+  description?: unknown;
+};
+
 type MastodonStatus = {
   id?: unknown;
   url?: unknown;
@@ -33,10 +41,46 @@ type MastodonStatus = {
   content?: unknown;
   created_at?: unknown;
   account?: MastodonAccount;
+  media_attachments?: unknown;
 };
 
 function cleanText(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function safeHttpUrl(value: unknown): string | undefined {
+  const cleaned = cleanText(value);
+  if (!cleaned) return undefined;
+  try {
+    const url = new URL(cleaned);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function escapeAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function mediaHtml(value: unknown): string {
+  if (!Array.isArray(value)) return '';
+  return value.flatMap(raw => {
+    if (!raw || typeof raw !== 'object') return [];
+    const attachment = raw as MastodonMediaAttachment;
+    const href = safeHttpUrl(attachment.url) || safeHttpUrl(attachment.remote_url) || safeHttpUrl(attachment.preview_url);
+    if (!href) return [];
+    const preview = safeHttpUrl(attachment.preview_url) || (cleanText(attachment.type) === 'image' ? safeHttpUrl(attachment.url) : undefined);
+    const alt = escapeAttribute(cleanText(attachment.description) || 'Media attachment');
+    if (preview) {
+      return [`<p><a href="${escapeAttribute(href)}"><img src="${escapeAttribute(preview)}" alt="${alt}"></a></p>`];
+    }
+    return [`<p><a href="${escapeAttribute(href)}">${alt}</a></p>`];
+  }).join('');
 }
 
 function parseMastodonProfileUrl(value?: string): { origin: string; host: string; username: string; url: string } | null {
@@ -79,16 +123,31 @@ function authorFrom(account: MastodonAccount, fallback: { username: string; host
 }
 
 function normalizeStatus(status: MastodonStatus, fallback: { username: string; host: string; url: string }): MicroblogItem | null {
-  const id = cleanText(status.id);
-  if (!id) return null;
+  const remoteId = cleanText(status.id);
+  if (!remoteId) return null;
   const author = authorFrom(status.account || {}, fallback);
+  const content = `${cleanText(status.content) || ''}${mediaHtml(status.media_attachments)}`;
   return {
-    id,
+    // Namespace remote IDs so an accidental Micro.blog action can never target
+    // an unrelated Micro.blog post with the same numeric identifier.
+    id: `mastodon:${fallback.host}:${remoteId}`,
     url: cleanText(status.url) || cleanText(status.uri),
-    content_html: cleanText(status.content) || '',
+    content_html: content,
     date_published: cleanText(status.created_at),
     author,
+    _microblog: {
+      source: 'mastodon',
+      remote_id: remoteId,
+    },
   };
+}
+
+function pagingRemoteId(value?: string): string | undefined {
+  const cleaned = value?.trim();
+  if (!cleaned) return undefined;
+  if (/^\d+$/.test(cleaned)) return cleaned;
+  const match = cleaned.match(/^mastodon:[^:]+:(\d+)$/);
+  return match?.[1];
 }
 
 export async function fetchMastodonProfile(profileUrl: string, paging: MastodonProfilePaging = {}, fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis)): Promise<MastodonProfileResult> {
@@ -107,7 +166,8 @@ export async function fetchMastodonProfile(profileUrl: string, paging: MastodonP
   const limit = Math.max(1, Math.min(40, Math.trunc(paging.limit || 40)));
   statusesUrl.searchParams.set('limit', String(limit));
   statusesUrl.searchParams.set('exclude_reblogs', 'true');
-  if (paging.maxId && /^\d+$/.test(paging.maxId)) statusesUrl.searchParams.set('max_id', paging.maxId);
+  const maxId = pagingRemoteId(paging.maxId);
+  if (maxId) statusesUrl.searchParams.set('max_id', maxId);
 
   const statusesResponse = await fetchImpl(statusesUrl, { headers: { Accept: 'application/json' } });
   if (!statusesResponse.ok) throw new Error(`Mastodon posts request failed (${statusesResponse.status}).`);
