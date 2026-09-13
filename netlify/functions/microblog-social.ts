@@ -1,4 +1,5 @@
 import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
+import { dentHandSessionToken } from './_shared/dent-hand-session';
 import { publicPublishingDisabledResponse, publicUsageLimitResponse, recordPublicUsage } from './_shared/public-usage';
 
 const API_ROOT = 'https://micro.blog';
@@ -28,7 +29,12 @@ type SocialOperation =
 
 type Destination = { uid: string; name: string };
 
-function tokenFrom(request: Request): string | null {
+async function tokenFrom(request: Request): Promise<string | null> {
+  const sessionToken = await dentHandSessionToken(request);
+  if (sessionToken) return sessionToken;
+
+  // Temporary compatibility for existing tests and self-hosted callers.
+  // Dent Hand's browser UI no longer stores or sends a bearer token.
   const header = request.headers.get('authorization') || '';
   const match = header.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim() || null;
@@ -66,8 +72,8 @@ async function readBody(request: Request): Promise<Record<string, unknown>> {
 }
 
 async function upstream(request: Request, path: string, init: RequestInit = {}): Promise<Response> {
-  const token = tokenFrom(request);
-  if (!token) return json({ error: 'Missing Micro.blog token.' }, 401);
+  const token = await tokenFrom(request);
+  if (!token) return json({ error: 'Connect Dent Hand to Micro.blog first.' }, 401);
 
   const response = await fetch(`${API_ROOT}${path}`, {
     ...init,
@@ -92,8 +98,8 @@ async function upstream(request: Request, path: string, init: RequestInit = {}):
 }
 
 async function accountFor(request: Request): Promise<Response> {
-  const token = tokenFrom(request);
-  if (!token) return json({ error: 'Missing Micro.blog token.' }, 401);
+  const token = await tokenFrom(request);
+  if (!token) return json({ error: 'Connect Dent Hand to Micro.blog first.' }, 401);
 
   const form = new URLSearchParams({ token });
   const response = await fetch(`${API_ROOT}/account/verify`, {
@@ -107,7 +113,6 @@ async function accountFor(request: Request): Promise<Response> {
   if (!response.ok) return upstreamError(response, 'Could not identify the Micro.blog account.');
 
   const payload = await response.json().catch(() => null) as {
-    token?: unknown;
     name?: unknown;
     username?: unknown;
     avatar?: unknown;
@@ -121,7 +126,6 @@ async function accountFor(request: Request): Promise<Response> {
     ...(typeof payload?.name === 'string' && payload.name.trim() ? { name: payload.name.trim() } : {}),
     ...(typeof payload?.avatar === 'string' && payload.avatar.trim() ? { avatar: payload.avatar.trim() } : {}),
     ...(typeof payload?.default_site === 'string' && payload.default_site.trim() ? { defaultSite: payload.default_site.trim() } : {}),
-    ...(typeof payload?.token === 'string' && payload.token.trim() ? { token: payload.token.trim() } : {}),
   });
 }
 
@@ -176,8 +180,8 @@ export default async (request: Request): Promise<Response> => {
     if (operation === 'account') return accountFor(request);
 
     if (operation === 'destinations') {
-      const token = tokenFrom(request);
-      if (!token) return json({ error: 'Missing Micro.blog token.' }, 401);
+      const token = await tokenFrom(request);
+      if (!token) return json({ error: 'Connect Dent Hand to Micro.blog first.' }, 401);
       const result = await destinationsFor(token);
       return result.response ?? json({ destinations: result.destinations ?? [] });
     }
@@ -215,8 +219,8 @@ export default async (request: Request): Promise<Response> => {
       const disabled = publicPublishingDisabledResponse();
       if (disabled) return disabled;
 
-      const token = tokenFrom(request);
-      if (!token) return json({ error: 'Missing Micro.blog token.' }, 401);
+      const token = await tokenFrom(request);
+      if (!token) return json({ error: 'Connect Dent Hand to Micro.blog first.' }, 401);
       const content = typeof body.content === 'string' ? body.content.trim() : '';
       const destination = typeof body.destination === 'string' ? body.destination.trim() : '';
       if (!content) return json({ error: 'Micropost content is required.' }, 400);
