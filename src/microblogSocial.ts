@@ -41,7 +41,6 @@ export type MicroblogAccount = {
   username: string;
   avatar?: string;
   defaultSite?: string;
-  token?: string;
 };
 
 export type Paging = {
@@ -51,7 +50,7 @@ export type Paging = {
 };
 
 export type MicroblogSocialClientOptions = {
-  token: string;
+  token?: string;
   endpoint?: string;
   fetchImpl?: typeof fetch;
 };
@@ -99,13 +98,12 @@ function normalizeFeed(feed: MicroblogFeed): MicroblogFeed {
 }
 
 export class MicroblogSocialClient {
-  private readonly token: string;
+  private readonly token?: string;
   private readonly endpoint: string;
   private readonly fetchImpl: typeof fetch;
 
-  constructor(options: MicroblogSocialClientOptions) {
-    if (!options.token.trim()) throw new Error('A Micro.blog token is required.');
-    this.token = options.token.trim();
+  constructor(options: MicroblogSocialClientOptions = {}) {
+    this.token = options.token?.trim() || undefined;
     this.endpoint = options.endpoint || '/api/microblog/social';
     this.fetchImpl = options.fetchImpl || globalThis.fetch.bind(globalThis);
   }
@@ -115,8 +113,9 @@ export class MicroblogSocialClient {
     query.set('op', op);
     const response = await this.fetchImpl(`${this.endpoint}?${query.toString()}`, {
       ...init,
+      credentials: 'same-origin',
       headers: {
-        Authorization: `Bearer ${this.token}`,
+        ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
         ...(init.headers || {}),
       },
     });
