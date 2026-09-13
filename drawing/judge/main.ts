@@ -93,13 +93,17 @@ function render(submissions: Submission[]) {
     const status = article.querySelector<HTMLElement>('.form-status')!;
 
     scoreInput.addEventListener('input', () => {
-      const score = Number(scoreInput.value);
-      const grade = suggestedDrawingGrade(score);
-      if (grade) {
-        suggestion.textContent = `Suggested grade: ${grade}`;
-        gradeSelect.value = grade;
+      if (!scoreInput.value.trim()) {
+        suggestion.textContent = 'Enter a score to see the suggested grade.';
+        return;
+      }
+      const numericScore = Number(scoreInput.value);
+      const suggestedGrade = suggestedDrawingGrade(numericScore);
+      if (suggestedGrade) {
+        suggestion.textContent = `Suggested grade: ${suggestedGrade}`;
+        gradeSelect.value = suggestedGrade;
       } else {
-        suggestion.textContent = scoreInput.value ? 'No automatic grade for this score — Elijah chooses.' : 'Enter a score to see the suggested grade.';
+        suggestion.textContent = 'No automatic grade for this score — Elijah chooses.';
       }
     });
 
@@ -145,7 +149,8 @@ async function loadDesk() {
   localStorage.setItem('drawing-hand-admin-key', adminKey);
   loginCard.hidden = true;
   desk.hidden = false;
-  setStatus(deskStatus, `${payload.submissions.filter(item => !item.judgedAt).length} drawing${payload.submissions.filter(item => !item.judgedAt).length === 1 ? '' : 's'} waiting for Elijah.`);
+  const waiting = payload.submissions.filter(item => !item.judgedAt).length;
+  setStatus(deskStatus, `${waiting} drawing${waiting === 1 ? '' : 's'} waiting for Elijah.`);
   render(payload.submissions);
 }
 
