@@ -1,8 +1,8 @@
 # Helping Hand
 
-Helping Hand is the umbrella for a small family of human-first publishing tools. The original four-tool publishing suite reached its first complete release at v1.0.0; Dent Hand later joined the family as the lightweight social side of the same Micro.blog-centred toolkit.
+Helping Hand is the umbrella for a small family of human-first publishing tools. The original four-tool publishing suite reached its first complete release at v1.0.0; Dent Hand later joined the family as the lightweight social side of the toolkit and now supports both Micro.blog and Mastodon-compatible servers.
 
-The tools share publishing infrastructure, but each has one clear job and should be usable without exposing the complexity of the others.
+The tools share infrastructure, but each has one clear job and should be usable without exposing the complexity of the others.
 
 ## The family
 
@@ -42,13 +42,17 @@ Markdown Hand intentionally has no editor. Its job is to keep a prepared Markdow
 
 ### Dent Hand
 
-**The social side of Micro.blog, without the clutter.**
+**A small chronological social-web client, without the clutter.**
 
-Dent Hand is a minimal Micro.blog client at `/social/`. It is for reading and responding rather than long-form publishing: timelines, conversations, bookmarks, replies, profiles and the user's own posts stay close at hand, while proper writing remains in the dedicated publishing tools. Short-form microposting is available as a secondary action with an explicit destination.
+Dent Hand lives at `/social/`. It is for reading and responding rather than long-form publishing: chronological home timelines, replies, bookmarks, favourites, boosts, profiles, a local Circle and short-form posting stay close at hand, while proper writing remains in the dedicated publishing tools.
 
-Dent Hand signs in through Micro.blog OAuth / IndieAuth with the `profile read create update` scopes its actual features require. The access token is encrypted server-side; browser JavaScript receives only an opaque `HttpOnly` session cookie. Its social API layer is deliberately allow-listed rather than a general proxy.
+Micro.blog and Mastodon-compatible servers are separate providers behind the same Dent Hand product boundary. A network chooser selects the account that powers the current timeline, while the Circle belongs to Dent Hand itself and remains local to the browser rather than to either network.
 
-Public Mastodon profiles/statuses can also be read through the compatibility layer without turning Dent Hand into a second full social dashboard. Authenticated Mastodon support remains a possible future provider rather than part of the current core.
+For Micro.blog, Dent Hand signs in through OAuth / IndieAuth with the `profile read create update` scopes its actual features require. The access token is encrypted server-side; browser JavaScript receives only an opaque `HttpOnly` session cookie. The Micro.blog social API layer is deliberately allow-listed rather than a general proxy.
+
+For Mastodon-compatible servers, Dent Hand asks for the user's home server, registers/authenticates server-side, encrypts both OAuth application secrets and user access tokens, and again exposes only an opaque browser session. The authenticated provider supports the chronological home timeline, profile links, replies, favourites, bookmarks, boosts and new statuses. Public Mastodon profile/status reading also remains available for federated authors encountered through Micro.blog.
+
+ActivityPub federation by itself is not treated as a client API guarantee. Additional Fediverse software should be tested by capability rather than assumed compatible simply because it federates.
 
 ## Repository strategy
 
@@ -77,7 +81,7 @@ netlify/
 
 The root `/` route is the Helping Hand launcher. `/publish/` is Publish Hand, `/setup/email/` is Writing Hand's product/setup surface, `/bum/` is BUM Hand, `/markdown/` is Markdown Hand, and `/social/` is Dent Hand.
 
-## Shared publishing core
+## Shared publishing and provider boundaries
 
 Shared code belongs in common plumbing when it is genuinely shared:
 
@@ -87,7 +91,8 @@ Shared code belongs in common plumbing when it is genuinely shared:
 - categories and post status;
 - image optimisation;
 - privacy-safe public-demo usage controls;
-- common configuration and error handling.
+- common configuration and error handling;
+- Dent Hand's provider contract, while network-specific API behavior remains in the relevant provider.
 
 Product-specific code stays outside the shared core:
 
@@ -95,19 +100,20 @@ Product-specific code stays outside the shared core:
 - handwritten document/page models and annotation editing belong to Publish Hand;
 - queue/batch selection, streamed-file routing and upload-result presentation belong to BUM Hand;
 - raw Markdown file reading, private GitHub draft routing and Micro.blog source-verification behaviour belong to Markdown Hand;
-- timeline, conversation, bookmark, reply, profile and social-session behaviour belong to Dent Hand.
+- timeline, Circle, interaction and social-session behavior belongs to Dent Hand, with Micro.blog and Mastodon details kept behind provider-specific clients and server bridges.
 
 ## Destination boundaries
 
 Helping Hand no longer assumes that every useful intermediate state is a Micro.blog post.
 
-- Micro.blog remains the main publication and social platform used across the family where those functions are required.
+- Micro.blog remains the main publication platform used across the publishing tools and one first-class Dent Hand social provider.
 - BUM Hand treats the selected Micro.blog blog as explicit request metadata for every supported media upload.
 - Markdown Hand can instead stop at a configured private GitHub working draft when a piece is still research or newsroom material.
-- Dent Hand uses a narrow allow-listed bridge for Micro.blog social actions rather than exposing a general upstream proxy.
-- Dent Hand's OAuth token remains server-side and encrypted; its browser session is represented only by an opaque cookie.
+- Dent Hand can authenticate either a Micro.blog account or a Mastodon-compatible account without collapsing the networks into one fake common API.
+- Dent Hand's provider credentials remain server-side and encrypted; browser sessions are represented only by opaque cookies.
+- User-supplied Mastodon server names are validated as public HTTPS destinations and outbound requests are pinned to validated public addresses before any OAuth or API traffic is sent.
 - The GitHub repository credential is server-side and narrowly scoped; the browser uses a separate write key.
-- Destination-specific adapters should remain small boundaries around human-owned source files, not reasons to reshape the core formats.
+- Destination-specific adapters should remain small boundaries around human-owned source files or explicit social actions, not reasons to reshape the core formats.
 
 ## v1.0 release boundary
 
@@ -123,15 +129,17 @@ The original extraction/restructuring plan is complete, and the later Markdown r
 8. [x] Add the first non-Micro.blog working destination: a configured private GitHub working-draft route.
 9. [x] Make BUM Hand media routing explicit for multi-blog Micro.blog accounts across images, audio and PDFs.
 
-Dent Hand is post-v1.0 work: a fifth product boundary created because an actual need emerged, not because the architecture had room for another box. Its secure OAuth/session layer is now complete for Micro.blog: sign-in, account verification, required social scopes and encrypted token persistence all work without exposing the bearer token to browser storage.
+Dent Hand is post-v1.0 work: a fifth product boundary created because an actual need emerged, not because the architecture had room for another box. Its secure Micro.blog OAuth/session layer now supports real multi-user sign-in without exposing bearer tokens to browser storage, and its later provider abstraction allowed Mastodon-compatible accounts to become a second authenticated provider without rewriting the product around one network.
 
-Future work is intentionally need-driven. There is no requirement to add another product or another destination simply because the architecture allows it.
+The Mastodon layer deliberately arrived in stages: public profile reading first; provider abstraction second; secure instance-aware OAuth and home timeline next; then replies, favourites, bookmarks, boosts, publishing and profile navigation after live-account testing proved the flow.
+
+Future work is intentionally need-driven. There is no requirement to add another product, destination or social network simply because the architecture allows it.
 
 ## Reliability as roadmap work
 
-After v1.0, maintenance is a first-class part of the roadmap rather than an afterthought. The Android/provider-backed file staging fix, the multi-blog `mp-destination` fix and Dent Hand's OAuth/scope hardening are examples: none is a flashy feature, but each protects the exact workflows Helping Hand exists to make frictionless.
+After v1.0, maintenance is a first-class part of the roadmap rather than an afterthought. The Android/provider-backed file staging fix, the multi-blog `mp-destination` fix, Dent Hand's Micro.blog OAuth/scope hardening, the Mastodon DNS-pinning correction and live profile/action fixes are examples: none is merely decorative, and each protects a workflow that real use exposed.
 
-Real-device regressions, API changes, browser quirks, OAuth/scope changes and destination-routing failures therefore take priority over speculative additions.
+Real-device regressions, API changes, browser quirks, OAuth/scope changes, instance compatibility and destination-routing failures therefore take priority over speculative additions.
 
 ## Product principle
 
