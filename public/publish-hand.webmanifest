@@ -1,0 +1,19 @@
+{
+  "id": "/publish/",
+  "name": "Publish Hand",
+  "short_name": "Publish Hand",
+  "description": "Turn handwriting, scans, PDFs and photos into portable, web-ready Micro.blog posts.",
+  "start_url": "/publish/",
+  "scope": "/publish/",
+  "display": "standalone",
+  "background_color": "#191816",
+  "theme_color": "#191816",
+  "icons": [
+    {
+      "src": "/brand/publish-hand.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
