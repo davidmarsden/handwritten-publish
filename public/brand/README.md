@@ -28,7 +28,7 @@ Every public Helping Hand product has its own 1200×630 SVG source card:
 
 The deployed pages reference these SVG sources through Netlify Image CDN with `w=1200`, `h=630`, `fit=fill` and `fm=png`. That gives link-preview crawlers an ordinary 1200×630 PNG while keeping the editable, inspectable source artwork in Git.
 
-Each product page supplies its own Open Graph title, description, canonical public URL and preview image, plus the corresponding `summary_large_image` Twitter/X metadata. The root Helping Hand launcher uses the family card.
+Each product page supplies its own Open Graph title, description and preview image, plus the corresponding `summary_large_image` Twitter/X metadata. Preview image paths stay origin-relative so a self-hosted deployment advertises and fetches its own assets rather than the upstream site. The root Helping Hand launcher uses the family card.
 
 The social cards share the suite's warm cream/near-black visual language but use product-specific accent panels and straplines so links to different Hands do not all collapse into one generic preview.
 
