@@ -1,5 +1,5 @@
 const APP = new URL(self.location.href).searchParams.get('app') || 'hand';
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CONFIG = {
   writing: {
     start: '/setup/email/',
@@ -22,9 +22,23 @@ const CONFIG = {
 const config = CONFIG[APP];
 const CACHE = `helping-hand-${APP}-${VERSION}`;
 
+async function precacheShell() {
+  if (!config) return;
+
+  const cache = await caches.open(CACHE);
+  const response = await fetch(config.start, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`Could not fetch ${APP} shell.`);
+
+  await cache.put(config.start, response.clone());
+  const html = await response.text();
+  const builtAssets = [...html.matchAll(/(?:src|href)=["'](\/assets\/[^"']+)["']/g)].map(match => match[1]);
+  const staticShell = config.shell.filter(path => path !== config.start);
+  await cache.addAll([...new Set([...staticShell, ...builtAssets])]);
+}
+
 self.addEventListener('install', event => {
   if (!config) return;
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(config.shell)).then(() => self.skipWaiting()));
+  event.waitUntil(precacheShell().then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
@@ -43,7 +57,7 @@ self.addEventListener('fetch', event => {
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
+      fetch(event.request, { cache: 'no-store' })
         .then(response => {
           const copy = response.clone();
           caches.open(CACHE).then(cache => cache.put(event.request, copy));
