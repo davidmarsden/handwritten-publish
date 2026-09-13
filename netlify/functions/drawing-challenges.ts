@@ -51,20 +51,34 @@ export default async (request: Request) => {
   const store = drawingStore();
   await store.set(imageKey, await image.arrayBuffer());
 
+  const client = await db.pool.connect();
   try {
-    const [challenge] = await db.sql`
-      INSERT INTO drawing_challenges (id, title, difficulty, image_key, image_type, status)
-      VALUES (${id}, ${title}, ${difficulty}, ${imageKey}, ${image.type}, 'open')
-      RETURNING id, title, difficulty, status, created_at
-    ` as Array<{ id: string; title: string; difficulty: string | null; status: string; created_at: string }>;
+    await client.query('BEGIN');
 
-    // Only retire older challenges after the new one exists, so a failed insert
-    // can never leave Drawing Hand with no open challenge.
-    await db.sql`
-      UPDATE drawing_challenges
-      SET status = 'judging'
-      WHERE status = 'open' AND id <> ${id};
-    `;
+    // Serialize challenge publishing even when two admin requests overlap.
+    // The partial unique index is the database-level backstop, while this
+    // transaction ensures retiring the old challenge and opening the new one
+    // either both happen or neither happens.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('drawing-hand-open-challenge'))");
+    await client.query(
+      "UPDATE drawing_challenges SET status = 'judging' WHERE status = 'open'",
+    );
+
+    const result = await client.query<{
+      id: string;
+      title: string;
+      difficulty: string | null;
+      status: string;
+      created_at: string;
+    }>(
+      `INSERT INTO drawing_challenges (id, title, difficulty, image_key, image_type, status)
+       VALUES ($1, $2, $3, $4, $5, 'open')
+       RETURNING id, title, difficulty, status, created_at`,
+      [id, title, difficulty, imageKey, image.type],
+    );
+
+    await client.query('COMMIT');
+    const challenge = result.rows[0];
 
     return json({
       challenge: {
@@ -73,8 +87,11 @@ export default async (request: Request) => {
       },
     }, 201);
   } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
     await store.delete(imageKey).catch(() => undefined);
     throw error;
+  } finally {
+    client.release();
   }
 };
 
