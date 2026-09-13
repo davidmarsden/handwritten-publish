@@ -6,9 +6,13 @@
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#f4f1ea">
   <meta name="description" content="BUM Hand — Batch Uploader for Micro.blog. Upload batches of photos, audio and PDFs without creating posts.">
+  <meta property="og:type" content="website">
   <meta property="og:title" content="BUM Hand — Helping Hand">
   <meta property="og:description" content="Batch Uploader for Micro.blog.">
-  <meta property="og:image" content="/.netlify/images?url=/brand/helping-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png">
+  <meta property="og:url" content="https://hand.davidmarsden.info/bum/">
+  <meta property="og:image" content="https://hand.davidmarsden.info/.netlify/images?url=/brand/bum-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png">
+  <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="BUM Hand — Helping Hand"><meta name="twitter:description" content="Batch Uploader for Micro.blog."><meta name="twitter:image" content="https://hand.davidmarsden.info/.netlify/images?url=/brand/bum-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png">
   <link rel="icon" href="/brand/bum-hand.svg" type="image/svg+xml">
   <link rel="manifest" href="/bum-hand.webmanifest">
   <title>BUM Hand — Batch Uploader for Micro.blog</title>
@@ -18,73 +22,15 @@
 <body>
   <main class="shell">
     <nav class="product-nav" aria-label="Helping Hand product navigation"><a href="/">Helping Hand</a><span>→</span><strong>BUM Hand</strong></nav>
-
-    <header class="hero">
-      <img class="hero-mark" src="/brand/bum-hand.svg" alt="" aria-hidden="true">
-      <p class="eyebrow">Batch Uploader for Micro.blog</p>
-      <h1>BUM Hand</h1>
-      <p class="lede">Throw a bunch of files at Micro.blog. Photos, audio, PDFs — whatever BUM Hand understands. Keep the URLs, or drop photos straight into a collection. No post required.</p>
-    </header>
-
-    <section class="panel" aria-labelledby="token-heading">
-      <div class="section-heading"><div><p class="step">01</p><h2 id="token-heading">Micro.blog token</h2></div><p class="hint">Used only for these requests. It is not stored by BUM Hand.</p></div>
-      <label class="field-label" for="token">App token</label>
-      <div class="token-row">
-        <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Micro.blog app token">
-        <button id="toggle-token" class="button secondary" type="button" aria-pressed="false">Show</button>
-        <button id="connect" class="button secondary" type="button">Connect</button>
-      </div>
-    </section>
-
-    <section id="collection-panel" class="panel" aria-labelledby="collection-heading" hidden>
-      <div class="section-heading"><div><p class="step">02</p><h2 id="collection-heading">Blog &amp; photo collection</h2></div><p class="hint">Choose the destination blog. Photo collection assignment is optional and applies only to image uploads.</p></div>
-      <div class="field-grid">
-        <div><label class="field-label" for="destination">Blog</label><select id="destination"></select></div>
-        <div><label class="field-label" for="collection">Photo collection</label><select id="collection"><option value="">Upload only — no collection</option></select></div>
-      </div>
-      <div class="new-collection-row">
-        <div><label class="field-label" for="new-collection-name">New collection</label><input id="new-collection-name" type="text" maxlength="120" placeholder="e.g. Favourite Photos"></div>
-        <button id="create-collection" class="button secondary" type="button">Create collection</button>
-      </div>
-      <p id="collection-summary" class="collection-summary"></p>
-    </section>
-
-    <section class="panel" aria-labelledby="files-heading">
-      <div class="section-heading"><div><p class="step">03</p><h2 id="files-heading">Choose files</h2></div><p class="hint">PNG, JPEG, WebP, MP3, M4A or PDF. Larger photos are optimized locally; audio and PDFs use BUM Hand’s streamed media proxy.</p></div>
-      <label id="drop-zone" class="drop-zone" for="files">
-        <strong>Choose files</strong>
-        <span>photos, audio or PDFs — or drop them here</span>
-        <input id="files" type="file" accept="*/*" multiple>
-      </label>
-      <div id="selection-summary" class="selection-summary" hidden></div>
-      <ol id="queue" class="queue" aria-live="polite"></ol>
-    </section>
-
-    <section class="actions" aria-label="Upload actions">
-      <button id="upload" class="button primary" type="button" disabled>Upload queued files</button>
-      <button id="retry" class="button secondary" type="button" hidden>Retry failed</button>
-      <button id="retry-collection" class="button secondary" type="button" hidden>Retry collection</button>
-      <button id="clear" class="button ghost" type="button" disabled>Clear</button>
-    </section>
-
-    <section id="results" class="panel" aria-labelledby="results-heading" hidden>
-      <div class="section-heading results-heading"><div><p class="step">04</p><h2 id="results-heading">Uploaded</h2></div><p id="results-summary" class="hint"></p></div>
-      <div class="copy-actions">
-        <button id="copy-urls" class="button secondary" type="button">Copy URLs</button>
-        <button id="copy-markdown" class="button secondary" type="button">Copy Markdown</button>
-        <button id="copy-html" class="button secondary" type="button">Copy HTML</button>
-      </div>
-      <ul id="uploaded-list" class="uploaded-list"></ul>
-    </section>
-
+    <header class="hero"><img class="hero-mark" src="/brand/bum-hand.svg" alt="" aria-hidden="true"><p class="eyebrow">Batch Uploader for Micro.blog</p><h1>BUM Hand</h1><p class="lede">Throw a bunch of files at Micro.blog. Photos, audio, PDFs — whatever BUM Hand understands. Keep the URLs, or drop photos straight into a collection. No post required.</p></header>
+    <section class="panel" aria-labelledby="token-heading"><div class="section-heading"><div><p class="step">01</p><h2 id="token-heading">Micro.blog token</h2></div><p class="hint">Used only for these requests. It is not stored by BUM Hand.</p></div><label class="field-label" for="token">App token</label><div class="token-row"><input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your Micro.blog app token"><button id="toggle-token" class="button secondary" type="button" aria-pressed="false">Show</button><button id="connect" class="button secondary" type="button">Connect</button></div></section>
+    <section id="collection-panel" class="panel" aria-labelledby="collection-heading" hidden><div class="section-heading"><div><p class="step">02</p><h2 id="collection-heading">Blog &amp; photo collection</h2></div><p class="hint">Choose the destination blog. Photo collection assignment is optional and applies only to image uploads.</p></div><div class="field-grid"><div><label class="field-label" for="destination">Blog</label><select id="destination"></select></div><div><label class="field-label" for="collection">Photo collection</label><select id="collection"><option value="">Upload only — no collection</option></select></div></div><div class="new-collection-row"><div><label class="field-label" for="new-collection-name">New collection</label><input id="new-collection-name" type="text" maxlength="120" placeholder="e.g. Favourite Photos"></div><button id="create-collection" class="button secondary" type="button">Create collection</button></div><p id="collection-summary" class="collection-summary"></p></section>
+    <section class="panel" aria-labelledby="files-heading"><div class="section-heading"><div><p class="step">03</p><h2 id="files-heading">Choose files</h2></div><p class="hint">PNG, JPEG, WebP, MP3, M4A or PDF. Larger photos are optimized locally; audio and PDFs use BUM Hand’s streamed media proxy.</p></div><label id="drop-zone" class="drop-zone" for="files"><strong>Choose files</strong><span>photos, audio or PDFs — or drop them here</span><input id="files" type="file" accept="*/*" multiple></label><div id="selection-summary" class="selection-summary" hidden></div><ol id="queue" class="queue" aria-live="polite"></ol></section>
+    <section class="actions" aria-label="Upload actions"><button id="upload" class="button primary" type="button" disabled>Upload queued files</button><button id="retry" class="button secondary" type="button" hidden>Retry failed</button><button id="retry-collection" class="button secondary" type="button" hidden>Retry collection</button><button id="clear" class="button ghost" type="button" disabled>Clear</button></section>
+    <section id="results" class="panel" aria-labelledby="results-heading" hidden><div class="section-heading results-heading"><div><p class="step">04</p><h2 id="results-heading">Uploaded</h2></div><p id="results-summary" class="hint"></p></div><div class="copy-actions"><button id="copy-urls" class="button secondary" type="button">Copy URLs</button><button id="copy-markdown" class="button secondary" type="button">Copy Markdown</button><button id="copy-html" class="button secondary" type="button">Copy HTML</button></div><ul id="uploaded-list" class="uploaded-list"></ul></section>
     <p id="status" class="status" role="status">Ready.</p>
-    <footer class="suite-footer">
-      <a href="/">Helping Hand</a><a href="/setup/email/">Writing Hand</a><a href="/publish/">Publish Hand</a><a href="/bum/">BUM Hand</a><a href="/markdown/">Markdown Hand</a><a href="/roadmap/">Roadmap</a><a href="/setup/">Setup</a><a href="https://davidmarsden.info/">davidmarsden.info</a><a href="https://github.com/davidmarsden/handwritten-publish">GitHub</a>
-    </footer>
+    <footer class="suite-footer"><a href="/">Helping Hand</a><a href="/setup/email/">Writing Hand</a><a href="/publish/">Publish Hand</a><a href="/bum/">BUM Hand</a><a href="/markdown/">Markdown Hand</a><a href="/roadmap/">Roadmap</a><a href="/setup/">Setup</a><a href="https://davidmarsden.info/">davidmarsden.info</a><a href="https://github.com/davidmarsden/handwritten-publish">GitHub</a></footer>
   </main>
-  <script type="module" src="/bum/bum.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/hand-sw.js?app=bum', { scope: '/bum/', updateViaCache: 'none' }).catch(() => undefined);
-  </script>
+  <script type="module" src="/bum/bum.js"></script><script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/hand-sw.js?app=bum', { scope: '/bum/', updateViaCache: 'none' }).catch(() => undefined);</script>
 </body>
 </html>
