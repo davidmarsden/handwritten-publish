@@ -424,8 +424,6 @@ function App() {
   function toggleCircle(person: CirclePerson) { saveCircle(circleSet.has(person.id) ? circle.filter(item => item.id !== person.id) : [...circle, person]); }
 
   async function signOut() {
-    generationRef.current += 1;
-    refreshRequestRef.current += 1;
     setError('');
     try {
       const response = await fetch('/api/microblog/auth?op=logout', { method: 'POST', credentials: 'same-origin' });
@@ -434,6 +432,8 @@ function App() {
       setError(err instanceof Error ? err.message : 'Could not sign out. Your session is still active; please try again.');
       return;
     }
+    generationRef.current += 1;
+    refreshRequestRef.current += 1;
     setAccount(null); setAuthenticated(false); setFeed({ items: [] }); setConversation(null); setProfile(null); setPendingNew([]);
     setReplyingTo(null); setReplyText(''); setDestinations([]); setSelectedDestination(''); setComposing(false);
     setQuotedItem(null); setMicropostText(''); setComposerError(''); setPublishNotice(null);
