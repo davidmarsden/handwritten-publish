@@ -1,5 +1,5 @@
 import { bearer, json, MICROPUB_ENDPOINT } from './_shared/microblog';
-import { dentHandSessionToken } from './_shared/dent-hand-session';
+import { dentHandSessionToken, updateDentHandSessionToken } from './_shared/dent-hand-session';
 
 const API_ROOT = 'https://micro.blog';
 
@@ -28,13 +28,13 @@ function safeSnippet(value: string): string | null {
   return clean.slice(0, 180);
 }
 
-async function responseSummary(response: Response) {
+async function responseSummary(response: Response, includeBodyPreview = true) {
   const contentType = response.headers.get('content-type') || 'unknown';
-  const text = await response.clone().text().catch(() => '');
+  const text = includeBodyPreview ? await response.clone().text().catch(() => '') : '';
   return {
     status: response.status,
     content_type: contentType,
-    body_preview: safeSnippet(text),
+    body_preview: includeBodyPreview ? safeSnippet(text) : null,
   };
 }
 
@@ -61,6 +61,8 @@ export default async (request: Request): Promise<Response> => {
   }
 
   const replacementToken = typeof verifyPayload?.token === 'string' ? verifyPayload.token.trim() : '';
+  const tokenReplaced = Boolean(replacementToken && replacementToken !== token);
+  if (tokenReplaced) await updateDentHandSessionToken(request, replacementToken);
   const effectiveToken = replacementToken || token;
 
   const timelineResponse = await fetch(`${API_ROOT}/posts/timeline?count=1`, {
@@ -73,7 +75,9 @@ export default async (request: Request): Promise<Response> => {
     headers: { Accept: 'application/json', ...bearer(effectiveToken) },
   });
 
-  const verify = await responseSummary(verifyResponse);
+  // Never include the verification body preview: /account/verify may contain a
+  // replacement bearer token in its JSON response.
+  const verify = await responseSummary(verifyResponse, false);
   const timeline = await responseSummary(timelineResponse);
   const micropub = await responseSummary(micropubResponse);
 
@@ -82,7 +86,7 @@ export default async (request: Request): Promise<Response> => {
   return json({
     verify: {
       ...verify,
-      token_replaced: Boolean(replacementToken && replacementToken !== token),
+      token_replaced: tokenReplaced,
       scope: typeof verifyPayload?.scope === 'string' ? verifyPayload.scope : null,
       username: typeof verifyPayload?.username === 'string' ? verifyPayload.username : null,
       fields: verifyPayload ? Object.keys(verifyPayload).filter(key => key !== 'token').sort() : [],
