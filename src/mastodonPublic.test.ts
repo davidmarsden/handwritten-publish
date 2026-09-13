@@ -13,7 +13,7 @@ describe('Mastodon public profile adapter', () => {
     expect(isMastodonProfileUrl('http://mastodon.sdf.org/@tregeagle')).toBe(false);
   });
 
-  it('loads an account and normalises public statuses into Dent Hand items', async () => {
+  it('loads an account and normalises public statuses into read-only Dent Hand items', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async input => {
       const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url);
       if (url.pathname === '/api/v1/accounts/lookup') {
@@ -54,13 +54,37 @@ describe('Mastodon public profile adapter', () => {
     });
     expect(result.feed.items).toHaveLength(1);
     expect(result.feed.items[0]).toMatchObject({
-      id: '123456',
+      id: 'mastodon:mastodon.sdf.org:123456',
       content_html: '<p>yes!</p>',
       author: { name: 'Ruben', username: 'tregeagle@mastodon.sdf.org' },
+      _microblog: { source: 'mastodon', remote_id: '123456' },
     });
   });
 
-  it('uses max_id for older public statuses', async () => {
+  it('keeps media-only Mastodon statuses visible to RichContent', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async input => {
+      const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url);
+      if (url.pathname === '/api/v1/accounts/lookup') return response({ id: '42', username: 'alice', acct: 'alice' });
+      return response([{
+        id: '777',
+        content: '',
+        account: { username: 'alice', acct: 'alice' },
+        media_attachments: [{
+          type: 'image',
+          url: 'https://example.social/media/original.jpg',
+          preview_url: 'https://example.social/media/preview.jpg',
+          description: 'A test photograph',
+        }],
+      }]);
+    });
+
+    const result = await fetchMastodonProfile('https://example.social/@alice', {}, fetchImpl);
+    expect(result.feed.items[0].content_html).toContain('<img');
+    expect(result.feed.items[0].content_html).toContain('https://example.social/media/preview.jpg');
+    expect(result.feed.items[0].content_html).toContain('alt="A test photograph"');
+  });
+
+  it('uses the underlying remote id for older public statuses', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async input => {
       const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url);
       if (url.pathname === '/api/v1/accounts/lookup') return response({ id: '42', username: 'alice', acct: 'alice' });
@@ -68,6 +92,6 @@ describe('Mastodon public profile adapter', () => {
       return response([]);
     });
 
-    await fetchMastodonProfile('https://example.social/@alice', { maxId: '999' }, fetchImpl);
+    await fetchMastodonProfile('https://example.social/@alice', { maxId: 'mastodon:example.social:999' }, fetchImpl);
   });
 });
