@@ -11,6 +11,7 @@ export default defineConfig({
         helpingHand: resolve(rootDir, 'index.html'),
         publishHand: resolve(rootDir, 'publish/index.html'),
         drawingHand: resolve(rootDir, 'drawing/index.html'),
+        drawingHandResult: resolve(rootDir, 'drawing/result/index.html'),
         social: resolve(rootDir, 'social/index.html'),
         socialMyPosts: resolve(rootDir, 'social/my-posts/index.html'),
       },
