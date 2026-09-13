@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MicroblogSocialClient } from './microblogSocial';
+import type { SocialProvider } from './socialProvider';
 
 function response(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -9,6 +10,28 @@ function response(body: unknown, status = 200): Response {
 }
 
 describe('MicroblogSocialClient', () => {
+  it('implements the Dent Hand social provider contract', () => {
+    const provider: SocialProvider = new MicroblogSocialClient({ fetchImpl: vi.fn<typeof fetch>() });
+
+    expect(provider.id).toBe('microblog');
+    expect(provider.label).toBe('Micro.blog');
+    expect(provider.auth).toEqual({
+      startPath: '/api/microblog/auth?op=start',
+      signOutPath: '/api/microblog/auth?op=logout',
+    });
+    expect(provider.capabilities).toEqual({
+      bookmarks: true,
+      mentions: true,
+      replies: true,
+      conversations: true,
+      profiles: true,
+      destinations: true,
+      bookmarking: true,
+      replying: true,
+      publishing: true,
+    });
+  });
+
   it('loads the timeline with paging and bearer auth', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => response({ items: [] }));
     const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
@@ -122,6 +145,20 @@ describe('MicroblogSocialClient', () => {
     const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
 
     await client.micropost('Hello world', 'https://example.com/');
+
+    const call = fetchImpl.mock.calls[0];
+    expect(call).toBeDefined();
+    const [url, init] = call;
+    expect(String(url)).toContain('op=micropost');
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(String(init?.body))).toEqual({ content: 'Hello world', destination: 'https://example.com/' });
+  });
+
+  it('exposes neutral publish through the same Micro.blog micropost operation', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({ ok: true, url: 'https://example.com/hello' }));
+    const provider: SocialProvider = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    await provider.publish?.('Hello world', 'https://example.com/');
 
     const call = fetchImpl.mock.calls[0];
     expect(call).toBeDefined();
