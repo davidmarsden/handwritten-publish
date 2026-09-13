@@ -266,10 +266,13 @@ function App() {
         const bookmarked = Boolean(item._microblog?.is_bookmark);
         const boosted = Boolean(item._microblog?.is_reblogged);
         return <article className="post-card" key={item.id}>
-          <div className="author-button">
+          {person?.url ? <a className="author-button" href={person.url} target="_blank" rel="noreferrer" aria-label={`Open ${authorLabel(item)} profile`}>
             {item.author?.avatar ? <img className="avatar" src={item.author.avatar} alt=""/> : <span className="avatar fallback"/>}
             <span><strong>{authorLabel(item)}</strong><span className="meta">{item.author?.username && <span>@{item.author.username}</span>}{item._microblog?.reblogged_by && <span>Boosted by {String(item._microblog.reblogged_by)}</span>}</span></span>
-          </div>
+          </a> : <div className="author-button">
+            {item.author?.avatar ? <img className="avatar" src={item.author.avatar} alt=""/> : <span className="avatar fallback"/>}
+            <span><strong>{authorLabel(item)}</strong><span className="meta">{item.author?.username && <span>@{item.author.username}</span>}{item._microblog?.reblogged_by && <span>Boosted by {String(item._microblog.reblogged_by)}</span>}</span></span>
+          </div>}
           <RichContent item={item}/>
           <div className="actions">
             <span hidden aria-hidden="true" />
