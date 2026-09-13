@@ -60,7 +60,10 @@ async function start(request: Request): Promise<Response> {
   const { clientId, redirectUri } = appUrls(request);
   const auth = new URL(AUTH_ENDPOINT);
   auth.searchParams.set('client_id', clientId);
-  auth.searchParams.set('scope', 'create');
+  // Dent Hand reads the timeline/profile and can publish, reply, bookmark and
+  // otherwise update the authenticated account. Request the corresponding
+  // IndieAuth scopes instead of create-only, which Micro.blog rejects for reads.
+  auth.searchParams.set('scope', 'profile read create update');
   auth.searchParams.set('state', state);
   auth.searchParams.set('response_type', 'code');
   auth.searchParams.set('redirect_uri', redirectUri);
