@@ -1,0 +1,19 @@
+{
+  "id": "/bum/",
+  "name": "BUM Hand",
+  "short_name": "BUM Hand",
+  "description": "Batch Uploader for Micro.blog — upload photos, audio and PDFs without creating posts.",
+  "start_url": "/bum/",
+  "scope": "/bum/",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#f4f1ea",
+  "icons": [
+    {
+      "src": "/brand/bum-hand.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
