@@ -106,7 +106,7 @@ Dent Hand now has a real UI rather than being plumbing for a hypothetical future
 
 ## Diagnostics and failure handling
 
-Micro.blog upstream failures include the HTTP status in Dent Hand's user-facing error while server logs retain only safe request-path/status metadata. Tokens, authorization headers and request bodies are not logged.
+For feed-style social requests routed through the shared `upstream()` helper — such as timeline, bookmarks, replies, conversations and profiles — Micro.blog failures include the HTTP status in Dent Hand's user-facing error and server logs retain safe request-path/status metadata. Other branches such as account verification, Micropub destination discovery and publishing use their own error messages and do not currently guarantee that same status/log shape. Tokens, authorization headers and request bodies are not logged.
 
 The temporary `/api/microblog/diagnostics` endpoint was added while tracing the OAuth 403. Its purpose is narrow: compare account verification, timeline access and Micropub config using the same encrypted session token while exposing only safe metadata. It should be removed once no longer useful for diagnosis.
 
