@@ -106,7 +106,13 @@ async function callback(request: Request): Promise<Response> {
 }
 
 async function logout(request: Request): Promise<Response> {
-  await deleteDentHandSession(request);
+  try {
+    await deleteDentHandSession(request);
+  } catch (error) {
+    // The browser session must still be invalidated even if database cleanup fails.
+    // Without the HttpOnly cookie the orphaned server row cannot be used by the client.
+    console.warn(`[dent-hand] session cleanup failed during logout: ${error instanceof Error ? error.message : 'unknown error'}`);
+  }
   return new Response(null, {
     status: 204,
     headers: { 'Set-Cookie': clearSessionCookie(request), 'Cache-Control': 'no-store' },
