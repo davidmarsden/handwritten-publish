@@ -76,7 +76,10 @@ export default async (request: Request) => {
   } | null;
 
   const submissionId = typeof body?.submissionId === 'string' ? body.submissionId.trim() : '';
-  const score = typeof body?.score === 'number' ? body.score : Number(body?.score);
+  const rawScore = body?.score;
+  const score = typeof rawScore === 'number'
+    ? rawScore
+    : (typeof rawScore === 'string' && rawScore.trim() ? Number(rawScore) : Number.NaN);
   const grade = typeof body?.grade === 'string' ? body.grade.trim() : '';
   const comment = typeof body?.comment === 'string' ? body.comment.trim().slice(0, 280) : '';
   const showInGallery = body?.showInGallery === true;
