@@ -91,6 +91,8 @@ function render(submissions: Submission[]) {
     const gradeSelect = form.elements.namedItem('grade') as HTMLSelectElement;
     const suggestion = article.querySelector<HTMLElement>('.suggestion')!;
     const status = article.querySelector<HTMLElement>('.form-status')!;
+    const pill = article.querySelector<HTMLElement>('.pill')!;
+    const submitButton = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
 
     scoreInput.addEventListener('input', () => {
       if (!scoreInput.value.trim()) {
@@ -109,6 +111,7 @@ function render(submissions: Submission[]) {
 
     form.addEventListener('submit', async event => {
       event.preventDefault();
+      const wasWaiting = !article.classList.contains('judged');
       const data = new FormData(form);
       const payload = {
         submissionId: article.dataset.entry,
@@ -129,8 +132,16 @@ function render(submissions: Submission[]) {
         });
         const result = await response.json() as { error?: string };
         if (!response.ok) throw new Error(result.error || 'Could not save the result.');
+
         setStatus(status, 'Saved. The private result link now shows Elijah’s judgement.');
         article.classList.add('judged');
+        pill.textContent = 'Judged';
+        submitButton.textContent = 'Update result';
+
+        if (wasWaiting) {
+          const waiting = entries.querySelectorAll<HTMLElement>('[data-entry]:not(.judged)').length;
+          setStatus(deskStatus, `${waiting} drawing${waiting === 1 ? '' : 's'} waiting for Elijah.`);
+        }
       } catch (error) {
         setStatus(status, error instanceof Error ? error.message : 'Could not save the result.', true);
       }
