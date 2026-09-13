@@ -21,7 +21,17 @@ Proper writing remains in the existing publishing/editorial tools.
 
 Dent Hand uses Micro.blog's OAuth / IndieAuth authorization-code flow. The browser redirects to Micro.blog for approval and receives only an opaque Dent Hand session cookie after the callback. The Micro.blog access token is encrypted server-side and is never exposed to browser JavaScript.
 
+Dent Hand requests the scopes its social surface actually needs:
+
+```text
+profile read create update
+```
+
+`read` is required for timeline and other social reads; `profile` supports account/profile access; `create` covers posting and replies; `update` covers mutable social actions such as bookmarks. A token issued with only `create` can still work for Micropub while Micro.blog correctly rejects `/posts/timeline` with HTTP 403 (`Token missing required scope`). If scopes change, the user must sign out and sign back in so Micro.blog can issue a new token.
+
 The session cookie is `HttpOnly`, `SameSite=Lax` and `Secure` on HTTPS deployments. Session rows live in Netlify Database and the encrypted token is protected with `DENT_HAND_SESSION_SECRET`.
+
+`/account/verify` is used to identify the signed-in account. If Micro.blog returns a replacement token during verification, Dent Hand persists that replacement into the same encrypted server-side session before subsequent social calls use it.
 
 ### Required self-hosted configuration
 
@@ -49,6 +59,7 @@ The Netlify social function remains an allow-listed bridge, not an arbitrary pro
 
 - `GET timeline` → `/posts/timeline`
 - `GET bookmarks` → `/posts/bookmarks`
+- `GET mentions` → `/posts/mentions` where Micro.blog supports it reliably
 - `GET replies` → `/posts/replies`
 - `GET conversation` → `/posts/conversation?id=…`
 - `GET profile` → `/posts/[username]`
@@ -86,15 +97,24 @@ Dent Hand now has a real UI rather than being plumbing for a hypothetical future
 
 - `/social/` — the main Dent Hand timeline/client surface;
 - `/social/my-posts/` — the signed-in user's own posts;
+- OAuth/IndieAuth connection to Micro.blog with an opaque server-backed session;
 - guarded short-form posting that requires an explicit destination blog before publishing;
 - quote-style post helpers built by the social UI before submission;
 - `public/dent-hand.webmanifest` — installable app metadata;
 - `public/dent-hand-icon.svg` and the Dent Hand brand assets — app identity;
 - `public/dent-hand-sw.js` — lightweight app-shell caching.
 
+## Diagnostics and failure handling
+
+Micro.blog upstream failures include the HTTP status in Dent Hand's user-facing error while server logs retain only safe request-path/status metadata. Tokens, authorization headers and request bodies are not logged.
+
+The temporary `/api/microblog/diagnostics` endpoint was added while tracing the OAuth 403. Its purpose is narrow: compare account verification, timeline access and Micropub config using the same encrypted session token while exposing only safe metadata. It should be removed once no longer useful for diagnosis.
+
 ## Next layers
 
 Further work should stay need-driven and keep the client deliberately small. Useful additions may include better paging/history, optimistic interaction state and lightweight caching where they solve real friction.
+
+Public Mastodon reading is already a useful compatibility layer. Full authenticated Mastodon support should only be added behind a provider abstraction, with OAuth credentials kept server-side, if real use justifies the extra complexity.
 
 Mentions should remain optional/degraded until the relevant Micro.blog endpoint is reliable enough to depend on.
 
