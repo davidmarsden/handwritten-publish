@@ -7,6 +7,11 @@ type Challenge = {
   imageUrl: string;
 };
 
+type PreparedPreview = {
+  file: File;
+  url: string;
+};
+
 const $ = <T extends HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
 const challengeCard = $('#challenge-card');
 const challengeTitle = $('#challenge-title');
@@ -15,20 +20,42 @@ const challengeImage = $('#challenge-image') as HTMLImageElement;
 const noChallenge = $('#no-challenge');
 const submissionForm = $('#submission-form') as HTMLFormElement;
 const submissionStatus = $('#submission-status');
+const submissionPreview = $('#submission-preview') as HTMLImageElement;
 const adminPanel = $('#admin-panel');
 const adminForm = $('#admin-form') as HTMLFormElement;
 const adminStatus = $('#admin-status');
+const adminPreview = $('#admin-preview') as HTMLImageElement;
 
 let activeChallenge: Challenge | null = null;
+let submissionPrepared: PreparedPreview | null = null;
+let adminPrepared: PreparedPreview | null = null;
+let submissionSelectionVersion = 0;
+let adminSelectionVersion = 0;
 
 function setStatus(target: HTMLElement, message: string, error = false) {
   target.textContent = message;
   target.dataset.error = error ? 'true' : 'false';
 }
 
+function clearPreparedPreview(preview: HTMLImageElement, prepared: PreparedPreview | null) {
+  if (prepared) URL.revokeObjectURL(prepared.url);
+  preview.hidden = true;
+  preview.removeAttribute('src');
+}
+
 async function preparedImage(file: File): Promise<File> {
   const prepared = await preparePhotoForMicroblog(file, file.type);
   return prepared.file;
+}
+
+async function preparePreview(file: File): Promise<PreparedPreview> {
+  // Materialise provider-backed Android/Google Photos files before any preview
+  // reads them, then reuse this same browser-owned File for the eventual upload.
+  const stableFile = await preparedImage(file);
+  return {
+    file: stableFile,
+    url: URL.createObjectURL(stableFile),
+  };
 }
 
 async function loadChallenge() {
@@ -52,6 +79,32 @@ async function loadChallenge() {
   challengeImage.alt = `Elijah's challenge drawing: ${activeChallenge.title}`;
 }
 
+const submissionImageInput = submissionForm.elements.namedItem('image') as HTMLInputElement;
+submissionImageInput.addEventListener('change', async () => {
+  const version = ++submissionSelectionVersion;
+  clearPreparedPreview(submissionPreview, submissionPrepared);
+  submissionPrepared = null;
+
+  const file = submissionImageInput.files?.[0];
+  if (!file) return;
+
+  setStatus(submissionStatus, 'Preparing preview…');
+  try {
+    const prepared = await preparePreview(file);
+    if (version !== submissionSelectionVersion) {
+      URL.revokeObjectURL(prepared.url);
+      return;
+    }
+    submissionPrepared = prepared;
+    submissionPreview.src = prepared.url;
+    submissionPreview.hidden = false;
+    setStatus(submissionStatus, '');
+  } catch (error) {
+    if (version !== submissionSelectionVersion) return;
+    setStatus(submissionStatus, error instanceof Error ? error.message : 'Could not preview that drawing.', true);
+  }
+});
+
 submissionForm.addEventListener('submit', async event => {
   event.preventDefault();
   if (!activeChallenge) return;
@@ -63,9 +116,10 @@ submissionForm.addEventListener('submit', async event => {
     return;
   }
 
-  setStatus(submissionStatus, 'Preparing your drawing…');
   try {
-    const image = await preparedImage(picked);
+    // Normally this was already prepared on selection for the preview. The
+    // fallback covers browsers/forms where change did not finish before submit.
+    const image = submissionPrepared?.file ?? await preparedImage(picked);
     data.set('image', image, image.name);
     data.set('challengeId', activeChallenge.id);
     setStatus(submissionStatus, 'Sending your drawing to Elijah…');
@@ -75,6 +129,9 @@ submissionForm.addEventListener('submit', async event => {
     if (!response.ok || !payload.submission) throw new Error(payload.error || 'Your drawing could not be submitted.');
 
     submissionForm.reset();
+    submissionSelectionVersion += 1;
+    clearPreparedPreview(submissionPreview, submissionPrepared);
+    submissionPrepared = null;
     submissionStatus.innerHTML = `Sent! Elijah can now judge your drawing. <a href="${payload.submission.resultUrl}">Keep this private result link</a>.`;
   } catch (error) {
     setStatus(submissionStatus, error instanceof Error ? error.message : 'Your drawing could not be submitted.', true);
@@ -86,6 +143,32 @@ if (new URL(location.href).searchParams.get('admin') === '1') {
   const savedKey = localStorage.getItem('drawing-hand-admin-key');
   if (savedKey) (adminForm.elements.namedItem('adminKey') as HTMLInputElement).value = savedKey;
 }
+
+const adminImageInput = adminForm.elements.namedItem('image') as HTMLInputElement;
+adminImageInput.addEventListener('change', async () => {
+  const version = ++adminSelectionVersion;
+  clearPreparedPreview(adminPreview, adminPrepared);
+  adminPrepared = null;
+
+  const file = adminImageInput.files?.[0];
+  if (!file) return;
+
+  setStatus(adminStatus, "Preparing Elijah's preview…");
+  try {
+    const prepared = await preparePreview(file);
+    if (version !== adminSelectionVersion) {
+      URL.revokeObjectURL(prepared.url);
+      return;
+    }
+    adminPrepared = prepared;
+    adminPreview.src = prepared.url;
+    adminPreview.hidden = false;
+    setStatus(adminStatus, '');
+  } catch (error) {
+    if (version !== adminSelectionVersion) return;
+    setStatus(adminStatus, error instanceof Error ? error.message : "Could not preview Elijah's picture.", true);
+  }
+});
 
 adminForm.addEventListener('submit', async event => {
   event.preventDefault();
@@ -102,10 +185,10 @@ adminForm.addEventListener('submit', async event => {
   }
 
   try {
-    setStatus(adminStatus, "Preparing Elijah's picture…");
-    const image = await preparedImage(picked);
+    const image = adminPrepared?.file ?? await preparedImage(picked);
     data.set('image', image, image.name);
     data.delete('adminKey');
+    setStatus(adminStatus, 'Publishing challenge…');
 
     const response = await fetch('/api/drawing-challenges', {
       method: 'POST',
@@ -118,6 +201,9 @@ adminForm.addEventListener('submit', async event => {
     localStorage.setItem('drawing-hand-admin-key', adminKey);
     adminForm.reset();
     (adminForm.elements.namedItem('adminKey') as HTMLInputElement).value = adminKey;
+    adminSelectionVersion += 1;
+    clearPreparedPreview(adminPreview, adminPrepared);
+    adminPrepared = null;
     setStatus(adminStatus, 'Challenge published. It is now open for drawings.');
     await loadChallenge();
   } catch (error) {
