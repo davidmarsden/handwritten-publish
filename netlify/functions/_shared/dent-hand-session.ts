@@ -19,6 +19,11 @@ function cookieValue(request: Request, name: string): string | null {
   return null;
 }
 
+function validSessionId(request: Request): string | null {
+  const sessionId = cookieValue(request, SESSION_COOKIE);
+  return sessionId && /^[A-Za-z0-9_-]{32,128}$/.test(sessionId) ? sessionId : null;
+}
+
 function base64Url(bytes: Uint8Array): string {
   const binary = String.fromCharCode(...bytes);
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
@@ -93,8 +98,8 @@ export async function createDentHandSession(token: string): Promise<string> {
 }
 
 export async function dentHandSessionToken(request: Request): Promise<string | null> {
-  const sessionId = cookieValue(request, SESSION_COOKIE);
-  if (!sessionId || !/^[A-Za-z0-9_-]{32,128}$/.test(sessionId)) return null;
+  const sessionId = validSessionId(request);
+  if (!sessionId) return null;
   await ensureTable();
   const db = getDatabase();
   const [row] = await db.sql`
@@ -110,9 +115,22 @@ export async function dentHandSessionToken(request: Request): Promise<string | n
   }
 }
 
+export async function updateDentHandSessionToken(request: Request, token: string): Promise<void> {
+  const sessionId = validSessionId(request);
+  if (!sessionId || !token.trim()) return;
+  await ensureTable();
+  const encrypted = await encryptToken(token.trim());
+  const db = getDatabase();
+  await db.sql`
+    UPDATE dent_hand_sessions
+    SET token_ciphertext = ${encrypted.ciphertext}, token_iv = ${encrypted.iv}
+    WHERE session_id = ${sessionId} AND expires_at > ${new Date().toISOString()}
+  `;
+}
+
 export async function deleteDentHandSession(request: Request): Promise<void> {
-  const sessionId = cookieValue(request, SESSION_COOKIE);
-  if (!sessionId || !/^[A-Za-z0-9_-]{32,128}$/.test(sessionId)) return;
+  const sessionId = validSessionId(request);
+  if (!sessionId) return;
   await ensureTable();
   const db = getDatabase();
   await db.sql`DELETE FROM dent_hand_sessions WHERE session_id = ${sessionId}`;
