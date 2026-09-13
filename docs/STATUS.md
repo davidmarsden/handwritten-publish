@@ -2,7 +2,7 @@
 
 ## Current release: v1.0.0 core + post-v1.0 additions
 
-Helping Hand's original four-tool publishing suite reached feature-complete v1.0.0 status for the workflows it was built to solve. Dent Hand has since joined the family as a fifth, deliberately small multi-network social client for Micro.blog and Mastodon-compatible servers. Future work remains optional and should be driven by real needs rather than a release calendar.
+Helping Hand's original four-tool publishing suite reached feature-complete v1.0.0 status for the workflows it was built to solve. Dent Hand later joined as a fifth, deliberately small multi-network social client for Micro.blog and Mastodon-compatible servers. Drawing Hand is now the sixth product boundary: a live remote drawing-challenge and judging workflow. Future work remains optional and should be driven by real needs rather than a release calendar.
 
 ## Writing Hand — working
 
@@ -146,6 +146,27 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 
 Further Dent Hand work should stay deliberately small and need-driven: better history/paging, interaction-state polish, capability detection for compatible Fediverse servers, and lightweight caching only where they remove real friction. Micro.blog mentions should remain optional/degraded until the relevant endpoint is reliable enough to depend on.
 
+## Drawing Hand — working
+
+- [x] Live `/drawing/` public challenge surface
+- [x] Elijah can publish a challenge image, title and optional difficulty
+- [x] JPEG, PNG and WebP challenge/submission images
+- [x] Public submissions without participant accounts
+- [x] Display name only; no surname, age, school or email required
+- [x] Private-by-default entries
+- [x] Private `/drawing/judge/` Judging Desk
+- [x] `DRAWING_HAND_ADMIN_KEY` protects challenge/judging actions
+- [x] Score out of 10
+- [x] Suggested Elijah grade with judge override
+- [x] Optional judge comment
+- [x] Moderation state
+- [x] Unguessable private result URL for each entrant
+- [x] Result page updates when Elijah has judged the entry
+- [x] Challenge and submission image previews before upload
+- [x] Competition images stored as Drawing Hand application data rather than through a participant's Micro.blog account
+
+Future Drawing Hand work should remain child-safety-first and need-driven. A public gallery or challenge archive is optional and must remain explicitly moderated; participant accounts, leaderboards and unnecessary personal data are deliberately out of scope.
+
 ## Safety and privacy boundary
 
 - Browser publishing tokens used by Publish Hand, BUM Hand and Markdown Hand remain ephemeral unless that product explicitly documents otherwise.
@@ -163,6 +184,9 @@ Further Dent Hand work should stay deliberately small and need-driven: better hi
 - BUM Hand forwards the chosen Micro.blog destination with every supported media upload so multi-blog accounts do not rely on an implicit default.
 - Markdown Hand reads the chosen file locally and sends its source only when the user explicitly saves or publishes it.
 - Dent Hand forwards authenticated requests only through provider-specific allow-listed operations rather than exposing a general-purpose proxy.
+- Drawing Hand submissions are private by default and do not become public automatically.
+- Drawing Hand asks entrants not to include surname, age, school or other personal details and does not require an email address or participant account.
+- Drawing Hand's admin key protects challenge/judging actions and remains separate from participant result tokens.
 
 ## After v1.0
 
@@ -178,6 +202,4 @@ There is no mandatory next phase. Possible future work remains intentionally ope
 - [ ] Better Dent Hand history/paging and interaction-state polish when real use justifies it
 - [ ] Test and document additional Mastodon-compatible Fediverse servers, using capability detection rather than assuming every ActivityPub implementation exposes the same client API
 - [ ] Consider additional authenticated social providers only where they expose a suitable client API and solve a real use case
-- [ ] Additional destination-neutral publisher adapters when a real need appears
-
-The product rule is simple: add something when it removes a real publishing or interaction frustration, not because the roadmap has an empty box.
+- [ ] Consider a moderated Drawing Hand gallery/challenge archive only if real use makes it worthwhile

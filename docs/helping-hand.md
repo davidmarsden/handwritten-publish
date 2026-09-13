@@ -1,6 +1,6 @@
 # Helping Hand
 
-Helping Hand is the umbrella for a small family of human-first publishing tools. The original four-tool publishing suite reached its first complete release at v1.0.0; Dent Hand later joined the family as the lightweight social side of the toolkit and now supports both Micro.blog and Mastodon-compatible servers.
+Helping Hand is the umbrella for a small family of human-first tools. The original four-tool publishing suite reached its first complete release at v1.0.0; Dent Hand later joined as the lightweight social side of the toolkit, and Drawing Hand is now the sixth product boundary for remote drawing challenges and judging.
 
 The tools share infrastructure, but each has one clear job and should be usable without exposing the complexity of the others.
 
@@ -54,6 +54,18 @@ For Mastodon-compatible servers, Dent Hand asks for the user's home server, regi
 
 ActivityPub federation by itself is not treated as a client API guarantee. Additional Fediverse software should be tested by capability rather than assumed compatible simply because it federates.
 
+### Drawing Hand
+
+**Draw it. Send it. Get graded.**
+
+Drawing Hand lives at `/drawing/`. Elijah publishes a reference drawing and optional difficulty; people can remotely submit their own attempt without creating an account; Elijah judges each private entry in `/drawing/judge/`; and the entrant sees the eventual score, Elijah grade and optional comment through an unguessable private result URL.
+
+Drawing Hand is deliberately not a social network or public competition platform. It asks only for a first name/display name and image, tells entrants not to include surname, age, school or other personal details, and keeps entries private by default. Any future public gallery remains an explicit moderation decision rather than automatic publication.
+
+Competition images belong to Drawing Hand's own application data boundary rather than a participant's Micro.blog account. Challenge/judging actions are protected separately by `DRAWING_HAND_ADMIN_KEY`.
+
+See [`../apps/drawing-hand/README.md`](../apps/drawing-hand/README.md) for the current product and safety boundary.
+
 ## Repository strategy
 
 Helping Hand deliberately remains one repository with shared infrastructure. Separate products do not require separate codebases.
@@ -65,6 +77,7 @@ apps/
   writing-hand/
   publish-hand/
   bum-hand/
+  drawing-hand/
 packages/
   publishing-core/
 public/
@@ -74,12 +87,13 @@ public/
   setup/
 social/
 publish/
+drawing/
 netlify/
   functions/
   edge-functions/
 ```
 
-The root `/` route is the Helping Hand launcher. `/publish/` is Publish Hand, `/setup/email/` is Writing Hand's product/setup surface, `/bum/` is BUM Hand, `/markdown/` is Markdown Hand, and `/social/` is Dent Hand.
+The root `/` route is the Helping Hand launcher. `/publish/` is Publish Hand, `/setup/email/` is Writing Hand's product/setup surface, `/bum/` is BUM Hand, `/markdown/` is Markdown Hand, `/social/` is Dent Hand, and `/drawing/` is Drawing Hand.
 
 ## Shared publishing and provider boundaries
 
@@ -92,7 +106,8 @@ Shared code belongs in common plumbing when it is genuinely shared:
 - image optimisation;
 - privacy-safe public-demo usage controls;
 - common configuration and error handling;
-- Dent Hand's provider contract, while network-specific API behavior remains in the relevant provider.
+- Dent Hand's provider contract, while network-specific API behavior remains in the relevant provider;
+- image preparation and deployment patterns that Drawing Hand can reuse without sharing participant data with publishing products.
 
 Product-specific code stays outside the shared core:
 
@@ -100,9 +115,10 @@ Product-specific code stays outside the shared core:
 - handwritten document/page models and annotation editing belong to Publish Hand;
 - queue/batch selection, streamed-file routing and upload-result presentation belong to BUM Hand;
 - raw Markdown file reading, private GitHub draft routing and Micro.blog source-verification behaviour belong to Markdown Hand;
-- timeline, Circle, interaction and social-session behavior belongs to Dent Hand, with Micro.blog and Mastodon details kept behind provider-specific clients and server bridges.
+- timeline, Circle, interaction and social-session behavior belongs to Dent Hand, with Micro.blog and Mastodon details kept behind provider-specific clients and server bridges;
+- challenge state, private submissions, grading, result tokens and moderation belong to Drawing Hand.
 
-## Destination boundaries
+## Destination and data boundaries
 
 Helping Hand no longer assumes that every useful intermediate state is a Micro.blog post.
 
@@ -113,6 +129,8 @@ Helping Hand no longer assumes that every useful intermediate state is a Micro.b
 - Dent Hand's provider credentials remain server-side and encrypted; browser sessions are represented only by opaque cookies.
 - User-supplied Mastodon server names are validated as public HTTPS destinations and outbound requests are pinned to validated public addresses before any OAuth or API traffic is sent.
 - The GitHub repository credential is server-side and narrowly scoped; the browser uses a separate write key.
+- Drawing Hand stores challenge/submission/result state in its own application data boundary, not as Micro.blog media or posts.
+- Drawing Hand participant result tokens are unguessable capabilities; the separate admin key protects publishing/judging actions.
 - Destination-specific adapters should remain small boundaries around human-owned source files or explicit social actions, not reasons to reshape the core formats.
 
 ## v1.0 release boundary
@@ -133,16 +151,18 @@ Dent Hand is post-v1.0 work: a fifth product boundary created because an actual 
 
 The Mastodon layer deliberately arrived in stages: public profile reading first; provider abstraction second; secure instance-aware OAuth and home timeline next; then replies, favourites, bookmarks, boosts, publishing and profile navigation after live-account testing proved the flow.
 
+Drawing Hand followed the same need-driven rule as the sixth product boundary. It exists because Elijah wanted a remote drawing competition with his own grading system, and it reuses infrastructure where useful without being forced into the publishing or social data models.
+
 Future work is intentionally need-driven. There is no requirement to add another product, destination or social network simply because the architecture allows it.
 
 ## Reliability as roadmap work
 
-After v1.0, maintenance is a first-class part of the roadmap rather than an afterthought. The Android/provider-backed file staging fix, the multi-blog `mp-destination` fix, Dent Hand's Micro.blog OAuth/scope hardening, the Mastodon DNS-pinning correction and live profile/action fixes are examples: none is merely decorative, and each protects a workflow that real use exposed.
+After v1.0, maintenance is a first-class part of the roadmap rather than an afterthought. The Android/provider-backed file staging fix, the multi-blog `mp-destination` fix, Dent Hand's Micro.blog OAuth/scope hardening, the Mastodon DNS-pinning correction, live profile/action fixes, and Drawing Hand's private submission/judging boundary are examples: none is merely decorative, and each protects a workflow that real use exposed.
 
-Real-device regressions, API changes, browser quirks, OAuth/scope changes, instance compatibility and destination-routing failures therefore take priority over speculative additions.
+Real-device regressions, API changes, browser quirks, OAuth/scope changes, instance compatibility, destination-routing failures and privacy regressions therefore take priority over speculative additions.
 
 ## Product principle
 
-Helping Hand exists to reduce the machinery between human-made material and publication or conversation.
+Helping Hand exists to reduce the machinery between human-made material and publication, conversation or participation.
 
-The software may transcribe, route, upload, automate, read or reply, but the human-created source and human interaction remain the point. New features should preserve that authorship, solve a concrete frustration, and avoid turning the suite into a second CMS or a bloated social dashboard.
+The software may transcribe, route, upload, automate, read, reply or carry a drawing to a judge, but the human-created source and human interaction remain the point. New features should preserve that authorship, solve a concrete frustration, and avoid turning the suite into a second CMS, a bloated social dashboard or an unnecessary account platform.
