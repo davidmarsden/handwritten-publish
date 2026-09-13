@@ -110,6 +110,7 @@ async function accountFor(request: Request): Promise<Response> {
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/x-www-form-urlencoded',
+      ...bearer(token),
     },
     body: form,
   });
