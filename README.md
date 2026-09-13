@@ -1,6 +1,6 @@
 # Helping Hand
 
-Helping Hand is a family of small, human-first publishing tools for getting material from paper, tablets and local files onto the web with as little machinery in the way as possible — plus a deliberately small social client for the conversational side of Micro.blog.
+Helping Hand is a family of small, human-first publishing tools for getting material from paper, tablets and local files onto the web with as little machinery in the way as possible — plus a deliberately small multi-network social client for the conversational side of Micro.blog and Mastodon-compatible Fediverse servers.
 
 ## v1.0.0 and beyond
 
@@ -10,7 +10,7 @@ Helping Hand v1.0.0 was the first complete release of the original four-tool pub
 - **Publish Hand** — handwriting, scans, PDFs and photos → a web-ready Micro.blog post. Arrange mixed pages, add links and metadata, keep portable `.handpub` documents, and safely create/update tracked posts.
 - **BUM Hand** — **Batch Uploader for Micro.blog**. Use one mixed-file chooser for JPEG/PNG/WebP, MP3/M4A and PDF; upload batches without creating posts; optimise larger photos; optionally add photos directly to Micro.blog Photo Collections; and copy canonical URLs, Markdown or HTML.
 - **Markdown Hand** — prepared `.md` → private GitHub working draft or Micro.blog. *Your Markdown. Hands off.* Save raw Markdown unchanged to a configured private working-draft repository, or send it through Micropub as a draft or published post and verify the stored source round trip.
-- **Dent Hand** — a minimal Micro.blog client for timelines, conversations, bookmarks, replies, profiles and your own posts. It keeps social reading/responding separate from the longer-form publishing tools.
+- **Dent Hand** — a minimal social client for Micro.blog and Mastodon-compatible Fediverse servers: timelines, replies, profiles, bookmarks/favourites, boosts and short-form posting, with a local Circle that is independent of the connected network. It keeps social reading/responding separate from the longer-form publishing tools.
 
 The deployed root route `/` is the **Helping Hand** launcher. The tools share infrastructure but keep separate product boundaries. Dent Hand lives at `/social/`.
 
@@ -84,9 +84,11 @@ The app deliberately has no Markdown editor. The source file remains the source 
 
 Dent Hand is the social reader/responding client in the family. The live surface is `/social/`.
 
-It is deliberately smaller than a general-purpose Micro.blog replacement. The focus is on the social loop: read timelines, open conversations, reply, bookmark, browse profiles and get back to your own posts without mixing those interactions into the longer-form publishing tools.
+It is deliberately smaller than a general-purpose social dashboard. The focus is on the social loop: read chronological timelines, reply, browse profiles, keep a local Circle and use the actions each connected provider actually supports. Micro.blog adds conversations, bookmarks, replies, own-post browsing and destination-aware microposting. Mastodon-compatible servers add favourites, bookmarks, boosts, replies and short-form publishing.
 
-The browser supplies the user's Micro.blog token for each request and the Netlify social bridge is allow-listed rather than an arbitrary proxy. See [`docs/microblog-social-plumbing.md`](docs/microblog-social-plumbing.md) for the current boundary.
+Dent Hand uses a provider boundary rather than baking one network into the UI. Micro.blog signs in through OAuth / IndieAuth. Mastodon-compatible servers use instance-aware OAuth. In both cases reusable access credentials stay encrypted server-side and browser JavaScript receives only an opaque `HttpOnly` session cookie. Mastodon client secrets are also kept server-side. The social bridges are allow-listed rather than arbitrary upstream proxies, and Mastodon instance connections are restricted to validated public hosts with DNS/IP pinning protections.
+
+ActivityPub federation by itself does not guarantee Dent Hand compatibility: a server also needs a compatible client API. See [`docs/microblog-social-plumbing.md`](docs/microblog-social-plumbing.md) for the current provider and security boundary.
 
 ## Portable `.handpub` documents
 
@@ -98,7 +100,7 @@ See [`docs/format.md`](docs/format.md) for compatibility rules.
 
 Most document work happens in the browser. Local files and document state remain local until the user explicitly publishes, uploads or saves a private working draft.
 
-Micro.blog browser tokens are passed per request and are not stored in IndexedDB, `.handpub` files or Netlify configuration. Writing Hand's unattended email workflow is a separate opt-in boundary using dedicated credentials in the user's own deployment. Private GitHub draft routing is another explicit boundary: the repository token stays server-side and the browser receives only the separate write-key interface. Dent Hand follows the browser-token model and routes only allow-listed social operations.
+Browser publishing tokens used by Publish Hand, BUM Hand and Markdown Hand remain separate from Dent Hand's authentication model and are not stored in `.handpub` files. Writing Hand's unattended email workflow is a separate opt-in boundary using dedicated credentials in the user's own deployment. Private GitHub draft routing is another explicit boundary: the repository token stays server-side and the browser receives only the separate write-key interface. Dent Hand keeps its Micro.blog and Mastodon-compatible provider credentials encrypted server-side and routes only allow-listed social operations; the browser gets an opaque `HttpOnly` session cookie rather than a reusable bearer token.
 
 Netlify Functions handle the small Micropub, GitHub and social bridges. Buffered image uploads carry the selected Micro.blog destination through to the upstream media request. Streamed audio/PDF uploads use a same-origin Netlify Edge Function and carry the same destination, so large media does not have to fit through the buffered photo bridge and all BUM Hand media types target the chosen blog consistently.
 
@@ -121,7 +123,7 @@ Vite uses multiple entrypoints: the Helping Hand launcher is built from `index.h
 
 The original publishing suite is feature-complete for its current use. Later additions such as Dent Hand still follow the same rule: implement them when real use creates a need, not to fill a release calendar.
 
-Possible future work includes assisted transcription/accessibility metadata, richer revision/history, PDF attachments through Writing Hand, additional supported BUM Hand file types or outputs, deeper tablet integrations, video if Micro.blog's API and a real use case justify it, optional encrypted Micro.blog Notes creation/notebook selection, incremental Dent Hand improvements where they solve actual social-client friction, and other destination-neutral publishing adapters where there is a genuine workflow.
+Possible future work includes assisted transcription/accessibility metadata, richer revision/history, PDF attachments through Writing Hand, additional supported BUM Hand file types or outputs, deeper tablet integrations, video if Micro.blog's API and a real use case justify it, optional encrypted Micro.blog Notes creation/notebook selection, Dent Hand paging/state polish, compatibility testing and capability detection across Mastodon-compatible servers, additional social providers only where a real use case justifies them, and other destination-neutral publishing adapters where there is a genuine workflow.
 
 Reliability work remains part of the roadmap even when it is not a new feature: real-device file-provider bugs, destination-routing regressions, API changes and browser quirks take priority over speculative additions.
 
