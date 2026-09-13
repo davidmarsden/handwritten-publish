@@ -1,5 +1,5 @@
 ALTER TABLE drawing_challenges
-  ADD COLUMN elijah_score NUMERIC(5,3),
+  ADD COLUMN elijah_score NUMERIC(4,2),
   ADD COLUMN elijah_grade TEXT;
 
 ALTER TABLE drawing_challenges
