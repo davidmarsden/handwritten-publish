@@ -1,0 +1,19 @@
+{
+  "id": "/setup/email/",
+  "name": "Writing Hand",
+  "short_name": "Writing Hand",
+  "description": "Send handwritten reMarkable pages and transcription straight to Micro.blog.",
+  "start_url": "/setup/email/",
+  "scope": "/setup/email/",
+  "display": "standalone",
+  "background_color": "#191816",
+  "theme_color": "#191816",
+  "icons": [
+    {
+      "src": "/brand/writing-hand.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
