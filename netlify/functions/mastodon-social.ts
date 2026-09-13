@@ -107,12 +107,16 @@ function normalizeStatus(status: MastodonStatus, host: string) {
   };
 }
 
-function remoteId(value?: string): string | undefined {
+export function mastodonPagingId(value?: string): string | undefined {
   const cleaned = value?.trim();
   if (!cleaned) return undefined;
-  if (/^\d+$/.test(cleaned)) return cleaned;
-  const match = cleaned.match(/^mastodon:[^:]+:(\d+)$/);
-  return match?.[1];
+
+  // Mastodon-compatible APIs define IDs as strings. Keep them opaque instead of
+  // assuming the numeric IDs used by stock Mastodon.
+  const namespaced = cleaned.match(/^mastodon:[^:]+:(.+)$/s);
+  const candidate = namespaced?.[1] ?? cleaned;
+  if (!candidate || candidate.length > 512 || /[\s\u0000-\u001f\u007f]/.test(candidate)) return undefined;
+  return candidate;
 }
 
 async function authenticated(request: Request) {
@@ -147,8 +151,8 @@ async function timeline(request: Request): Promise<Response> {
   const count = Math.max(1, Math.min(40, Number.parseInt(url.searchParams.get('count') || '40', 10) || 40));
   const api = new URL('/api/v1/timelines/home', session.instanceOrigin);
   api.searchParams.set('limit', String(count));
-  const maxId = remoteId(url.searchParams.get('before_id') || undefined);
-  const sinceId = remoteId(url.searchParams.get('since_id') || undefined);
+  const maxId = mastodonPagingId(url.searchParams.get('before_id') || undefined);
+  const sinceId = mastodonPagingId(url.searchParams.get('since_id') || undefined);
   if (maxId) api.searchParams.set('max_id', maxId);
   if (sinceId) api.searchParams.set('since_id', sinceId);
 
