@@ -1,5 +1,5 @@
 import { bearer, json, MICROPUB_ENDPOINT, upstreamError } from './_shared/microblog';
-import { dentHandSessionToken } from './_shared/dent-hand-session';
+import { dentHandSessionToken, updateDentHandSessionToken } from './_shared/dent-hand-session';
 import { publicPublishingDisabledResponse, publicUsageLimitResponse, recordPublicUsage } from './_shared/public-usage';
 
 const API_ROOT = 'https://micro.blog';
@@ -116,6 +116,7 @@ async function accountFor(request: Request): Promise<Response> {
   if (!response.ok) return upstreamError(response, 'Could not identify the Micro.blog account.');
 
   const payload = await response.json().catch(() => null) as {
+    token?: unknown;
     name?: unknown;
     username?: unknown;
     avatar?: unknown;
@@ -123,6 +124,11 @@ async function accountFor(request: Request): Promise<Response> {
   } | null;
   const username = safeUsername(typeof payload?.username === 'string' ? payload.username : null);
   if (!username) return json({ error: 'Micro.blog did not return an account username.' }, 502);
+
+  // /account/verify may exchange an expiring token for a fresh one. Persist that
+  // replacement in the server-side session before any timeline request uses it.
+  const verifiedToken = typeof payload?.token === 'string' ? payload.token.trim() : '';
+  if (verifiedToken && verifiedToken !== token) await updateDentHandSessionToken(request, verifiedToken);
 
   return json({
     username,
