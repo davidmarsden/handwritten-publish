@@ -48,6 +48,7 @@ function redirect(location: string, cookies: string[] = []): Response {
 function appUrls(request: Request) {
   const origin = new URL(request.url).origin;
   return {
+    origin,
     redirectUri: `${origin}/api/mastodon/auth`,
     returnTo: `${origin}/social/`,
     website: `${origin}/social/`,
@@ -55,10 +56,10 @@ function appUrls(request: Request) {
 }
 
 async function getOrCreateApp(instanceOrigin: string, request: Request): Promise<{ clientId: string; clientSecret: string }> {
-  const existing = await mastodonApp(instanceOrigin);
+  const { origin, redirectUri, website } = appUrls(request);
+  const existing = await mastodonApp(instanceOrigin, origin);
   if (existing) return existing;
 
-  const { redirectUri, website } = appUrls(request);
   const response = await mastodonFetch(instanceOrigin, '/api/v1/apps', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -74,7 +75,7 @@ async function getOrCreateApp(instanceOrigin: string, request: Request): Promise
   const clientId = typeof payload?.client_id === 'string' ? payload.client_id.trim() : '';
   const clientSecret = typeof payload?.client_secret === 'string' ? payload.client_secret.trim() : '';
   if (!clientId || !clientSecret) throw new Error('That server did not return OAuth application credentials.');
-  await saveMastodonApp(instanceOrigin, clientId, clientSecret);
+  await saveMastodonApp(instanceOrigin, origin, clientId, clientSecret);
   return { clientId, clientSecret };
 }
 
@@ -89,8 +90,8 @@ async function start(request: Request): Promise<Response> {
 
   try {
     const app = await getOrCreateApp(instanceOrigin, request);
-    const state = await createMastodonOAuthState(instanceOrigin);
-    const { redirectUri } = appUrls(request);
+    const { origin, redirectUri } = appUrls(request);
+    const state = await createMastodonOAuthState(instanceOrigin, origin);
     const auth = new URL('/oauth/authorize', instanceOrigin);
     auth.searchParams.set('client_id', app.clientId);
     auth.searchParams.set('scope', SCOPES);
@@ -108,18 +109,21 @@ async function callback(request: Request): Promise<Response> {
   const state = url.searchParams.get('state') || '';
   const expectedState = cookieValue(request, STATE_COOKIE) || '';
   const code = url.searchParams.get('code') || '';
-  const { redirectUri, returnTo } = appUrls(request);
+  const { origin, redirectUri, returnTo } = appUrls(request);
 
   if (!state || !expectedState || state !== expectedState || !code) {
     return redirect(`${returnTo}?auth=error&provider=mastodon`, [stateCookie('', request, 0)]);
   }
 
-  const instanceOrigin = await consumeMastodonOAuthState(state);
-  if (!instanceOrigin) return redirect(`${returnTo}?auth=error&provider=mastodon`, [stateCookie('', request, 0)]);
+  const oauthState = await consumeMastodonOAuthState(state);
+  if (!oauthState || oauthState.redirectOrigin !== origin) {
+    return redirect(`${returnTo}?auth=error&provider=mastodon`, [stateCookie('', request, 0)]);
+  }
+  const { instanceOrigin } = oauthState;
 
   try {
-    const app = await mastodonApp(instanceOrigin);
-    if (!app) throw new Error('Dent Hand no longer has OAuth credentials for that server.');
+    const app = await mastodonApp(instanceOrigin, origin);
+    if (!app) throw new Error('Dent Hand no longer has OAuth credentials for that server and callback origin.');
 
     const form = new URLSearchParams({
       grant_type: 'authorization_code',
