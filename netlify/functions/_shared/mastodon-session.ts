@@ -155,16 +155,19 @@ function pinnedHttpsFetch(url: URL, pinned: PinnedAddress, init: RequestInit): P
   return new Promise((resolve, reject) => {
     const headers = new Headers(init.headers || {});
     if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+    if (!headers.has('Host')) headers.set('Host', url.host);
 
     const req = httpsRequest({
       protocol: 'https:',
-      hostname: url.hostname,
+      // Connect directly to the address that passed validation. This avoids a
+      // second DNS lookup entirely, while servername + Host preserve TLS SNI
+      // and virtual-host routing for the original Mastodon hostname.
+      hostname: pinned.address,
       port: 443,
       path: `${url.pathname}${url.search}`,
       method: init.method || 'GET',
       headers: Object.fromEntries(headers.entries()),
       servername: url.hostname,
-      lookup: (_hostname, _options, callback) => callback(null, pinned.address, pinned.family),
     }, response => {
       const chunks: Uint8Array[] = [];
       response.on('data', chunk => chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk));
@@ -206,8 +209,8 @@ export async function mastodonFetch(instanceOrigin: string, path: string, init: 
   if (url.origin !== instanceOrigin) throw new Error('Invalid Mastodon API path.');
 
   // Pin the connection to the address that passed our public-network validation.
-  // Keeping hostname/servername unchanged preserves Host routing and TLS SNI while
-  // preventing a second DNS lookup from being rebound to a private address.
+  // Keeping the original Host header and TLS servername preserves virtual hosting
+  // while preventing DNS rebinding between validation and the outbound request.
   const response = await pinnedHttpsFetch(url, pinned, init);
   if (response.status >= 300 && response.status < 400) throw new Error('Mastodon API redirects are not followed.');
   return response;
