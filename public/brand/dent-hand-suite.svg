@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Dent Hand</title>
+  <desc id="desc">The Dent Hand conversation bubbles with a large Helping Hand mark in front.</desc>
+
+  <!-- Actual Dent Hand speech-bubble palette and shape language. -->
+  <path d="M12 17h57c12 0 22 10 22 22v24c0 12-10 22-22 22H42L20 101l6-16H12C0 85-10 75-10 63V39c0-12 10-22 22-22Z" fill="#839a42"/>
+  <path d="M39 42h50c11 0 20 9 20 20v20c0 11-9 20-20 20H63l-18 13 5-13H39c-11 0-20-9-20-20V62c0-11 9-20 20-20Z" fill="#8f161a"/>
+  <path d="M76 27h35c10 0 18 8 18 18v15c0 10-8 18-18 18H95L82 88l4-10H76c-10 0-18-8-18-18V45c0-10 8-18 18-18Z" fill="#8ca6e8"/>
+
+  <!-- Oversized Helping Hand, deliberately dominant on the suite card. -->
+  <g fill="#1769aa">
+    <rect x="48" y="58" width="10" height="34" rx="5" transform="rotate(-8 53 75)"/>
+    <rect x="61" y="48" width="10" height="44" rx="5"/>
+    <rect x="74" y="51" width="10" height="41" rx="5" transform="rotate(7 79 71.5)"/>
+    <rect x="87" y="60" width="10" height="34" rx="5" transform="rotate(12 92 77)"/>
+    <path d="M53 91a5 5 0 0 1 7-1.2l22 15.5 21-27.3a6 6 0 0 1 8.4-1.1 6 6 0 0 1 1.2 8.4l-24.8 32.2a6.3 6.3 0 0 1-8.5 1.3L55 101a6.3 6.3 0 0 1-2-10Z"/>
+  </g>
+</svg>
