@@ -9,6 +9,7 @@
     <meta property="og:description" content="Build a web-ready post from what you made." />
     <meta property="og:image" content="/.netlify/images?url=/brand/helping-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png" />
     <link rel="icon" href="/brand/publish-hand.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/publish-hand.webmanifest" />
     <title>Publish Hand — Helping Hand</title>
     <style>
       .publish-product{margin:0}
@@ -55,6 +56,9 @@
         if(status.limited&&status.limit!=null){const used=Number(status.used)||0;const limit=Number(status.limit)||0;const remaining=Math.max(0,limit-used);count.textContent=`${used} / ${limit} publishes used this month`;note.textContent=remaining>0?`${remaining} public demo publish${remaining===1?'':'es'} remaining this month. The allowance resets automatically next month.`:'The public demo publishing allowance has been used up for this month. Local editing and export still work.';progressWrap.hidden=false;progress.style.width=`${limit>0?Math.min(100,(used/limit)*100):100}%`;return;}
         count.textContent=`${status.used??0} publishes this month`;note.textContent='This public demo is currently uncapped. Local editing and export remain browser-local.';
       }).catch(()=>{const count=document.getElementById('public-demo-count');const note=document.getElementById('public-demo-note');if(count)count.textContent='Usage count unavailable';if(note)note.textContent='The demo is still available, but its monthly usage status could not be loaded.';});
+    </script>
+    <script>
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('/hand-sw.js?app=publish', { scope: '/publish/', updateViaCache: 'none' }).catch(() => undefined);
     </script>
   </body>
 </html>
