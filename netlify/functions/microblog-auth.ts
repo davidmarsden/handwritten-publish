@@ -50,7 +50,7 @@ function appUrls(request: Request) {
   const origin = new URL(request.url).origin;
   return {
     clientId: `${origin}/social/`,
-    redirectUri: `${origin}/api/microblog/auth?op=callback`,
+    redirectUri: `${origin}/api/microblog/auth`,
     returnTo: `${origin}/social/`,
   };
 }
@@ -90,8 +90,6 @@ async function callback(request: Request): Promise<Response> {
       Accept: 'application/json',
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    // Match Micro.blog's own Inkwell implementation exactly here rather than
-    // relying on the runtime to serialize a URLSearchParams BodyInit for us.
     body: form.toString(),
   });
   if (!tokenResponse.ok) {
@@ -114,8 +112,6 @@ async function logout(request: Request): Promise<Response> {
   try {
     await deleteDentHandSession(request);
   } catch (error) {
-    // The browser session must still be invalidated even if database cleanup fails.
-    // Without the HttpOnly cookie the orphaned server row cannot be used by the client.
     console.warn(`[dent-hand] session cleanup failed during logout: ${error instanceof Error ? error.message : 'unknown error'}`);
   }
   return new Response(null, {
@@ -128,7 +124,7 @@ export default async (request: Request): Promise<Response> => {
   const url = new URL(request.url);
   const operation = url.searchParams.get('op');
   if (request.method === 'GET' && operation === 'start') return start(request);
-  if (request.method === 'GET' && operation === 'callback') return callback(request);
+  if (request.method === 'GET' && (operation === 'callback' || (url.searchParams.has('code') && url.searchParams.has('state')))) return callback(request);
   if (request.method === 'POST' && operation === 'logout') return logout(request);
   return json({ error: 'Unsupported Micro.blog authentication operation.' }, 405);
 };
