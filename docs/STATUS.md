@@ -103,6 +103,10 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 
 - [x] Live `/social/` product surface
 - [x] Installable Dent Hand / dent.hand web-app identity
+- [x] Micro.blog OAuth / IndieAuth sign-in
+- [x] Server-side encrypted Micro.blog access tokens
+- [x] Opaque `HttpOnly` session cookie in the browser
+- [x] Request the Micro.blog scopes Dent Hand actually needs: `profile read create update`
 - [x] Signed-in Micro.blog timeline
 - [x] Open conversations
 - [x] Reply to posts
@@ -110,16 +114,18 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 - [x] Browse bookmarks and replies
 - [x] Browse profiles/user timelines
 - [x] Dedicated `/social/my-posts/` view for the user's own posts
+- [x] Guarded short-form posting to an explicitly chosen Micro.blog destination
 - [x] Typed browser client in `src/microblogSocial.ts`
 - [x] Allow-listed Netlify social bridge rather than a general proxy
-- [x] Ephemeral browser-supplied Micro.blog token
 - [x] Lightweight app-shell/service-worker support
 
-Further Dent Hand work should stay deliberately small and need-driven: better history/paging, guarded short-form posting, quote/embed helpers or interaction-state improvements only where they remove real friction.
+Further Dent Hand work should stay deliberately small and need-driven: better history/paging, optimistic interaction state and lightweight caching only where they remove real friction. Mentions should remain optional/degraded until the relevant Micro.blog endpoint is reliable enough to depend on.
 
 ## Safety and privacy boundary
 
-- Browser Micro.blog tokens remain ephemeral and are not persisted by Helping Hand.
+- Browser publishing tokens used by Publish Hand, BUM Hand and Markdown Hand remain ephemeral unless that product explicitly documents otherwise.
+- Dent Hand does **not** keep a reusable Micro.blog bearer token in browser storage: OAuth tokens are encrypted server-side and browser JavaScript receives only an opaque `HttpOnly` session cookie.
+- Dent Hand's production deployment requires `DENT_HAND_SESSION_SECRET` (at least 32 characters) for server-side token encryption.
 - Writing Hand uses separate, revocable server-side credentials in the user's own deployment.
 - Private GitHub working drafts use a narrowly-scoped server-side repository token plus a separate browser write key.
 - New Publish Hand and Markdown Hand Micro.blog posts are draft-first.
@@ -129,7 +135,7 @@ Further Dent Hand work should stay deliberately small and need-driven: better hi
 - BUM Hand stages selected files locally and forwards them only after the user starts an upload.
 - BUM Hand forwards the chosen Micro.blog destination with every supported media upload so multi-blog accounts do not rely on an implicit default.
 - Markdown Hand reads the chosen file locally and sends its source only when the user explicitly saves or publishes it.
-- Dent Hand forwards browser-authenticated requests only through its allow-listed social operations.
+- Dent Hand forwards authenticated requests only through its allow-listed social operations.
 
 ## After v1.0
 
@@ -142,7 +148,8 @@ There is no mandatory next phase. Possible future work remains intentionally ope
 - [ ] Video only when Micro.blog's API and a real use case justify the complexity
 - [ ] Optional Micro.blog Notes destination, including encrypted note creation and notebook selection, if it becomes useful in real use
 - [ ] Deeper native reMarkable or other tablet integration
-- [ ] Incremental Dent Hand improvements when real social-client friction appears
+- [ ] Better Dent Hand history/paging and interaction-state polish when real use justifies it
+- [ ] Authenticated Mastodon support behind a provider abstraction if it solves a real use case; public Mastodon reading is already possible
 - [ ] Additional destination-neutral publisher adapters when a real need appears
 
 The product rule is simple: add something when it removes a real publishing or interaction frustration, not because the roadmap has an empty box.
