@@ -90,9 +90,14 @@ async function callback(request: Request): Promise<Response> {
       Accept: 'application/json',
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: form,
+    // Match Micro.blog's own Inkwell implementation exactly here rather than
+    // relying on the runtime to serialize a URLSearchParams BodyInit for us.
+    body: form.toString(),
   });
-  if (!tokenResponse.ok) return upstreamError(tokenResponse, 'Micro.blog sign-in failed.');
+  if (!tokenResponse.ok) {
+    console.warn(`[dent-hand] Micro.blog token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}; content-type=${tokenResponse.headers.get('content-type') || 'unknown'}`);
+    return upstreamError(tokenResponse, `Micro.blog sign-in failed (${tokenResponse.status}).`);
+  }
 
   const payload = await tokenResponse.json().catch(() => null) as { access_token?: unknown } | null;
   const token = typeof payload?.access_token === 'string' ? payload.access_token.trim() : '';
