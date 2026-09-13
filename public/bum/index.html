@@ -4,11 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f4f1ea">
   <meta name="description" content="BUM Hand — Batch Uploader for Micro.blog. Upload batches of photos, audio and PDFs without creating posts.">
   <meta property="og:title" content="BUM Hand — Helping Hand">
   <meta property="og:description" content="Batch Uploader for Micro.blog.">
   <meta property="og:image" content="/.netlify/images?url=/brand/helping-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png">
   <link rel="icon" href="/brand/bum-hand.svg" type="image/svg+xml">
+  <link rel="manifest" href="/bum-hand.webmanifest">
   <title>BUM Hand — Batch Uploader for Micro.blog</title>
   <link rel="stylesheet" href="/bum/bum.css">
   <link rel="stylesheet" href="/bum/audio.css">
@@ -81,5 +83,8 @@
     </footer>
   </main>
   <script type="module" src="/bum/bum.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/hand-sw.js?app=bum', { scope: '/bum/', updateViaCache: 'none' }).catch(() => undefined);
+  </script>
 </body>
 </html>

@@ -1,0 +1,19 @@
+{
+  "id": "/markdown/",
+  "name": "Markdown Hand",
+  "short_name": "Markdown Hand",
+  "description": "Send prepared Markdown to Micro.blog or a private working-draft workflow without rewriting the source.",
+  "start_url": "/markdown/",
+  "scope": "/markdown/",
+  "display": "standalone",
+  "background_color": "#f3efe6",
+  "theme_color": "#f3efe6",
+  "icons": [
+    {
+      "src": "/brand/markdown-hand.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

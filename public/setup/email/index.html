@@ -9,6 +9,7 @@
   <meta property="og:description" content="From paper to web at the push of a pen.">
   <meta property="og:image" content="/.netlify/images?url=/brand/helping-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png">
   <link rel="icon" href="/brand/writing-hand.svg" type="image/svg+xml">
+  <link rel="manifest" href="/writing-hand.webmanifest">
   <title>Writing Hand — Helping Hand</title>
   <link rel="stylesheet" href="/setup/styles.css">
 </head>
@@ -136,5 +137,8 @@ How cool is that?!</code></pre>
     </footer>
   </section>
 </main>
+<script>
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/hand-sw.js?app=writing', { scope: '/setup/email/', updateViaCache: 'none' }).catch(() => undefined);
+</script>
 </body>
 </html>
