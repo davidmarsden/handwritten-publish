@@ -1,3 +1,5 @@
+import type { SocialProvider, SocialProviderCapabilities } from './socialProvider';
+
 export type MicroblogAuthor = {
   name?: string;
   username?: string;
@@ -57,6 +59,18 @@ export type MicroblogSocialClientOptions = {
 
 const LEGACY_TOKEN_KEY = 'microblog-social-token';
 
+const MICROBLOG_CAPABILITIES: SocialProviderCapabilities = {
+  bookmarks: true,
+  mentions: true,
+  replies: true,
+  conversations: true,
+  profiles: true,
+  destinations: true,
+  bookmarking: true,
+  replying: true,
+  publishing: true,
+};
+
 function clearLegacyBrowserToken(): void {
   try {
     globalThis.sessionStorage?.removeItem(LEGACY_TOKEN_KEY);
@@ -107,7 +121,15 @@ function normalizeFeed(feed: MicroblogFeed): MicroblogFeed {
   };
 }
 
-export class MicroblogSocialClient {
+export class MicroblogSocialClient implements SocialProvider {
+  readonly id = 'microblog' as const;
+  readonly label = 'Micro.blog';
+  readonly auth = {
+    startPath: '/api/microblog/auth?op=start',
+    signOutPath: '/api/microblog/auth?op=logout',
+  } as const;
+  readonly capabilities = MICROBLOG_CAPABILITIES;
+
   private readonly token?: string;
   private readonly endpoint: string;
   private readonly fetchImpl: typeof fetch;
@@ -216,5 +238,9 @@ export class MicroblogSocialClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: trimmed, destination: target }),
     });
+  }
+
+  async publish(content: string, destination: string): Promise<{ ok?: boolean; url?: string | null; preview?: string | null }> {
+    return this.micropost(content, destination);
   }
 }
