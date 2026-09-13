@@ -15,15 +15,33 @@ const challengeImage = $('#challenge-image') as HTMLImageElement;
 const noChallenge = $('#no-challenge');
 const submissionForm = $('#submission-form') as HTMLFormElement;
 const submissionStatus = $('#submission-status');
+const submissionPreview = $('#submission-preview') as HTMLImageElement;
 const adminPanel = $('#admin-panel');
 const adminForm = $('#admin-form') as HTMLFormElement;
 const adminStatus = $('#admin-status');
+const adminPreview = $('#admin-preview') as HTMLImageElement;
 
 let activeChallenge: Challenge | null = null;
+let submissionPreviewUrl: string | null = null;
+let adminPreviewUrl: string | null = null;
 
 function setStatus(target: HTMLElement, message: string, error = false) {
   target.textContent = message;
   target.dataset.error = error ? 'true' : 'false';
+}
+
+function setImagePreview(input: HTMLInputElement, preview: HTMLImageElement, currentUrl: string | null) {
+  if (currentUrl) URL.revokeObjectURL(currentUrl);
+  const file = input.files?.[0];
+  if (!file) {
+    preview.hidden = true;
+    preview.removeAttribute('src');
+    return null;
+  }
+  const nextUrl = URL.createObjectURL(file);
+  preview.src = nextUrl;
+  preview.hidden = false;
+  return nextUrl;
 }
 
 async function preparedImage(file: File): Promise<File> {
@@ -52,6 +70,11 @@ async function loadChallenge() {
   challengeImage.alt = `Elijah's challenge drawing: ${activeChallenge.title}`;
 }
 
+const submissionImageInput = submissionForm.elements.namedItem('image') as HTMLInputElement;
+submissionImageInput.addEventListener('change', () => {
+  submissionPreviewUrl = setImagePreview(submissionImageInput, submissionPreview, submissionPreviewUrl);
+});
+
 submissionForm.addEventListener('submit', async event => {
   event.preventDefault();
   if (!activeChallenge) return;
@@ -75,6 +98,10 @@ submissionForm.addEventListener('submit', async event => {
     if (!response.ok || !payload.submission) throw new Error(payload.error || 'Your drawing could not be submitted.');
 
     submissionForm.reset();
+    if (submissionPreviewUrl) URL.revokeObjectURL(submissionPreviewUrl);
+    submissionPreviewUrl = null;
+    submissionPreview.hidden = true;
+    submissionPreview.removeAttribute('src');
     submissionStatus.innerHTML = `Sent! Elijah can now judge your drawing. <a href="${payload.submission.resultUrl}">Keep this private result link</a>.`;
   } catch (error) {
     setStatus(submissionStatus, error instanceof Error ? error.message : 'Your drawing could not be submitted.', true);
@@ -86,6 +113,11 @@ if (new URL(location.href).searchParams.get('admin') === '1') {
   const savedKey = localStorage.getItem('drawing-hand-admin-key');
   if (savedKey) (adminForm.elements.namedItem('adminKey') as HTMLInputElement).value = savedKey;
 }
+
+const adminImageInput = adminForm.elements.namedItem('image') as HTMLInputElement;
+adminImageInput.addEventListener('change', () => {
+  adminPreviewUrl = setImagePreview(adminImageInput, adminPreview, adminPreviewUrl);
+});
 
 adminForm.addEventListener('submit', async event => {
   event.preventDefault();
@@ -118,6 +150,10 @@ adminForm.addEventListener('submit', async event => {
     localStorage.setItem('drawing-hand-admin-key', adminKey);
     adminForm.reset();
     (adminForm.elements.namedItem('adminKey') as HTMLInputElement).value = adminKey;
+    if (adminPreviewUrl) URL.revokeObjectURL(adminPreviewUrl);
+    adminPreviewUrl = null;
+    adminPreview.hidden = true;
+    adminPreview.removeAttribute('src');
     setStatus(adminStatus, 'Challenge published. It is now open for drawings.');
     await loadChallenge();
   } catch (error) {
