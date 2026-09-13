@@ -9,7 +9,7 @@ function response(body: unknown, status = 200): Response {
 }
 
 describe('MastodonSocialClient', () => {
-  it('advertises the read-only Mastodon phase accurately', () => {
+  it('advertises Mastodon interaction and publishing capabilities', () => {
     const client = new MastodonSocialClient('/api/test', vi.fn<typeof fetch>());
     expect(client.id).toBe('mastodon');
     expect(client.label).toBe('Mastodon / Fediverse');
@@ -18,9 +18,9 @@ describe('MastodonSocialClient', () => {
       mentions: false,
       replies: false,
       conversations: false,
-      bookmarking: false,
-      replying: false,
-      publishing: false,
+      bookmarking: true,
+      replying: true,
+      publishing: true,
     });
   });
 
@@ -45,6 +45,36 @@ describe('MastodonSocialClient', () => {
     expect(url).toContain('count=40');
     expect(url).toContain('before_id=mastodon%3Aexample.social%3A123');
     expect(url).toContain('since_id=mastodon%3Aexample.social%3A456');
+  });
+
+  it('posts interaction actions as JSON without exposing a token', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({ ok: true }));
+    const client = new MastodonSocialClient('/api/test', fetchImpl);
+
+    await client.favourite('opaque-123');
+    await client.bookmark('opaque-123');
+    await client.boost('opaque-123');
+
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    for (const [input, init] of fetchImpl.mock.calls) {
+      expect(String(input)).toMatch(/op=(favourite|bookmark|boost)/);
+      expect(init).toMatchObject({ method: 'POST', credentials: 'same-origin' });
+      expect(JSON.parse(String(init?.body))).toEqual({ id: 'opaque-123' });
+      expect((init?.headers as Record<string, string> | undefined)?.Authorization).toBeUndefined();
+    }
+  });
+
+  it('posts replies and new dents through the server bridge', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({ ok: true, url: 'https://example.social/@david/1' }));
+    const client = new MastodonSocialClient('/api/test', fetchImpl);
+
+    await client.reply('status-1', 'hello back');
+    await client.publish('hello fediverse');
+
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toContain('op=reply');
+    expect(JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body))).toEqual({ id: 'status-1', content: 'hello back' });
+    expect(String(fetchImpl.mock.calls[1]?.[0])).toContain('op=publish');
+    expect(JSON.parse(String(fetchImpl.mock.calls[1]?.[1]?.body))).toEqual({ content: 'hello fediverse' });
   });
 
   it('surfaces sanitized bridge errors', async () => {
