@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+<title id="title">Dent Hand</title><desc id="desc">Dent Hand social sharing card.</desc><rect width="1200" height="630" fill="#171817"/><rect x="850" width="350" height="630" fill="#839a42"/>
+<text x="72" y="92" fill="#dce5bd" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="700" letter-spacing="4">HELPING HAND</text><text x="68" y="270" fill="#f4f4ef" font-family="Georgia,'Times New Roman',serif" font-size="142">dent.hand</text>
+<path d="M72 330H610" stroke="#dce5bd" stroke-width="3"/><text x="72" y="410" fill="#f4f4ef" font-family="Georgia,'Times New Roman',serif" font-size="36" font-style="italic">The social side of Helping Hand.</text>
+<text x="72" y="490" fill="#bac6a0" font-family="Arial,Helvetica,sans-serif" font-size="22">Micro.blog + Mastodon-compatible servers</text><text x="72" y="548" fill="#bac6a0" font-family="Arial,Helvetica,sans-serif" font-size="19">Chronological timelines · replies · bookmarks · dents</text>
+<g fill="none" stroke="#fff" stroke-width="10" stroke-linejoin="round"><rect x="918" y="190" width="150" height="105" rx="34"/><rect x="960" y="250" width="150" height="105" rx="34"/></g><text x="930" y="520" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="22" font-weight="700" letter-spacing="2">DENT HAND</text>
+</svg>
