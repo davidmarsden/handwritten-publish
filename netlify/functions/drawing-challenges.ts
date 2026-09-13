@@ -52,14 +52,19 @@ export default async (request: Request) => {
   await store.set(imageKey, await image.arrayBuffer());
 
   try {
-    await db.sql`
-      UPDATE drawing_challenges SET status = 'judging' WHERE status = 'open';
-    `;
     const [challenge] = await db.sql`
       INSERT INTO drawing_challenges (id, title, difficulty, image_key, image_type, status)
       VALUES (${id}, ${title}, ${difficulty}, ${imageKey}, ${image.type}, 'open')
       RETURNING id, title, difficulty, status, created_at
     ` as Array<{ id: string; title: string; difficulty: string | null; status: string; created_at: string }>;
+
+    // Only retire older challenges after the new one exists, so a failed insert
+    // can never leave Drawing Hand with no open challenge.
+    await db.sql`
+      UPDATE drawing_challenges
+      SET status = 'judging'
+      WHERE status = 'open' AND id <> ${id};
+    `;
 
     return json({
       challenge: {
