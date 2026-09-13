@@ -55,6 +55,16 @@ export type MicroblogSocialClientOptions = {
   fetchImpl?: typeof fetch;
 };
 
+const LEGACY_TOKEN_KEY = 'microblog-social-token';
+
+function clearLegacyBrowserToken(): void {
+  try {
+    globalThis.sessionStorage?.removeItem(LEGACY_TOKEN_KEY);
+  } catch {
+    // Storage may be unavailable in tests, private browsing, or non-browser runtimes.
+  }
+}
+
 function assertId(id: string): string {
   if (!/^\d+$/.test(id)) throw new Error('Micro.blog post id must be numeric.');
   return id;
@@ -103,6 +113,7 @@ export class MicroblogSocialClient {
   private readonly fetchImpl: typeof fetch;
 
   constructor(options: MicroblogSocialClientOptions = {}) {
+    clearLegacyBrowserToken();
     this.token = options.token?.trim() || undefined;
     this.endpoint = options.endpoint || '/api/microblog/social';
     this.fetchImpl = options.fetchImpl || globalThis.fetch.bind(globalThis);
