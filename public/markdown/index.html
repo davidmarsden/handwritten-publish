@@ -5,8 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <meta name="theme-color" content="#f3efe6">
   <meta name="description" content="Markdown Hand sends prepared Markdown to Micro.blog or a private working-draft workflow without rewriting the source.">
+  <meta property="og:type" content="website">
   <meta property="og:title" content="Markdown Hand — Helping Hand">
   <meta property="og:description" content="Your Markdown. Hands off.">
+  <meta property="og:url" content="https://hand.davidmarsden.info/markdown/">
+  <meta property="og:image" content="https://hand.davidmarsden.info/.netlify/images?url=/brand/markdown-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png">
+  <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Markdown Hand — Helping Hand"><meta name="twitter:description" content="Your Markdown. Hands off."><meta name="twitter:image" content="https://hand.davidmarsden.info/.netlify/images?url=/brand/markdown-hand-og.svg&amp;w=1200&amp;h=630&amp;fit=fill&amp;fm=png">
   <link rel="icon" href="/brand/markdown-hand.svg" type="image/svg+xml">
   <link rel="manifest" href="/markdown-hand.webmanifest">
   <title>Markdown Hand — Helping Hand</title>
@@ -21,47 +26,17 @@
       <div><p class="eyebrow">Prepared Markdown → working draft or publication</p><h1>Markdown<br>Hand</h1><p class="lede"><strong>Your Markdown. Hands off.</strong> Choose a finished <code>.md</code> file. Send it unchanged to a private working draft, or publish it through Micro.blog when it is ready.</p></div>
       <img class="hero-mark" src="/brand/markdown-hand.svg" alt="" aria-hidden="true">
     </header>
-
     <section class="panel">
-      <label for="target">Send to</label>
-      <select id="target"><option value="southall-research" selected>Private working draft</option><option value="microblog">Micro.blog — draft or publication</option></select>
-      <p id="target-note" class="destination-note"><strong>Working destination.</strong> Saves the Markdown unchanged to your configured private draft repository, where the review workflow can inspect it.</p>
-
-      <div id="research-auth">
-        <label for="research-key">Private draft write key</label><input id="research-key" type="password" autocomplete="off"><p class="hint">Authorises this private destination. The GitHub repository token remains server-side in Netlify.</p>
-      </div>
-
-      <div id="microblog-auth" hidden>
-        <label for="token">Micro.blog app token</label><input id="token" type="password" autocomplete="off"><p class="hint">Used for this browser session only.</p>
-        <div class="actions"><button id="connect" type="button">Connect</button><span id="connection-status" class="status">Not connected.</span></div>
-        <div id="destination-wrap" hidden><label for="destination">Blog</label><select id="destination"></select></div>
-      </div>
-
+      <label for="target">Send to</label><select id="target"><option value="southall-research" selected>Private working draft</option><option value="microblog">Micro.blog — draft or publication</option></select><p id="target-note" class="destination-note"><strong>Working destination.</strong> Saves the Markdown unchanged to your configured private draft repository, where the review workflow can inspect it.</p>
+      <div id="research-auth"><label for="research-key">Private draft write key</label><input id="research-key" type="password" autocomplete="off"><p class="hint">Authorises this private destination. The GitHub repository token remains server-side in Netlify.</p></div>
+      <div id="microblog-auth" hidden><label for="token">Micro.blog app token</label><input id="token" type="password" autocomplete="off"><p class="hint">Used for this browser session only.</p><div class="actions"><button id="connect" type="button">Connect</button><span id="connection-status" class="status">Not connected.</span></div><div id="destination-wrap" hidden><label for="destination">Blog</label><select id="destination"></select></div></div>
       <label for="file">Markdown file</label><input id="file" type="file" accept=".md,text/markdown,text/plain"><p id="file-note" class="hint">Choose a UTF-8 Markdown file.</p>
-
-      <div id="microblog-metadata" hidden>
-        <div class="row">
-          <div><label for="title">Post title <span class="hint">(optional)</span></label><input id="title" type="text" placeholder="Leave blank to preserve a title-free post"></div>
-          <div><label for="status-select">Status</label><select id="status-select"><option value="draft" selected>Draft</option><option value="published">Published</option></select></div>
-        </div>
-        <label for="categories">Categories <span class="hint">(optional)</span></label><input id="categories" type="text" placeholder="Photography, Notes"><p class="hint">Comma-separated Micro.blog categories.</p>
-        <label for="summary">Summary <span class="hint">(optional)</span></label><textarea id="summary" placeholder="Optional Micro.blog summary"></textarea>
-      </div>
-
+      <div id="microblog-metadata" hidden><div class="row"><div><label for="title">Post title <span class="hint">(optional)</span></label><input id="title" type="text" placeholder="Leave blank to preserve a title-free post"></div><div><label for="status-select">Status</label><select id="status-select"><option value="draft" selected>Draft</option><option value="published">Published</option></select></div></div><label for="categories">Categories <span class="hint">(optional)</span></label><input id="categories" type="text" placeholder="Photography, Notes"><p class="hint">Comma-separated Micro.blog categories.</p><label for="summary">Summary <span class="hint">(optional)</span></label><textarea id="summary" placeholder="Optional Micro.blog summary"></textarea></div>
       <div class="actions"><button id="publish" type="button" disabled>Save private working draft</button><span id="publish-status" class="status">Ready.</span></div>
     </section>
-
-    <section id="results" class="panel" hidden>
-      <p id="verdict" class="result"></p>
-      <p class="details" id="verification"></p>
-      <p><a id="open-post" target="_blank" rel="noopener">Open saved draft ↗</a></p>
-    </section>
-
+    <section id="results" class="panel" hidden><p id="verdict" class="result"></p><p class="details" id="verification"></p><p><a id="open-post" target="_blank" rel="noopener">Open saved draft ↗</a></p></section>
     <footer class="suite-footer"><a href="/">Helping Hand</a><a href="/setup/email/">Writing Hand</a><a href="/publish/">Publish Hand</a><a href="/bum/">BUM Hand</a><a href="/markdown/">Markdown Hand</a><a href="/roadmap/">Roadmap</a><a href="/setup/">Setup</a><a href="https://davidmarsden.info/">davidmarsden.info</a><a href="https://github.com/davidmarsden/handwritten-publish">GitHub</a></footer>
   </main>
-  <script type="module" src="/markdown/markdown.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/hand-sw.js?app=markdown', { scope: '/markdown/', updateViaCache: 'none' }).catch(() => undefined);
-  </script>
+  <script type="module" src="/markdown/markdown.js"></script><script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/hand-sw.js?app=markdown', { scope: '/markdown/', updateViaCache: 'none' }).catch(() => undefined);</script>
 </body>
 </html>
