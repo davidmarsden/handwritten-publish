@@ -1,7 +1,7 @@
 {
   "name": "Dent Hand",
   "short_name": "Dent Hand",
-  "description": "A minimal federated Micro.blog client for timelines, replies, bookmarks and dents.",
+  "description": "A minimal chronological social-web client for Micro.blog and Mastodon-compatible servers.",
   "start_url": "/social/",
   "scope": "/social/",
   "display": "standalone",
