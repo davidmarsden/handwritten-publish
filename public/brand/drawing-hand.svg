@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Drawing Hand</title>
+  <desc id="desc">A pencil mark for Drawing Hand.</desc>
+  <rect width="64" height="64" rx="14" fill="#d66b93"/>
+  <path d="M18 45 22 34 41 15c2.2-2.2 5.8-2.2 8 0s2.2 5.8 0 8L30 42l-12 3Z" fill="#fffaf2"/>
+  <path d="m23 34 7 7M39 17l8 8" fill="none" stroke="#191816" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="m18 45 7-2-5-5-2 7Z" fill="#191816"/>
+</svg>
