@@ -6,6 +6,7 @@ import {
   randomResultToken,
   validDrawingImage,
 } from './_shared/drawing-hand';
+import { sendOperatorAlert } from './_shared/public-usage';
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status });
@@ -27,11 +28,11 @@ export default async (request: Request) => {
 
   const db = getDatabase();
   const [challenge] = await db.sql`
-    SELECT id
+    SELECT id, title
     FROM drawing_challenges
     WHERE id = ${challengeId} AND status = 'open'
     LIMIT 1
-  ` as Array<{ id: string }>;
+  ` as Array<{ id: string; title: string }>;
   if (!challenge) return json({ error: 'This challenge is not accepting entries.' }, 409);
 
   const id = randomId('submission');
@@ -52,6 +53,19 @@ export default async (request: Request) => {
     await store.delete(imageKey).catch(() => undefined);
     throw error;
   }
+
+  const judgingUrl = new URL('/drawing/judge/', request.url).toString();
+  await sendOperatorAlert(
+    'Drawing Hand: new submission',
+    [
+      `Entrant: ${displayName}`,
+      `Challenge: ${challenge.title}`,
+      '',
+      `Open the Judging Desk: ${judgingUrl}`,
+    ].join('\n'),
+  ).catch(error => {
+    console.warn(`[drawing-hand] submission alert failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+  });
 
   return json({
     submission: {
