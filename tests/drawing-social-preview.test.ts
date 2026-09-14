@@ -10,6 +10,11 @@ describe('Drawing Hand social preview', () => {
     expect(source).toContain('payload.challenges?.[0]');
   });
 
+  it('does not rewrite the admin query URL', () => {
+    expect(source).toContain("requestUrl.searchParams.get('admin') === '1'");
+    expect(source).toContain('if (requestUrl.searchParams.get(\'admin\') === \'1\') return response');
+  });
+
   it('keeps a static branded fallback when no challenge can be loaded', () => {
     expect(source).toContain('/brand/drawing-hand-og.svg');
     expect(source).toContain('if (!newest) return response');
