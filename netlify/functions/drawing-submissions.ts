@@ -54,13 +54,14 @@ export default async (request: Request) => {
     throw error;
   }
 
+  const judgingUrl = new URL('/drawing/judge/', request.url).toString();
   await sendOperatorAlert(
     'Drawing Hand: new submission',
     [
       `Entrant: ${displayName}`,
       `Challenge: ${challenge.title}`,
       '',
-      'Open the Judging Desk: https://hand.davidmarsden.info/drawing/judge/',
+      `Open the Judging Desk: ${judgingUrl}`,
     ].join('\n'),
   ).catch(error => {
     console.warn(`[drawing-hand] submission alert failed: ${error instanceof Error ? error.message : 'unknown error'}`);
