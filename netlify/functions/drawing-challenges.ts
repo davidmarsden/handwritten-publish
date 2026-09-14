@@ -9,6 +9,8 @@ import {
 } from './_shared/drawing-hand';
 import { DRAWING_GRADES, suggestedDrawingGrade } from '../../src/drawingGrades';
 
+const MAX_VISIBLE_CHALLENGES = 5;
+
 function json(body: unknown, status = 200) {
   return Response.json(body, { status });
 }
@@ -21,21 +23,22 @@ export default async (request: Request) => {
       SELECT id, title, difficulty, status, created_at, elijah_score, elijah_grade
       FROM drawing_challenges
       WHERE status = 'open'
-      ORDER BY created_at DESC
-      LIMIT 1
+      ORDER BY created_at DESC, id DESC
+      LIMIT ${MAX_VISIBLE_CHALLENGES}
     ` as Array<{ id: string; title: string; difficulty: string | null; status: string; created_at: string; elijah_score: string | number | null; elijah_grade: string | null }>;
 
-    const challenge = rows[0];
-    if (!challenge) return json({ challenge: null });
+    const challenges = rows.map(challenge => ({
+      ...challenge,
+      elijahScore: challenge.elijah_score === null ? null : Number(challenge.elijah_score),
+      elijahGrade: challenge.elijah_grade,
+      elijah_score: undefined,
+      elijah_grade: undefined,
+      imageUrl: `/api/drawing-image?challenge=${encodeURIComponent(challenge.id)}`,
+    }));
+
     return json({
-      challenge: {
-        ...challenge,
-        elijahScore: challenge.elijah_score === null ? null : Number(challenge.elijah_score),
-        elijahGrade: challenge.elijah_grade,
-        elijah_score: undefined,
-        elijah_grade: undefined,
-        imageUrl: `/api/drawing-image?challenge=${encodeURIComponent(challenge.id)}`,
-      },
+      challenges,
+      challenge: challenges[0] ?? null,
     });
   }
 
@@ -70,7 +73,6 @@ export default async (request: Request) => {
   try {
     await client.query('BEGIN');
     await client.query("SELECT pg_advisory_xact_lock(hashtext('drawing-hand-open-challenge'))");
-    await client.query("UPDATE drawing_challenges SET status = 'judging' WHERE status = 'open'");
 
     const result = await client.query<{
       id: string;
@@ -85,6 +87,19 @@ export default async (request: Request) => {
        VALUES ($1, $2, $3, $4, $5, 'open', $6, $7)
        RETURNING id, title, difficulty, status, created_at, elijah_score, elijah_grade`,
       [id, title, difficulty, imageKey, image.type, elijahScore, elijahGrade],
+    );
+
+    await client.query(
+      `UPDATE drawing_challenges
+       SET status = 'judging'
+       WHERE id IN (
+         SELECT id
+         FROM drawing_challenges
+         WHERE status = 'open'
+         ORDER BY created_at DESC, id DESC
+         OFFSET $1
+       )`,
+      [MAX_VISIBLE_CHALLENGES],
     );
 
     await client.query('COMMIT');
