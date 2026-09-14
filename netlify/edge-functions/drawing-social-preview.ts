@@ -11,7 +11,10 @@ function escapeAttribute(value: string) {
 }
 
 export default async (request: Request, context: Context) => {
+  const requestUrl = new URL(request.url);
   const response = await context.next();
+
+  if (requestUrl.searchParams.get('admin') === '1') return response;
   if (!response.ok || !response.headers.get('content-type')?.includes('text/html')) return response;
 
   try {
@@ -27,7 +30,7 @@ export default async (request: Request, context: Context) => {
     if (!newest) return response;
 
     const html = await response.text();
-    const origin = new URL(request.url).origin;
+    const origin = requestUrl.origin;
     const challengeImage = absolute(origin, newest.imageUrl);
     const image = absolute(origin, `/.netlify/images?url=${encodeURIComponent(challengeImage)}&w=1200&h=630&fit=contain&fm=jpg&q=85`);
     const title = `Drawing Hand — ${newest.title}`;
