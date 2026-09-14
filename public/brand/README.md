@@ -10,9 +10,10 @@ The Helping Hand suite uses one shared ink-mark family alongside the existing ed
 - `bum-hand.svg` — BUM Hand, green accent `#5c6f3a`
 - `markdown-hand.svg` — Markdown Hand, purple accent `#6f4b7a`
 - `dent-hand-suite.svg` — Dent Hand's conversation mark adapted to the Helping Hand family
+- `drawing-hand.svg` — Drawing Hand, pink pencil mark and favicon
 - `favicon.svg` — dark square suite favicon
 
-Drawing Hand currently uses a simple pencil glyph on the suite launcher rather than pretending it has a settled product mark. Its social card still belongs to the same card system below.
+Drawing Hand currently uses the pencil mark as its product/browser identity. The suite launcher can use the same pencil language without requiring a more elaborate standalone logo.
 
 ## Social sharing cards
 
