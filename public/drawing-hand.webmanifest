@@ -9,7 +9,7 @@
   "theme_color": "#191816",
   "icons": [
     {
-      "src": "/brand/drawing-hand.png",
+      "src": "/brand/drawing-hand.png?v=2",
       "sizes": "1254x1254",
       "type": "image/png",
       "purpose": "any maskable"
