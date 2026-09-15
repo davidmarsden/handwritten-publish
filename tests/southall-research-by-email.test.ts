@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import handler, { southallDraftMarkdown } from '../netlify/functions/southall-research-by-email';
 
 const ENV_KEYS = [
-  'RESEND_WEBHOOK_SECRET',
+  'SOUTHALL_RESEARCH_RESEND_WEBHOOK_SECRET',
   'RESEND_API_KEY',
   'SOUTHALL_RESEARCH_GITHUB_TOKEN',
   'SOUTHALL_RESEARCH_EMAIL_ADDRESS',
@@ -10,7 +10,7 @@ const ENV_KEYS = [
 const originalEnv = Object.fromEntries(ENV_KEYS.map(key => [key, process.env[key]]));
 
 function configureEnv() {
-  process.env.RESEND_WEBHOOK_SECRET = 'whsec_YQ==';
+  process.env.SOUTHALL_RESEARCH_RESEND_WEBHOOK_SECRET = 'whsec_YQ==';
   process.env.RESEND_API_KEY = 're_test';
   process.env.SOUTHALL_RESEARCH_GITHUB_TOKEN = 'github-token';
   process.env.SOUTHALL_RESEARCH_EMAIL_ADDRESS = 'southall-private@inbound.resend.app';
