@@ -57,7 +57,7 @@ Sending a newly composed reMarkable email, even with the same title, has a diffe
 
 The endpoint accepts a draft only when all of these are true:
 
-1. the Resend webhook signature verifies using `RESEND_WEBHOOK_SECRET`;
+1. the Resend webhook signature verifies using the dedicated `SOUTHALL_RESEARCH_RESEND_WEBHOOK_SECRET`;
 2. the message is addressed to the exact private alias in `SOUTHALL_RESEARCH_EMAIL_ADDRESS`;
 3. the subject is the standard reMarkable send-by-email form; and
 4. the server has the existing narrowly scoped `SOUTHALL_RESEARCH_GITHUB_TOKEN`.
@@ -74,11 +74,11 @@ Treat `SOUTHALL_RESEARCH_EMAIL_ADDRESS` as a private posting credential and use 
 
 ## Required configuration
 
-The route reuses the existing Southall Research GitHub credential and Resend receiving setup. Configure:
+The route reuses the existing Southall Research GitHub credential and Resend receiving API key, but it has its own Resend webhook-signing secret because Resend issues a separate secret for each webhook endpoint. Configure:
 
 ```text
 RESEND_API_KEY=<existing Resend receiving API key>
-RESEND_WEBHOOK_SECRET=<existing Resend webhook signing secret>
+SOUTHALL_RESEARCH_RESEND_WEBHOOK_SECRET=<signing secret for this webhook endpoint>
 SOUTHALL_RESEARCH_GITHUB_TOKEN=<existing fine-grained Southall-Research token>
 SOUTHALL_RESEARCH_EMAIL_ADDRESS=<private high-entropy inbound address>
 ```
@@ -88,6 +88,8 @@ Register this endpoint for Resend's `email.received` event:
 ```text
 https://hand.davidmarsden.info/api/southall-research/by-email
 ```
+
+After creating that webhook, copy the signing secret returned by Resend into `SOUTHALL_RESEARCH_RESEND_WEBHOOK_SECRET`. Do not replace the existing `RESEND_WEBHOOK_SECRET`, which remains dedicated to `/api/post-by-email`.
 
 The webhook receives all inbound events but ignores mail not addressed to `SOUTHALL_RESEARCH_EMAIL_ADDRESS`.
 
