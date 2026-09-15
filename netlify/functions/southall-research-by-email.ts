@@ -224,7 +224,7 @@ async function saveDraftToGitHub(
 export default async (request: Request) => {
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
 
-  const webhookSecret = env('RESEND_WEBHOOK_SECRET');
+  const webhookSecret = env('SOUTHALL_RESEARCH_RESEND_WEBHOOK_SECRET');
   const resendApiKey = env('RESEND_API_KEY');
   const githubToken = env('SOUTHALL_RESEARCH_GITHUB_TOKEN');
   const postingAddress = normalizeRecipient(env('SOUTHALL_RESEARCH_EMAIL_ADDRESS'));
