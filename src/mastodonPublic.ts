@@ -44,6 +44,14 @@ type MastodonStatus = {
   media_attachments?: unknown;
 };
 
+type PublicProfileTarget = {
+  origin: string;
+  host: string;
+  username: string;
+  url: string;
+  kind: 'mastodon' | 'channel';
+};
+
 function cleanText(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
@@ -83,7 +91,7 @@ function mediaHtml(value: unknown): string {
   }).join('');
 }
 
-function parseMastodonProfileUrl(value?: string): { origin: string; host: string; username: string; url: string } | null {
+function parsePublicProfileUrl(value?: string): PublicProfileTarget | null {
   if (!value) return null;
   try {
     const url = new URL(value);
@@ -92,19 +100,24 @@ function parseMastodonProfileUrl(value?: string): { origin: string; host: string
     if (!host || host === 'micro.blog') return null;
     const parts = url.pathname.split('/').filter(Boolean);
     let username = '';
+    let kind: PublicProfileTarget['kind'] = 'mastodon';
     if (parts[0]?.startsWith('@')) username = parts[0].slice(1);
     else if (parts[0] === 'users' && parts[1]) username = parts[1];
+    else if (parts[0] === 'channel' && parts[1]) {
+      username = parts[1];
+      kind = 'channel';
+    }
     if (!username || !/^[A-Za-z0-9_.-]{1,128}$/.test(username)) return null;
     url.hash = '';
     url.search = '';
-    return { origin: url.origin, host, username, url: url.toString().replace(/\/$/, '') };
+    return { origin: url.origin, host, username, url: url.toString().replace(/\/$/, ''), kind };
   } catch {
     return null;
   }
 }
 
 export function isMastodonProfileUrl(value?: string): boolean {
-  return Boolean(parseMastodonProfileUrl(value));
+  return Boolean(parsePublicProfileUrl(value));
 }
 
 function displayUsername(account: MastodonAccount, fallbackUsername: string, host: string): string {
@@ -150,9 +163,19 @@ function pagingRemoteId(value?: string): string | undefined {
   return match?.[1];
 }
 
+async function fetchPublicChannel(profileUrl: string, fetchImpl: typeof fetch): Promise<MastodonProfileResult> {
+  const params = new URLSearchParams({ profile: profileUrl });
+  const response = await fetchImpl(`/api/fediverse/public?${params.toString()}`, { headers: { Accept: 'application/json' } });
+  const payload = await response.json().catch(() => ({})) as Partial<MastodonProfileResult> & { error?: string };
+  if (!response.ok) throw new Error(payload.error || `Public Fediverse profile request failed (${response.status}).`);
+  if (!payload.account || !payload.feed || !Array.isArray(payload.feed.items)) throw new Error('Public Fediverse profile returned invalid data.');
+  return payload as MastodonProfileResult;
+}
+
 export async function fetchMastodonProfile(profileUrl: string, paging: MastodonProfilePaging = {}, fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis)): Promise<MastodonProfileResult> {
-  const target = parseMastodonProfileUrl(profileUrl);
-  if (!target) throw new Error('That profile is not a supported Mastodon URL.');
+  const target = parsePublicProfileUrl(profileUrl);
+  if (!target) throw new Error('That profile is not a supported Fediverse URL.');
+  if (target.kind === 'channel') return fetchPublicChannel(target.url, fetchImpl);
 
   const lookupUrl = new URL('/api/v1/accounts/lookup', target.origin);
   lookupUrl.searchParams.set('acct', target.username);
