@@ -6,11 +6,42 @@ function response(body: unknown, status = 200): Response {
 }
 
 describe('Mastodon public profile adapter', () => {
-  it('recognises ordinary Mastodon profile URL shapes', () => {
+  it('recognises ordinary Mastodon and streams channel profile URL shapes', () => {
     expect(isMastodonProfileUrl('https://mastodon.sdf.org/@tregeagle')).toBe(true);
     expect(isMastodonProfileUrl('https://example.social/users/alice')).toBe(true);
+    expect(isMastodonProfileUrl('https://streams.elsmussols.net/channel/elmussol')).toBe(true);
     expect(isMastodonProfileUrl('https://micro.blog/davidmarsden')).toBe(false);
     expect(isMastodonProfileUrl('http://mastodon.sdf.org/@tregeagle')).toBe(false);
+  });
+
+  it('routes streams-style channel profiles through the Dent Hand public Fediverse bridge', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async input => {
+      expect(String(input)).toContain('/api/fediverse/public?');
+      expect(String(input)).toContain(encodeURIComponent('https://streams.elsmussols.net/channel/elmussol'));
+      return response({
+        account: {
+          name: 'elmussol',
+          username: 'elmussol@streams.elsmussols.net',
+          avatar: 'https://streams.elsmussols.net/photo/avatar',
+          url: 'https://streams.elsmussols.net/channel/elmussol',
+        },
+        feed: {
+          items: [{
+            id: 'mastodon:streams.elsmussols.net:fediverse-123',
+            content_html: '<p>Hello from streams</p>',
+            author: { name: 'elmussol', username: 'elmussol@streams.elsmussols.net' },
+            _microblog: { source: 'mastodon', public_fallback: true },
+          }],
+        },
+      });
+    });
+
+    const result = await fetchMastodonProfile('https://streams.elsmussols.net/channel/elmussol', {}, fetchImpl);
+    expect(result.account.username).toBe('elmussol@streams.elsmussols.net');
+    expect(result.feed.items[0]).toMatchObject({
+      content_html: '<p>Hello from streams</p>',
+      _microblog: { source: 'mastodon', public_fallback: true },
+    });
   });
 
   it('loads an account and normalises public statuses into read-only Dent Hand items', async () => {
