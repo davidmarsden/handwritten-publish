@@ -93,9 +93,9 @@ function replyTargetsAccount(value: string | undefined, targetHost: string | und
   return false;
 }
 
-function parseFeed(xml: string, target: ChannelTarget, avatar?: string) {
+function parseFeed(xml: string, target: ChannelTarget, avatar: string | undefined, limit: number) {
   const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) || [];
-  return blocks.slice(0, 80).flatMap(block => {
+  return blocks.slice(0, limit).flatMap(block => {
     const link = element(block, 'link') || element(block, 'guid');
     const guid = element(block, 'guid') || link;
     if (!guid) return [];
@@ -164,7 +164,8 @@ export default async (request: Request): Promise<Response> => {
     const xml = await feedResponse.text();
     const avatar = meta(html, 'og:image');
     const profileName = meta(html, 'og:title')?.replace(/\s+-\s+.*$/, '').trim() || target.username;
-    let items = parseFeed(xml, target, avatar).map(item => ({
+    const scanLimit = mode === 'replies' ? 80 : 39;
+    let items = parseFeed(xml, target, avatar, scanLimit).map(item => ({
       ...item,
       author: { ...item.author, name: profileName },
     }));
