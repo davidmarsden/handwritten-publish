@@ -1,7 +1,10 @@
 import { getDatabase } from '@netlify/database';
 
 function json(body: unknown, status = 200) {
-  return Response.json(body, { status });
+  return Response.json(body, {
+    status,
+    headers: { 'cache-control': 'no-store, max-age=0' },
+  });
 }
 
 export default async (request: Request) => {
