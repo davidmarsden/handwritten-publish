@@ -1,6 +1,6 @@
 import { getDatabase } from '@netlify/database';
 import { DRAWING_GRADES, suggestedDrawingGrade } from '../../src/drawingGrades';
-import { drawingAdminAuthorized } from './_shared/drawing-hand';
+import { drawingAdminAuthorized, drawingStore } from './_shared/drawing-hand';
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status });
@@ -30,17 +30,9 @@ export default async (request: Request) => {
       JOIN drawing_challenges c ON c.id = s.challenge_id
       ORDER BY (s.judged_at IS NULL) DESC, s.submitted_at ASC
     ` as Array<{
-      id: string;
-      display_name: string;
-      submitted_at: string;
-      result_token: string;
-      moderation_status: string;
-      score: string | number | null;
-      grade: string | null;
-      judge_comment: string | null;
-      judged_at: string | null;
-      challenge_id: string;
-      challenge_title: string;
+      id: string; display_name: string; submitted_at: string; result_token: string; moderation_status: string;
+      score: string | number | null; grade: string | null; judge_comment: string | null; judged_at: string | null;
+      challenge_id: string; challenge_title: string;
     }>;
 
     return json({
@@ -53,11 +45,7 @@ export default async (request: Request) => {
         grade: row.grade,
         comment: row.judge_comment,
         judgedAt: row.judged_at,
-        challenge: {
-          id: row.challenge_id,
-          title: row.challenge_title,
-          imageUrl: `/api/drawing-image?challenge=${encodeURIComponent(row.challenge_id)}`,
-        },
+        challenge: { id: row.challenge_id, title: row.challenge_title, imageUrl: `/api/drawing-image?challenge=${encodeURIComponent(row.challenge_id)}` },
         imageUrl: `/api/drawing-image?submissionToken=${encodeURIComponent(row.result_token)}`,
         resultUrl: `/drawing/result/?token=${encodeURIComponent(row.result_token)}`,
       })),
@@ -65,68 +53,63 @@ export default async (request: Request) => {
     });
   }
 
+  if (request.method === 'DELETE') {
+    const body = await request.json().catch(() => null) as { submissionId?: unknown; duplicateOfId?: unknown } | null;
+    const submissionId = typeof body?.submissionId === 'string' ? body.submissionId.trim() : '';
+    const duplicateOfId = typeof body?.duplicateOfId === 'string' ? body.duplicateOfId.trim() : '';
+    if (!submissionId || !duplicateOfId || submissionId === duplicateOfId) return json({ error: 'Choose a duplicate and the copy to keep.' }, 400);
+
+    const rows = await db.sql`
+      SELECT id, challenge_id, display_name, image_key, judged_at
+      FROM drawing_submissions
+      WHERE id IN (${submissionId}, ${duplicateOfId})
+    ` as Array<{ id: string; challenge_id: string; display_name: string; image_key: string; judged_at: string | null }>;
+    const remove = rows.find(row => row.id === submissionId);
+    const keep = rows.find(row => row.id === duplicateOfId);
+    if (!remove || !keep) return json({ error: 'One of those drawings could not be found.' }, 404);
+    if (remove.challenge_id !== keep.challenge_id || remove.display_name.toLocaleLowerCase() !== keep.display_name.toLocaleLowerCase()) {
+      return json({ error: 'Only entries with the same name and challenge can be removed as duplicates.' }, 409);
+    }
+    if (remove.judged_at && !keep.judged_at) return json({ error: 'Keep the judged copy rather than deleting it.' }, 409);
+
+    const deleted = await db.sql`
+      DELETE FROM drawing_submissions
+      WHERE id = ${submissionId}
+      RETURNING id, image_key
+    ` as Array<{ id: string; image_key: string }>;
+    if (!deleted[0]) return json({ error: 'That duplicate could not be removed.' }, 404);
+    await drawingStore().delete(deleted[0].image_key).catch(error => {
+      console.warn(`[drawing-hand] duplicate image cleanup failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+    });
+    return json({ removed: { id: deleted[0].id }, kept: { id: keep.id } });
+  }
+
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
 
   const body = await request.json().catch(() => null) as {
-    submissionId?: unknown;
-    score?: unknown;
-    grade?: unknown;
-    comment?: unknown;
-    showInGallery?: unknown;
+    submissionId?: unknown; score?: unknown; grade?: unknown; comment?: unknown; showInGallery?: unknown;
   } | null;
-
   const submissionId = typeof body?.submissionId === 'string' ? body.submissionId.trim() : '';
   const rawScore = body?.score;
-  const score = typeof rawScore === 'number'
-    ? rawScore
-    : (typeof rawScore === 'string' && rawScore.trim() ? Number(rawScore) : Number.NaN);
+  const score = typeof rawScore === 'number' ? rawScore : (typeof rawScore === 'string' && rawScore.trim() ? Number(rawScore) : Number.NaN);
   const grade = typeof body?.grade === 'string' ? body.grade.trim() : '';
   const comment = typeof body?.comment === 'string' ? body.comment.trim().slice(0, 280) : '';
   const showInGallery = body?.showInGallery === true;
-
   if (!submissionId) return json({ error: 'Choose a drawing to judge.' }, 400);
   if (!Number.isFinite(score) || score < 0 || score > 10) return json({ error: 'Score must be between 0 and 10.' }, 400);
   if (!validGrades.has(grade)) return json({ error: 'Choose one of Elijah’s 25 grades.' }, 400);
 
   const [updated] = await db.sql`
     UPDATE drawing_submissions
-    SET
-      score = ${score},
-      grade = ${grade},
-      judge_comment = ${comment || null},
-      judged_at = NOW(),
-      moderation_status = ${showInGallery ? 'approved' : 'hidden'}
-    WHERE id = ${submissionId}
+    SET score=${score}, grade=${grade}, judge_comment=${comment || null}, judged_at=NOW(), moderation_status=${showInGallery ? 'approved' : 'hidden'}
+    WHERE id=${submissionId}
     RETURNING id, score, grade, judge_comment, judged_at, moderation_status
-  ` as Array<{
-    id: string;
-    score: string | number;
-    grade: string;
-    judge_comment: string | null;
-    judged_at: string;
-    moderation_status: string;
-  }>;
-
+  ` as Array<{ id:string; score:string|number; grade:string; judge_comment:string|null; judged_at:string; moderation_status:string }>;
   if (!updated) return json({ error: 'That drawing could not be found.' }, 404);
-
-  return json({
-    judgement: {
-      id: updated.id,
-      score: Number(updated.score),
-      grade: updated.grade,
-      comment: updated.judge_comment,
-      judgedAt: updated.judged_at,
-      moderationStatus: updated.moderation_status,
-      suggestedGrade: suggestedDrawingGrade(Number(updated.score)),
-    },
-  });
+  return json({ judgement: { id:updated.id, score:Number(updated.score), grade:updated.grade, comment:updated.judge_comment, judgedAt:updated.judged_at, moderationStatus:updated.moderation_status, suggestedGrade:suggestedDrawingGrade(Number(updated.score)) } });
 };
 
 export const config = {
   path: '/api/drawing-judging',
-  rateLimit: {
-    windowLimit: 60,
-    windowSize: 60,
-    aggregateBy: ['ip', 'domain'],
-  },
+  rateLimit: { windowLimit: 60, windowSize: 60, aggregateBy: ['ip', 'domain'] },
 };
