@@ -1,4 +1,5 @@
 import { getDatabase } from '@netlify/database';
+import { cleanDisplayName } from './_shared/drawing-hand';
 
 function json(body: unknown, status = 200) {
   return Response.json(body, {
@@ -14,7 +15,7 @@ export default async (request: Request) => {
     displayName?: unknown;
     challengeId?: unknown;
   } | null;
-  const displayName = typeof body?.displayName === 'string' ? body.displayName.trim().slice(0, 40) : '';
+  const displayName = cleanDisplayName(typeof body?.displayName === 'string' ? body.displayName : null);
   const challengeId = typeof body?.challengeId === 'string' ? body.challengeId.trim() : '';
   if (!displayName || !challengeId) return json({ error: 'Enter the name you used and choose the challenge.' }, 400);
 
