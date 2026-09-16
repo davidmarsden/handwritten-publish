@@ -58,6 +58,7 @@ export type MicroblogSocialClientOptions = {
 };
 
 const LEGACY_TOKEN_KEY = 'microblog-social-token';
+const CIRCLE_KEY = 'dent-hand-circle';
 
 const MICROBLOG_CAPABILITIES: SocialProviderCapabilities = {
   bookmarks: true,
@@ -121,19 +122,71 @@ function normalizeFeed(feed: MicroblogFeed): MicroblogFeed {
   };
 }
 
-function mergeFeeds(primary: MicroblogFeed, fallback: MicroblogFeed): MicroblogFeed {
-  const seen = new Set<string>();
-  const items = [...primary.items, ...fallback.items]
-    .filter(item => item?.id && !seen.has(item.id) && Boolean(seen.add(item.id)))
-    .sort((a, b) => {
-      const aTime = a.date_published ? Date.parse(a.date_published) : NaN;
-      const bTime = b.date_published ? Date.parse(b.date_published) : NaN;
-      if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return bTime - aTime;
-      const aId = /^\d+$/.test(a.id) ? BigInt(a.id) : 0n;
-      const bId = /^\d+$/.test(b.id) ? BigInt(b.id) : 0n;
-      return aId === bId ? 0 : aId > bId ? -1 : 1;
-    });
+function canonicalItemUrl(value?: string): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    url.hash = '';
+    return url.toString().replace(/\/$/, '').toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+function mergeDistinct(primary: MicroblogFeed, fallbackItems: MicroblogItem[]): MicroblogFeed {
+  const seenIds = new Set(primary.items.map(item => item.id));
+  const seenUrls = new Set(primary.items.flatMap(item => {
+    const url = canonicalItemUrl(item.url);
+    return url ? [url] : [];
+  }));
+  const additions = fallbackItems.filter(item => {
+    if (!item?.id || seenIds.has(item.id)) return false;
+    const url = canonicalItemUrl(item.url);
+    if (url && seenUrls.has(url)) return false;
+    seenIds.add(item.id);
+    if (url) seenUrls.add(url);
+    return true;
+  });
+  const items = [...primary.items, ...additions].sort((a, b) => {
+    const aTime = a.date_published ? Date.parse(a.date_published) : NaN;
+    const bTime = b.date_published ? Date.parse(b.date_published) : NaN;
+    if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return bTime - aTime;
+    return 0;
+  });
   return { ...primary, items };
+}
+
+function streamsCircleProfiles(): string[] {
+  try {
+    const storage = globalThis.localStorage;
+    if (!storage) return [];
+    const raw = JSON.parse(storage.getItem(CIRCLE_KEY) || '[]');
+    if (!Array.isArray(raw)) return [];
+    return [...new Set(raw.flatMap(item => {
+      if (!item || typeof item !== 'object') return [];
+      const url = typeof (item as { url?: unknown }).url === 'string' ? (item as { url: string }).url.trim() : '';
+      if (!url) return [];
+      try {
+        const parsed = new URL(url);
+        const parts = parsed.pathname.split('/').filter(Boolean);
+        return parsed.protocol === 'https:' && parts[0] === 'channel' && parts[1] ? [url] : [];
+      } catch {
+        return [];
+      }
+    }))];
+  } catch {
+    return [];
+  }
+}
+
+function siteHostname(defaultSite?: string): string | undefined {
+  const value = defaultSite?.trim();
+  if (!value) return undefined;
+  try {
+    return new URL(value.includes('://') ? value : `https://${value}`).hostname.toLowerCase();
+  } catch {
+    return undefined;
+  }
 }
 
 export class MicroblogSocialClient implements SocialProvider {
@@ -173,6 +226,34 @@ export class MicroblogSocialClient implements SocialProvider {
     return payload;
   }
 
+  private async remoteCircleMentions(): Promise<MicroblogItem[]> {
+    const profiles = streamsCircleProfiles();
+    if (!profiles.length) return [];
+    const account = await this.account().catch(() => null);
+    if (!account) return [];
+    const targetHost = siteHostname(account.defaultSite);
+    const results = await Promise.all(profiles.map(async profile => {
+      const params = new URLSearchParams({
+        profile,
+        mode: 'replies',
+        microblog_user: account.username,
+        ...(targetHost ? { target_host: targetHost } : {}),
+      });
+      try {
+        const response = await this.fetchImpl(`/api/fediverse/public?${params.toString()}`, {
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) return [];
+        const payload = await response.json() as { feed?: MicroblogFeed };
+        return Array.isArray(payload.feed?.items) ? payload.feed.items : [];
+      } catch {
+        return [];
+      }
+    }));
+    return results.flat();
+  }
+
   async timeline(paging?: Paging): Promise<MicroblogFeed> {
     const params = new URLSearchParams();
     appendPaging(params, paging);
@@ -189,16 +270,8 @@ export class MicroblogSocialClient implements SocialProvider {
     const params = new URLSearchParams();
     appendPaging(params, paging);
     const mentions = normalizeFeed(await this.request<MicroblogFeed>('mentions', {}, params));
-
-    // Only supplement the newest mentions page. Reusing the mentions cursor for
-    // the independently paginated replies stream can jump past unread mentions.
     if (paging?.beforeId) return mentions;
-
-    const repliesParams = new URLSearchParams();
-    if (paging?.count && paging.count > 0) repliesParams.set('count', String(Math.trunc(paging.count)));
-    if (paging?.sinceId) repliesParams.set('since_id', assertId(paging.sinceId));
-    const replies = await this.request<MicroblogFeed>('replies', {}, repliesParams).catch(() => ({ items: [] } as MicroblogFeed));
-    return mergeFeeds(mentions, normalizeFeed(replies));
+    return mergeDistinct(mentions, await this.remoteCircleMentions());
   }
 
   async replies(paging?: Paging): Promise<MicroblogFeed> {

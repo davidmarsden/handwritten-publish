@@ -48,51 +48,19 @@ describe('MicroblogSocialClient', () => {
     expect(init?.headers).toMatchObject({ Authorization: 'Bearer abc123' });
   });
 
-  it('loads mentions with paging', async () => {
+  it('loads mentions with paging without mixing in the replies endpoint', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => response({ items: [] }));
     const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
 
     await client.mentions({ count: 20, beforeId: '456' });
 
+    expect(fetchImpl).toHaveBeenCalledOnce();
     const call = fetchImpl.mock.calls[0];
     expect(call).toBeDefined();
     expect(String(call[0])).toContain('op=mentions');
     expect(String(call[0])).toContain('count=20');
     expect(String(call[0])).toContain('before_id=456');
-  });
-
-  it('recovers reply items that Micro.blog omits from mentions', async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async input => {
-      const url = String(input);
-      if (url.includes('op=mentions')) return response({
-        items: [{ id: '200', content_text: 'ordinary mention', date_published: '2026-09-16T09:00:00Z' }],
-      });
-      if (url.includes('op=replies')) return response({
-        items: [
-          { id: '201', content_text: 'streams reply', date_published: '2026-09-16T10:00:00Z' },
-          { id: '200', content_text: 'duplicate', date_published: '2026-09-16T09:00:00Z' },
-        ],
-      });
-      return response({ items: [] });
-    });
-    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
-
-    const result = await client.mentions();
-
-    expect(result.items.map(item => item.id)).toEqual(['201', '200']);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
-  });
-
-  it('still returns mentions if the replies fallback is temporarily unavailable', async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async input => {
-      const url = String(input);
-      if (url.includes('op=mentions')) return response({ items: [{ id: '200', content_text: 'mention' }] });
-      return response({ error: 'Replies unavailable' }, 502);
-    });
-    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
-
-    const result = await client.mentions();
-    expect(result.items.map(item => item.id)).toEqual(['200']);
+    expect(String(call[0])).not.toContain('op=replies');
   });
 
   it('promotes nested Micro.blog usernames into the author model', async () => {

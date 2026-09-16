@@ -53,6 +53,13 @@ function element(block: string, name: string): string | undefined {
   return match ? decodeXml(match[1].trim()) : undefined;
 }
 
+function tagAttribute(block: string, name: string, attribute: string): string | undefined {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedAttribute = attribute.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = block.match(new RegExp(`<${escapedName}\\b[^>]*\\b${escapedAttribute}=["']([^"']+)["'][^>]*>`, 'i'));
+  return match ? decodeXml(match[1].trim()) : undefined;
+}
+
 function meta(html: string, key: string): string | undefined {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const patterns = [
@@ -70,14 +77,34 @@ function stableId(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 24);
 }
 
-function parseFeed(xml: string, target: ChannelTarget, avatar?: string) {
+function replyTargetsAccount(value: string | undefined, targetHost: string | undefined, microblogUser: string | undefined): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (targetHost && host === targetHost) return true;
+    if (microblogUser && host === 'micro.blog') {
+      const first = url.pathname.split('/').filter(Boolean)[0]?.toLowerCase();
+      return first === microblogUser.toLowerCase();
+    }
+  } catch {
+    // Some feeds use opaque Atom ids in ref; href is preferred when available.
+  }
+  return false;
+}
+
+function parseFeed(xml: string, target: ChannelTarget, avatar: string | undefined, limit: number) {
   const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) || [];
-  return blocks.slice(0, 39).flatMap(block => {
+  return blocks.slice(0, limit).flatMap(block => {
     const link = element(block, 'link') || element(block, 'guid');
     const guid = element(block, 'guid') || link;
     if (!guid) return [];
     const content = element(block, 'content:encoded') || element(block, 'description') || element(block, 'title') || '';
     const date = element(block, 'pubDate') || element(block, 'published') || element(block, 'updated');
+    const inReplyTo = tagAttribute(block, 'thr:in-reply-to', 'href')
+      || tagAttribute(block, 'thr:in-reply-to', 'ref')
+      || tagAttribute(block, 'in-reply-to', 'href')
+      || tagAttribute(block, 'in-reply-to', 'ref');
     const id = `mastodon:${target.host}:fediverse-${stableId(guid)}`;
     return [{
       id,
@@ -94,6 +121,7 @@ function parseFeed(xml: string, target: ChannelTarget, avatar?: string) {
         source: 'mastodon',
         remote_id: `fediverse-${stableId(guid)}`,
         public_fallback: true,
+        ...(inReplyTo ? { in_reply_to: inReplyTo } : {}),
       },
     }];
   });
@@ -107,6 +135,12 @@ export default async (request: Request): Promise<Response> => {
   const target = parseChannelProfile(profile);
   if (!target) return json({ error: 'That is not a supported public Fediverse channel URL.' }, 400);
 
+  const mode = url.searchParams.get('mode') === 'replies' ? 'replies' : 'posts';
+  const rawTargetHost = cleanText(url.searchParams.get('target_host'))?.toLowerCase();
+  const targetHost = rawTargetHost && /^[a-z0-9.-]{1,253}$/.test(rawTargetHost) ? rawTargetHost : undefined;
+  const rawMicroblogUser = cleanText(url.searchParams.get('microblog_user'));
+  const microblogUser = rawMicroblogUser && /^[A-Za-z0-9_-]{1,64}$/.test(rawMicroblogUser) ? rawMicroblogUser : undefined;
+
   try {
     const profilePromise = boundedPublicFetch(
       target.origin,
@@ -114,9 +148,12 @@ export default async (request: Request): Promise<Response> => {
       { headers: { Accept: 'text/html' } },
       { maxBytes: 512 * 1024, totalTimeoutMs: 8000 },
     ).catch(() => null);
+    const feedPath = mode === 'replies'
+      ? `/feed/${encodeURIComponent(target.username)}`
+      : `/feed/${encodeURIComponent(target.username)}?f=&top=1`;
     const feedResponse = await boundedPublicFetch(
       target.origin,
-      `/feed/${encodeURIComponent(target.username)}?f=&top=1`,
+      feedPath,
       { headers: { Accept: 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8' } },
       { maxBytes: 2 * 1024 * 1024, totalTimeoutMs: 8000 },
     );
@@ -127,10 +164,19 @@ export default async (request: Request): Promise<Response> => {
     const xml = await feedResponse.text();
     const avatar = meta(html, 'og:image');
     const profileName = meta(html, 'og:title')?.replace(/\s+-\s+.*$/, '').trim() || target.username;
-    const items = parseFeed(xml, target, avatar).map(item => ({
+    const scanLimit = mode === 'replies' ? 80 : 39;
+    let items = parseFeed(xml, target, avatar, scanLimit).map(item => ({
       ...item,
       author: { ...item.author, name: profileName },
     }));
+
+    if (mode === 'replies') {
+      items = items.filter(item => replyTargetsAccount(
+        typeof item._microblog?.in_reply_to === 'string' ? item._microblog.in_reply_to : undefined,
+        targetHost,
+        microblogUser,
+      ));
+    }
 
     return json({
       account: {
