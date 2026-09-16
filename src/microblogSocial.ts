@@ -188,12 +188,17 @@ export class MicroblogSocialClient implements SocialProvider {
   async mentions(paging?: Paging): Promise<MicroblogFeed> {
     const params = new URLSearchParams();
     appendPaging(params, paging);
-    const repliesParams = new URLSearchParams(params);
-    const [mentions, replies] = await Promise.all([
-      this.request<MicroblogFeed>('mentions', {}, params),
-      this.request<MicroblogFeed>('replies', {}, repliesParams).catch(() => ({ items: [] } as MicroblogFeed)),
-    ]);
-    return mergeFeeds(normalizeFeed(mentions), normalizeFeed(replies));
+    const mentions = normalizeFeed(await this.request<MicroblogFeed>('mentions', {}, params));
+
+    // Only supplement the newest mentions page. Reusing the mentions cursor for
+    // the independently paginated replies stream can jump past unread mentions.
+    if (paging?.beforeId) return mentions;
+
+    const repliesParams = new URLSearchParams();
+    if (paging?.count && paging.count > 0) repliesParams.set('count', String(Math.trunc(paging.count)));
+    if (paging?.sinceId) repliesParams.set('since_id', assertId(paging.sinceId));
+    const replies = await this.request<MicroblogFeed>('replies', {}, repliesParams).catch(() => ({ items: [] } as MicroblogFeed));
+    return mergeFeeds(mentions, normalizeFeed(replies));
   }
 
   async replies(paging?: Paging): Promise<MicroblogFeed> {
