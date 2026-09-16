@@ -27,6 +27,12 @@ export default async (request: Request) => {
       LIMIT ${MAX_VISIBLE_CHALLENGES}
     ` as Array<{ id: string; title: string; difficulty: string | null; status: string; created_at: string; elijah_score: string | number | null; elijah_grade: string | null }>;
 
+    const recoveryRows = await db.sql`
+      SELECT id, title, created_at
+      FROM drawing_challenges
+      ORDER BY created_at DESC, id DESC
+    ` as Array<{ id: string; title: string; created_at: string }>;
+
     const challenges = rows.map(challenge => ({
       ...challenge,
       elijahScore: challenge.elijah_score === null ? null : Number(challenge.elijah_score),
@@ -39,6 +45,7 @@ export default async (request: Request) => {
     return json({
       challenges,
       challenge: challenges[0] ?? null,
+      recoveryChallenges: recoveryRows.map(({ id, title }) => ({ id, title })),
     });
   }
 
