@@ -22,10 +22,11 @@ export async function boundedPublicFetch(
     if (!headers.has('Host')) headers.set('Host', url.host);
 
     let settled = false;
+    let overallTimer: ReturnType<typeof setTimeout> | undefined;
     const finishReject = (error: Error) => {
       if (settled) return;
       settled = true;
-      clearTimeout(overallTimer);
+      if (overallTimer) clearTimeout(overallTimer);
       reject(error);
     };
 
@@ -55,7 +56,7 @@ export async function boundedPublicFetch(
       response.on('end', () => {
         if (settled) return;
         settled = true;
-        clearTimeout(overallTimer);
+        if (overallTimer) clearTimeout(overallTimer);
         const responseHeaders = new Headers();
         for (let index = 0; index < response.rawHeaders.length; index += 2) {
           responseHeaders.append(response.rawHeaders[index], response.rawHeaders[index + 1]);
@@ -71,7 +72,7 @@ export async function boundedPublicFetch(
     req.setTimeout(Math.min(options.totalTimeoutMs, 12000), () => req.destroy(new Error('Public Fediverse request timed out.')));
     req.on('error', error => finishReject(error instanceof Error ? error : new Error(String(error))));
 
-    const overallTimer = setTimeout(() => {
+    overallTimer = setTimeout(() => {
       req.destroy(new Error('Public Fediverse request exceeded the overall time limit.'));
     }, options.totalTimeoutMs);
 
