@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { json } from './_shared/microblog';
-import { mastodonFetch, normalizeMastodonInstance } from './_shared/mastodon-session';
+import { normalizeMastodonInstance } from './_shared/mastodon-session';
+import { boundedPublicFetch } from './_shared/bounded-public-fetch';
 
 export const config = {
   path: '/api/fediverse/public',
@@ -107,13 +108,22 @@ export default async (request: Request): Promise<Response> => {
   if (!target) return json({ error: 'That is not a supported public Fediverse channel URL.' }, 400);
 
   try {
-    const [profileResponse, feedResponse] = await Promise.all([
-      mastodonFetch(target.origin, `/channel/${encodeURIComponent(target.username)}`, { headers: { Accept: 'text/html' } }),
-      mastodonFetch(target.origin, `/feed/${encodeURIComponent(target.username)}?f=&top=1`, { headers: { Accept: 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8' } }),
-    ]);
+    const profilePromise = boundedPublicFetch(
+      target.origin,
+      `/channel/${encodeURIComponent(target.username)}`,
+      { headers: { Accept: 'text/html' } },
+      { maxBytes: 512 * 1024, totalTimeoutMs: 8000 },
+    ).catch(() => null);
+    const feedResponse = await boundedPublicFetch(
+      target.origin,
+      `/feed/${encodeURIComponent(target.username)}?f=&top=1`,
+      { headers: { Accept: 'application/rss+xml, application/xml;q=0.9, text/xml;q=0.8' } },
+      { maxBytes: 2 * 1024 * 1024, totalTimeoutMs: 8000 },
+    );
     if (!feedResponse.ok) return json({ error: `Public Fediverse feed request failed (${feedResponse.status}).` }, 502);
 
-    const html = profileResponse.ok ? await profileResponse.text() : '';
+    const profileResponse = await profilePromise;
+    const html = profileResponse?.ok ? await profileResponse.text() : '';
     const xml = await feedResponse.text();
     const avatar = meta(html, 'og:image');
     const profileName = meta(html, 'og:title')?.replace(/\s+-\s+.*$/, '').trim() || target.username;
