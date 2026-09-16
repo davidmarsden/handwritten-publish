@@ -121,21 +121,6 @@ function normalizeFeed(feed: MicroblogFeed): MicroblogFeed {
   };
 }
 
-function mergeFeeds(primary: MicroblogFeed, fallback: MicroblogFeed): MicroblogFeed {
-  const seen = new Set<string>();
-  const items = [...primary.items, ...fallback.items]
-    .filter(item => item?.id && !seen.has(item.id) && Boolean(seen.add(item.id)))
-    .sort((a, b) => {
-      const aTime = a.date_published ? Date.parse(a.date_published) : NaN;
-      const bTime = b.date_published ? Date.parse(b.date_published) : NaN;
-      if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return bTime - aTime;
-      const aId = /^\d+$/.test(a.id) ? BigInt(a.id) : 0n;
-      const bId = /^\d+$/.test(b.id) ? BigInt(b.id) : 0n;
-      return aId === bId ? 0 : aId > bId ? -1 : 1;
-    });
-  return { ...primary, items };
-}
-
 export class MicroblogSocialClient implements SocialProvider {
   readonly id = 'microblog' as const;
   readonly label = 'Micro.blog';
@@ -188,17 +173,7 @@ export class MicroblogSocialClient implements SocialProvider {
   async mentions(paging?: Paging): Promise<MicroblogFeed> {
     const params = new URLSearchParams();
     appendPaging(params, paging);
-    const mentions = normalizeFeed(await this.request<MicroblogFeed>('mentions', {}, params));
-
-    // Only supplement the newest mentions page. Reusing the mentions cursor for
-    // the independently paginated replies stream can jump past unread mentions.
-    if (paging?.beforeId) return mentions;
-
-    const repliesParams = new URLSearchParams();
-    if (paging?.count && paging.count > 0) repliesParams.set('count', String(Math.trunc(paging.count)));
-    if (paging?.sinceId) repliesParams.set('since_id', assertId(paging.sinceId));
-    const replies = await this.request<MicroblogFeed>('replies', {}, repliesParams).catch(() => ({ items: [] } as MicroblogFeed));
-    return mergeFeeds(mentions, normalizeFeed(replies));
+    return normalizeFeed(await this.request('mentions', {}, params));
   }
 
   async replies(paging?: Paging): Promise<MicroblogFeed> {
