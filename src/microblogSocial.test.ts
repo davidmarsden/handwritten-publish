@@ -61,6 +61,40 @@ describe('MicroblogSocialClient', () => {
     expect(String(call[0])).toContain('before_id=456');
   });
 
+  it('recovers reply items that Micro.blog omits from mentions', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async input => {
+      const url = String(input);
+      if (url.includes('op=mentions')) return response({
+        items: [{ id: '200', content_text: 'ordinary mention', date_published: '2026-09-16T09:00:00Z' }],
+      });
+      if (url.includes('op=replies')) return response({
+        items: [
+          { id: '201', content_text: 'streams reply', date_published: '2026-09-16T10:00:00Z' },
+          { id: '200', content_text: 'duplicate', date_published: '2026-09-16T09:00:00Z' },
+        ],
+      });
+      return response({ items: [] });
+    });
+    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    const result = await client.mentions();
+
+    expect(result.items.map(item => item.id)).toEqual(['201', '200']);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('still returns mentions if the replies fallback is temporarily unavailable', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async input => {
+      const url = String(input);
+      if (url.includes('op=mentions')) return response({ items: [{ id: '200', content_text: 'mention' }] });
+      return response({ error: 'Replies unavailable' }, 502);
+    });
+    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    const result = await client.mentions();
+    expect(result.items.map(item => item.id)).toEqual(['200']);
+  });
+
   it('promotes nested Micro.blog usernames into the author model', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => response({
       items: [{ id: '1', author: { name: 'Claire', _microblog: { username: 'claire' } } }],
