@@ -54,6 +54,8 @@ input[type="password"], input[type="text"], select { width: 100%; min-width: 0; 
 .results-heading { margin-bottom: 12px; }
 .copy-actions { margin-bottom: 8px; }
 .uploaded-url { display: block; margin-top: 4px; color: #444; font-size: .88rem; overflow-wrap: anywhere; }
+.uploaded-list audio, .uploaded-list video { display: block; width: 100%; max-width: 100%; margin-top: 10px; }
+.uploaded-list video { height: auto; }
 .item-copy { min-height: 36px; padding: 6px 10px; }
 .status { min-height: 1.5em; margin: 12px 2px 34px; font-weight: 650; }
 .suite-footer { display:flex; gap:16px; flex-wrap:wrap; padding-top:18px; border-top:1px solid rgba(0,0,0,.14); color:#5d5d5d; line-height:1.5; font-size:.9rem; }
