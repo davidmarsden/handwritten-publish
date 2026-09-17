@@ -13,6 +13,7 @@ import {
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const AUDIO_TYPES = new Set(['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a']);
+const VIDEO_TYPES = new Set(['video/mp4']);
 const PDF_TYPE = 'application/pdf';
 const STREAMED_MEDIA_MAX_BYTES = 75_000_000;
 const MAX_FILES = 30;
@@ -65,6 +66,13 @@ function inferAudioType(file) {
   return '';
 }
 
+function inferVideoType(file) {
+  const type = (file.type || '').toLowerCase();
+  if (type === 'video/mp4') return 'video/mp4';
+  if ((!type || type === 'application/octet-stream') && file.name.toLowerCase().endsWith('.mp4')) return 'video/mp4';
+  return '';
+}
+
 function inferDocumentType(file) {
   const type = (file.type || '').toLowerCase();
   if (type === PDF_TYPE || file.name.toLowerCase().endsWith('.pdf')) return PDF_TYPE;
@@ -76,6 +84,8 @@ function classifyFile(file) {
   if (IMAGE_TYPES.has(imageType)) return { kind: 'image', mediaType: imageType };
   const audioType = inferAudioType(file);
   if (AUDIO_TYPES.has(audioType)) return { kind: 'audio', mediaType: audioType };
+  const videoType = inferVideoType(file);
+  if (VIDEO_TYPES.has(videoType)) return { kind: 'video', mediaType: videoType };
   const documentType = inferDocumentType(file);
   if (documentType) return { kind: 'document', mediaType: documentType };
   return { kind: 'unsupported', mediaType: file.type || '' };
@@ -107,6 +117,7 @@ function resultMarkdown(item) {
 function resultHtml(item) {
   if (item.kind === 'image') return `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(basename(item.file.name))}">`;
   if (item.kind === 'document') return `<a href="${escapeHtml(item.url)}">${escapeHtml(documentLabel(item))}</a>`;
+  if (item.kind === 'video') return `<video controls preload="metadata" src="${escapeHtml(item.url)}"></video>`;
   return `<audio controls preload="none" src="${escapeHtml(item.url)}"></audio>`;
 }
 
@@ -140,7 +151,7 @@ function renderCollections() {
     ? 'Loading collections…'
     : collections.length
       ? `${collections.length} collection${collections.length === 1 ? '' : 's'} on ${destination}. Photo collections apply only to images.`
-      : destination ? `No photo collections yet on ${destination}. Audio and PDF uploads ignore this setting.` : '';
+      : destination ? `No photo collections yet on ${destination}. Video, audio and PDF uploads ignore this setting.` : '';
 }
 
 function render() {
@@ -164,9 +175,10 @@ function render() {
   selectionSummary.hidden = !items.length;
   if (items.length) {
     const images = items.filter(item => item.kind === 'image').length;
+    const videos = items.filter(item => item.kind === 'video').length;
     const audio = items.filter(item => item.kind === 'audio').length;
     const documents = items.filter(item => item.kind === 'document').length;
-    selectionSummary.textContent = `${items.length} file${items.length === 1 ? '' : 's'} selected · ${images} image${images === 1 ? '' : 's'} · ${audio} audio · ${documents} PDF${documents === 1 ? '' : 's'}`;
+    selectionSummary.textContent = `${items.length} file${items.length === 1 ? '' : 's'} selected · ${images} image${images === 1 ? '' : 's'} · ${videos} video${videos === 1 ? '' : 's'} · ${audio} audio · ${documents} PDF${documents === 1 ? '' : 's'}`;
   }
   uploadButton.disabled = busy || loadingCollections || !ready || !queued.length;
   uploadButton.textContent = busy ? 'Working…' : `Upload queued file${queued.length === 1 ? '' : 's'}`;
@@ -194,6 +206,8 @@ function render() {
     details.append(name, url);
     if (item.kind === 'audio') {
       const player = document.createElement('audio'); player.controls = true; player.preload = 'none'; player.src = item.url; details.append(player);
+    } else if (item.kind === 'video') {
+      const player = document.createElement('video'); player.controls = true; player.preload = 'metadata'; player.src = item.url; details.append(player);
     }
     const copy = document.createElement('button'); copy.className = 'button secondary item-copy'; copy.type = 'button'; copy.textContent = 'Copy URL';
     copy.addEventListener('click', () => copyText(item.url, `Copied URL for ${item.file.name}.`));
@@ -263,9 +277,9 @@ async function addFiles(fileList) {
   const staged = await Promise.all(accepted.map(async file => {
     const { kind, mediaType } = classifyFile(file);
     let state = 'queued', error = '', retryable = true, stableFile = file;
-    if (kind === 'unsupported') { state = 'failed'; error = 'PNG, JPEG, WebP, MP3, M4A or PDF only'; retryable = false; }
+    if (kind === 'unsupported') { state = 'failed'; error = 'PNG, JPEG, WebP, MP3, M4A, MP4 or PDF only'; retryable = false; }
     else if (!file.size) { state = 'failed'; error = 'Empty file'; retryable = false; }
-    else if ((kind === 'audio' || kind === 'document') && file.size > STREAMED_MEDIA_MAX_BYTES) {
+    else if ((kind === 'audio' || kind === 'video' || kind === 'document') && file.size > STREAMED_MEDIA_MAX_BYTES) {
       state = 'failed'; error = `${formatBytes(file.size)} exceeds BUM Hand’s current 75 MB streamed-media limit`; retryable = false;
     } else {
       try { stableFile = await stableBrowserFile(file, mediaType); }
@@ -309,7 +323,7 @@ async function uploadStreamedMedia(item, token, destination) {
 async function uploadItem(item, token, destination) {
   item.error = ''; item.retryable = true; item.optimizedBytes = null;
   try {
-    if (item.kind === 'audio' || item.kind === 'document') {
+    if (item.kind === 'audio' || item.kind === 'video' || item.kind === 'document') {
       item.state = 'uploading'; render();
       item.url = await uploadStreamedMedia(item, token, destination);
     } else {

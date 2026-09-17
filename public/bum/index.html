@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#f4f1ea">
-  <meta name="description" content="BUM Hand — Batch Uploader for Micro.blog. Upload batches of photos, audio and PDFs without creating posts.">
+  <meta name="description" content="BUM Hand — Batch Uploader for Micro.blog. Upload batches of photos, video, audio and PDFs without creating posts.">
   <meta property="og:type" content="website">
   <meta property="og:title" content="BUM Hand — Helping Hand">
   <meta property="og:description" content="Batch Uploader for Micro.blog.">
@@ -30,7 +30,7 @@
       <img class="hero-mark" src="/brand/bum-hand.svg" alt="" aria-hidden="true">
       <p class="eyebrow">Batch Uploader for Micro.blog</p>
       <h1>BUM Hand</h1>
-      <p class="lede">Throw a bunch of files at Micro.blog. Photos, audio, PDFs — whatever BUM Hand understands. Keep the URLs, or drop photos straight into a collection. No post required.</p>
+      <p class="lede">Throw a bunch of files at Micro.blog. Photos, MP4 video, audio, PDFs — whatever BUM Hand understands. Keep the URLs, or drop photos straight into a collection. No post required.</p>
     </header>
 
     <section class="panel" aria-labelledby="token-heading">
@@ -57,11 +57,11 @@
     </section>
 
     <section class="panel" aria-labelledby="files-heading">
-      <div class="section-heading"><div><p class="step">03</p><h2 id="files-heading">Choose files</h2></div><p class="hint">PNG, JPEG, WebP, MP3, M4A or PDF. Larger photos are optimized locally; audio and PDFs use BUM Hand’s streamed media proxy.</p></div>
+      <div class="section-heading"><div><p class="step">03</p><h2 id="files-heading">Choose files</h2></div><p class="hint">PNG, JPEG, WebP, MP3, M4A, MP4 or PDF. Larger photos are optimized locally; video, audio and PDFs use BUM Hand’s streamed media proxy.</p></div>
       <label id="drop-zone" class="drop-zone" for="files">
         <strong>Choose files</strong>
-        <span>photos, audio or PDFs — or drop them here</span>
-        <input id="files" type="file" accept="*/*" multiple>
+        <span>photos, video, audio or PDFs — or drop them here</span>
+        <input id="files" type="file" accept="image/png,image/jpeg,image/webp,audio/mpeg,audio/mp4,video/mp4,application/pdf,.mp3,.m4a,.mp4,.pdf" multiple>
       </label>
       <div id="selection-summary" class="selection-summary" hidden></div>
       <ol id="queue" class="queue" aria-live="polite"></ol>
