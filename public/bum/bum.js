@@ -69,7 +69,7 @@ function inferAudioType(file) {
 function inferVideoType(file) {
   const type = (file.type || '').toLowerCase();
   if (type === 'video/mp4') return 'video/mp4';
-  if (file.name.toLowerCase().endsWith('.mp4')) return 'video/mp4';
+  if ((!type || type === 'application/octet-stream') && file.name.toLowerCase().endsWith('.mp4')) return 'video/mp4';
   return '';
 }
 
@@ -82,10 +82,10 @@ function inferDocumentType(file) {
 function classifyFile(file) {
   const imageType = inferImageMediaType(file);
   if (IMAGE_TYPES.has(imageType)) return { kind: 'image', mediaType: imageType };
-  const videoType = inferVideoType(file);
-  if (VIDEO_TYPES.has(videoType)) return { kind: 'video', mediaType: videoType };
   const audioType = inferAudioType(file);
   if (AUDIO_TYPES.has(audioType)) return { kind: 'audio', mediaType: audioType };
+  const videoType = inferVideoType(file);
+  if (VIDEO_TYPES.has(videoType)) return { kind: 'video', mediaType: videoType };
   const documentType = inferDocumentType(file);
   if (documentType) return { kind: 'document', mediaType: documentType };
   return { kind: 'unsupported', mediaType: file.type || '' };
