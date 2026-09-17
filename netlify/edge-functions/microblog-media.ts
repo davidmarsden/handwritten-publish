@@ -4,6 +4,7 @@ const SUPPORTED_MEDIA_TYPES = new Set([
   'audio/mp3',
   'audio/mp4',
   'audio/x-m4a',
+  'video/mp4',
   'application/pdf',
 ]);
 
@@ -84,7 +85,7 @@ export default async (request: Request) => {
   if (!token) return json({ error: 'Micro.blog app token is required.' }, 400);
   if (!endpoint.startsWith('https://')) return json({ error: 'A valid Micro.blog media endpoint is required.' }, 400);
   if (!destination) return json({ error: 'Choose a Micro.blog destination first.' }, 400);
-  if (!SUPPORTED_MEDIA_TYPES.has(contentType)) return json({ error: 'An MP3, M4A or PDF file is required.' }, 400);
+  if (!SUPPORTED_MEDIA_TYPES.has(contentType)) return json({ error: 'An MP3, M4A, MP4 or PDF file is required.' }, 400);
   if (!request.body) return json({ error: 'Upload is empty.' }, 400);
   if (contentLength > MAX_MEDIA_BYTES) {
     return json({ error: `This file is ${(contentLength / 1_000_000).toFixed(1)} MB; BUM Hand currently accepts streamed media up to 75 MB.` }, 413);
