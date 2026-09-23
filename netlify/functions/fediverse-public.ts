@@ -135,7 +135,8 @@ export default async (request: Request): Promise<Response> => {
   const target = parseChannelProfile(profile);
   if (!target) return json({ error: 'That is not a supported public Fediverse channel URL.' }, 400);
 
-  const mode = url.searchParams.get('mode') === 'replies' ? 'replies' : 'posts';
+  const modeParam = url.searchParams.get('mode');
+  const mode = modeParam === 'replies' || modeParam === 'all' ? modeParam : 'posts';
   const rawTargetHost = cleanText(url.searchParams.get('target_host'))?.toLowerCase();
   const targetHost = rawTargetHost && /^[a-z0-9.-]{1,253}$/.test(rawTargetHost) ? rawTargetHost : undefined;
   const rawMicroblogUser = cleanText(url.searchParams.get('microblog_user'));
@@ -148,9 +149,9 @@ export default async (request: Request): Promise<Response> => {
       { headers: { Accept: 'text/html' } },
       { maxBytes: 512 * 1024, totalTimeoutMs: 8000 },
     ).catch(() => null);
-    const feedPath = mode === 'replies'
-      ? `/feed/${encodeURIComponent(target.username)}`
-      : `/feed/${encodeURIComponent(target.username)}?f=&top=1`;
+    const feedPath = mode === 'posts'
+      ? `/feed/${encodeURIComponent(target.username)}?f=&top=1`
+      : `/feed/${encodeURIComponent(target.username)}`;
     const feedResponse = await boundedPublicFetch(
       target.origin,
       feedPath,
@@ -164,7 +165,7 @@ export default async (request: Request): Promise<Response> => {
     const xml = await feedResponse.text();
     const avatar = meta(html, 'og:image');
     const profileName = meta(html, 'og:title')?.replace(/\s+-\s+.*$/, '').trim() || target.username;
-    const scanLimit = mode === 'replies' ? 80 : 39;
+    const scanLimit = mode === 'posts' ? 39 : 80;
     let items = parseFeed(xml, target, avatar, scanLimit).map(item => ({
       ...item,
       author: { ...item.author, name: profileName },
