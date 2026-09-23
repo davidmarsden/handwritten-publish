@@ -116,6 +116,39 @@ function quoteMarkdown(item: MicroblogItem): string {
   return `${quote}\n\n— ${item.url ? `[${author}](${item.url})` : author}`;
 }
 
+function isBlankRenderedItem(item: MicroblogItem): boolean {
+  if (item.content_text?.trim()) return false;
+  const html = item.content_html?.trim();
+  if (!html) return true;
+
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('script, style, iframe, object, embed').forEach(node => node.remove());
+  if (doc.body.textContent?.trim()) return false;
+
+  return !Array.from(doc.querySelectorAll('img')).some(img => {
+    const src = img.getAttribute('src')?.trim() || '';
+    return /^https?:\/\//i.test(src);
+  });
+}
+
+function blankItemDiagnostics(item: MicroblogItem) {
+  return {
+    id: item.id,
+    idType: typeof item.id,
+    itemUrl: item.url || null,
+    datePublished: item.date_published || null,
+    author: {
+      name: item.author?.name || null,
+      username: item.author?.username || null,
+      url: item.author?.url || null,
+      microblogUsername: item.author?._microblog?.username || null,
+    },
+    microblogKeys: item._microblog ? Object.keys(item._microblog).sort() : [],
+    exactConversationEnriched: Boolean(item._microblog?.exact_conversation_enriched),
+    remoteEnriched: Boolean(item._microblog?.remote_enriched),
+  };
+}
+
 function App() {
   const [account, setAccount] = useState<MicroblogAccount | null>(null);
   const [authenticated, setAuthenticated] = useState(false);
@@ -148,6 +181,7 @@ function App() {
 
   const client = useMemo(() => new MicroblogSocialClient(), []);
   const circleSet = useMemo(() => new Set(circle.map(person => person.id)), [circle]);
+  const debugBlankItems = useMemo(() => new URLSearchParams(window.location.search).get('debug') === '1', []);
 
   useEffect(() => {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/dent-hand-sw.js', { scope: '/social/', updateViaCache: 'none' }).catch(() => undefined);
@@ -454,7 +488,7 @@ function App() {
     {!conversation && !profile && view === 'timeline' && pendingNew.length > 0 && <div className="new-dents-wrap"><button className="new-dents-button" onClick={revealNew}>{pendingNew.length.toLocaleString()} new {pendingNew.length === 1 ? 'dent' : 'dents'} ↑</button></div>}
     {profile && <section className="profile-card"><div className="profile-main">{profile.person.avatar && <img className="profile-avatar" src={profile.person.avatar} alt=""/>}<div><p className="eyebrow">Profile</p><h2>{profile.person.name}</h2>{profile.person.username && <p>@{profile.person.username}</p>}{profile.loading && <p className="profile-status">{profile.source === 'mastodon' ? 'Loading public Mastodon history…' : 'Loading full Micro.blog history…'}</p>}{profile.loadError && <p className="profile-status">Showing dents already in your timeline.</p>}</div></div><div className="profile-actions"><button className="circle-toggle" onClick={() => toggleCircle(profile.person)}>{circleSet.has(profile.person.id) ? '★ In Circle' : '☆ Add to Circle'}</button>{profile.person.url && <a className="profile-link" href={profile.person.url} target="_blank" rel="noreferrer">Open profile ↗</a>}</div></section>}
     {!conversation && !profile && view === 'circle' && <section className="circle-bar"><strong>Circle</strong>{circle.length ? circle.map(person => <button key={person.id} onClick={() => openProfile(person)}>{person.name}</button>) : <span>Add people from their profiles. Your Circle stays on this device.</span>}</section>}
-    <main className="feed" aria-live="polite">{items.map(item => { const person = personFromItem(item); const remoteMastodon = isRemoteMastodonItem(item); return <article className="post-card" key={`${conversation ? 'c' : profile ? 'p' : view}-${item.id}`}><button className="author-button" onClick={() => person && openProfileItem(item)} disabled={!person}>{item.author?.avatar ? <img className="avatar" src={item.author.avatar} alt=""/> : <span className="avatar fallback"/>}<span><strong>{authorLabel(item)}</strong><span className="meta">{item.author?.username && <span>@{item.author.username}</span>}{item._microblog?.date_relative && <span>{item._microblog.date_relative}</span>}</span></span></button><RichContent item={item}/><div className="actions">{!remoteMastodon && <button onClick={() => openConversation(item)}>Conversation</button>}{!remoteMastodon && <button onClick={() => setReplyingTo(item)}>Reply</button>}{!remoteMastodon && <button onClick={() => toggleBookmark(item)}>{item._microblog?.is_bookmark ? 'Bookmarked' : 'Bookmark'}</button>}{item.url && <a href={item.url} target="_blank" rel="noreferrer">Original ↗</a>}<button onClick={() => openComposer(item)}>Quote</button></div></article>; })}{authenticated && items.length === 0 && !busy && <div className="notice inline">{view === 'circle' ? (circle.length ? 'No Circle dents in this slice of the timeline yet.' : 'Your Circle is empty. Open a profile and add someone.') : profile ? 'No dents from this account are in the loaded timeline yet.' : 'Nothing here yet.'}</div>}{!conversation && sourceItems.length > 0 && ((profile?.hasMore ?? hasMore) ? <div className="load-more-wrap"><button className="load-more" onClick={loadOlder} disabled={loadingOlder || busy || Boolean(profile?.loading)}>{loadingOlder ? 'Loading older dents…' : 'Load older dents'}</button></div> : !profile?.loading && <div className="load-more-wrap"><span>{profile && (profile.source === 'timeline' || profile.loadError) ? 'Showing dents from your loaded timeline.' : 'You’ve reached the end.'}</span></div>)}</main>
+    <main className="feed" aria-live="polite">{items.map(item => { const person = personFromItem(item); const remoteMastodon = isRemoteMastodonItem(item); return <article className="post-card" key={`${conversation ? 'c' : profile ? 'p' : view}-${item.id}`}><button className="author-button" onClick={() => person && openProfileItem(item)} disabled={!person}>{item.author?.avatar ? <img className="avatar" src={item.author.avatar} alt=""/> : <span className="avatar fallback"/>}<span><strong>{authorLabel(item)}</strong><span className="meta">{item.author?.username && <span>@{item.author.username}</span>}{item._microblog?.date_relative && <span>{item._microblog.date_relative}</span>}</span></span></button><RichContent item={item}/>{debugBlankItems && isBlankRenderedItem(item) && <details className="notice inline"><summary>Blank-item diagnostics</summary><pre>{JSON.stringify(blankItemDiagnostics(item), null, 2)}</pre></details>}<div className="actions">{!remoteMastodon && <button onClick={() => openConversation(item)}>Conversation</button>}{!remoteMastodon && <button onClick={() => setReplyingTo(item)}>Reply</button>}{!remoteMastodon && <button onClick={() => toggleBookmark(item)}>{item._microblog?.is_bookmark ? 'Bookmarked' : 'Bookmark'}</button>}{item.url && <a href={item.url} target="_blank" rel="noreferrer">Original ↗</a>}<button onClick={() => openComposer(item)}>Quote</button></div></article>; })}{authenticated && items.length === 0 && !busy && <div className="notice inline">{view === 'circle' ? (circle.length ? 'No Circle dents in this slice of the timeline yet.' : 'Your Circle is empty. Open a profile and add someone.') : profile ? 'No dents from this account are in the loaded timeline yet.' : 'Nothing here yet.'}</div>}{!conversation && sourceItems.length > 0 && ((profile?.hasMore ?? hasMore) ? <div className="load-more-wrap"><button className="load-more" onClick={loadOlder} disabled={loadingOlder || busy || Boolean(profile?.loading)}>{loadingOlder ? 'Loading older dents…' : 'Load older dents'}</button></div> : !profile?.loading && <div className="load-more-wrap"><span>{profile && (profile.source === 'timeline' || profile.loadError) ? 'Showing dents from your loaded timeline.' : 'You’ve reached the end.'}</span></div>)}</main>
     {replyingTo && <div className="reply-drawer" role="dialog" aria-modal="true" aria-label={`Reply to ${authorLabel(replyingTo)}`}><form onSubmit={submitReply}><div className="reply-head"><div><span className="eyebrow">Replying to</span><strong>{authorLabel(replyingTo)}</strong></div><button type="button" className="text-button" onClick={() => setReplyingTo(null)}>Close</button></div><blockquote>{displayText(replyingTo)}</blockquote><textarea value={replyText} onChange={event => setReplyText(event.target.value)} placeholder="Write a reply…" autoFocus/><button className="primary" type="submit" disabled={busy || !replyText.trim()}>{busy ? 'Sending…' : 'Send reply'}</button></form></div>}
     {composing && <div className="reply-drawer composer-drawer" role="dialog" aria-modal="true" aria-label={quotedItem ? 'Quote dent' : 'New dent'}><form onSubmit={submitMicropost}><div className="reply-head"><div><span className="eyebrow">Dent Hand</span><strong>{quotedItem ? 'Quote dent' : 'New dent'}</strong></div><button type="button" className="text-button" onClick={() => setComposing(false)}>Close</button></div>{quotedItem && <blockquote>{displayText(quotedItem)}<footer>— {authorLabel(quotedItem)}</footer></blockquote>}<p className="composer-note">Choose the destination explicitly. Dent Hand never falls back to Micro.blog’s current site.</p><label className="field-label" htmlFor="destination">Post to</label><select id="destination" value={selectedDestination} onChange={event => updateDestination(event.target.value)} disabled={publishing}><option value="">Choose a blog…</option>{destinations.map(destination => <option key={destination.uid} value={destination.uid}>{destinationLabel(destination)}</option>)}</select><label className="field-label" htmlFor="micropost">{quotedItem ? 'Your comment (optional)' : 'Dent'}</label><textarea id="micropost" value={micropostText} onChange={event => updateMicropostText(event.target.value)} placeholder={quotedItem ? 'Add a comment…' : 'What’s happening?'} autoFocus/>{!quotedItem && micropostText && <p className="draft-note">Draft saved for this browser session.</p>}<div className="composer-footer"><span>{micropostText.length.toLocaleString()} characters</span><button className="primary" type="submit" disabled={publishing || !selectedDestination || (!quotedItem && !micropostText.trim())}>{publishing ? 'Publishing…' : 'Publish dent'}</button></div>{composerError && <div className="composer-warning error" role="alert">{composerError}</div>}</form></div>}
   </div>;
