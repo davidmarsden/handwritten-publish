@@ -144,6 +144,78 @@ describe('MicroblogSocialClient', () => {
     expect(result.items[0].id).toBe('123');
   });
 
+  it('keeps URL-only conversation recovery eligible for the public-feed body fallback', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async input => {
+      const url = String(input);
+      if (url.includes('op=timeline')) return response({
+        items: [{
+          id: '123',
+          author: {
+            name: 'elmussol',
+            url: 'https://streams.elsmussols.net/channel/elmussol',
+          },
+        }],
+      });
+      return response({
+        items: [{
+          id: '123',
+          url: 'https://streams.elsmussols.net/item/abc',
+          author: {
+            name: 'elmussol',
+            url: 'https://streams.elsmussols.net/channel/elmussol',
+          },
+        }],
+      });
+    });
+    const client = new MicroblogSocialClient({ fetchImpl });
+
+    const result = await client.timeline();
+
+    expect(result.items[0].url).toBeUndefined();
+    expect(result.items[0].content_html).toBeUndefined();
+    expect(result.items[0]._microblog?.exact_conversation_enriched).toBeUndefined();
+  });
+
+  it('caps exact conversation enrichment and reuses cached results', async () => {
+    let timelineCalls = 0;
+    const fetchImpl = vi.fn<typeof fetch>(async input => {
+      const url = String(input);
+      if (url.includes('op=timeline')) {
+        timelineCalls += 1;
+        return response({
+          items: Array.from({ length: 6 }, (_, index) => ({
+            id: String(100 + index),
+            author: {
+              name: 'elmussol',
+              url: 'https://streams.elsmussols.net/channel/elmussol',
+            },
+          })),
+        });
+      }
+      const id = new URL(url, 'https://dent.invalid').searchParams.get('id');
+      return response({
+        items: [{
+          id,
+          content_html: `<p>Recovered ${id}</p>`,
+          author: {
+            name: 'elmussol',
+            url: 'https://streams.elsmussols.net/channel/elmussol',
+          },
+        }],
+      });
+    });
+    const client = new MicroblogSocialClient({ fetchImpl });
+
+    const first = await client.timeline();
+    expect(first.items.filter(item => item.content_html)).toHaveLength(4);
+    expect(fetchImpl.mock.calls.filter(call => String(call[0]).includes('op=conversation'))).toHaveLength(4);
+
+    const second = await client.timeline();
+    expect(second.items.filter(item => item.content_html)).toHaveLength(6);
+    expect(fetchImpl.mock.calls.filter(call => String(call[0]).includes('op=conversation'))).toHaveLength(6);
+    expect(timelineCalls).toBe(2);
+  });
+
   it('loads mentions with paging without mixing in the replies endpoint', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => response({ items: [] }));
     const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
