@@ -29,8 +29,14 @@ function remember(provider: ProviderId) {
   localStorage.setItem(PROVIDER_KEY, provider);
 }
 
-function clearQuery() {
-  if (window.location.search) window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+function clearAuthQuery() {
+  if (!window.location.search) return;
+  const params = new URLSearchParams(window.location.search);
+  params.delete('auth');
+  params.delete('provider');
+  params.delete('choose');
+  const query = params.toString();
+  window.history.replaceState({}, '', window.location.pathname + (query ? `?${query}` : '') + window.location.hash);
 }
 
 function Chooser() {
@@ -106,7 +112,7 @@ async function boot() {
   const preferred = selectedProvider();
 
   if (!forceChoose && preferred && await hasSession(preferred)) {
-    clearQuery();
+    clearAuthQuery();
     if (preferred === 'mastodon') await import('./mastodon');
     else await import('./main');
     return;
@@ -115,13 +121,13 @@ async function boot() {
   if (!forceChoose && !preferred) {
     if (await hasSession('microblog')) {
       remember('microblog');
-      clearQuery();
+      clearAuthQuery();
       await import('./main');
       return;
     }
     if (await hasSession('mastodon')) {
       remember('mastodon');
-      clearQuery();
+      clearAuthQuery();
       await import('./mastodon');
       return;
     }
