@@ -1,7 +1,7 @@
 import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MicroblogAccount, MicroblogAuthor, MicroblogDestination, MicroblogFeed, MicroblogItem, MicroblogSocialClient } from '../src/microblogSocial';
-import { fetchMastodonProfile, isMastodonProfileUrl } from '../src/mastodonPublic';
+import { enrichBlankChannelItems, fetchMastodonProfile, isMastodonProfileUrl } from '../src/mastodonPublic';
 import './social.css';
 import { RichContent } from './RichContent';
 
@@ -195,7 +195,7 @@ function App() {
     if (nextView === 'bookmarks') return requestClient.bookmarks(paging);
     if (nextView === 'mentions') return requestClient.mentions(paging);
     if (nextView === 'replies') return requestClient.replies(paging);
-    return requestClient.timeline(paging);
+    return enrichBlankChannelItems(await requestClient.timeline(paging));
   }
 
   async function refreshDestinations(requestClient: MicroblogSocialClient, generation: number) {
@@ -238,7 +238,7 @@ function App() {
     const refreshRequest = ++refreshRequestRef.current;
     setCheckingNew(true); setError('');
     try {
-      const result = await client.timeline({ count: PAGE_SIZE, sinceId: firstId });
+      const result = await enrichBlankChannelItems(await client.timeline({ count: PAGE_SIZE, sinceId: firstId }));
       if (generation !== generationRef.current) return;
       const existing = new Set(feed.items.map(item => item.id));
       setPendingNew(current => {
