@@ -117,7 +117,18 @@ function quoteMarkdown(item: MicroblogItem): string {
 }
 
 function isBlankRenderedItem(item: MicroblogItem): boolean {
-  return !item.content_text?.trim() && !item.content_html?.trim();
+  if (item.content_text?.trim()) return false;
+  const html = item.content_html?.trim();
+  if (!html) return true;
+
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('script, style, iframe, object, embed').forEach(node => node.remove());
+  if (doc.body.textContent?.trim()) return false;
+
+  return !Array.from(doc.querySelectorAll('img')).some(img => {
+    const src = img.getAttribute('src')?.trim() || '';
+    return /^https?:\/\//i.test(src);
+  });
 }
 
 function blankItemDiagnostics(item: MicroblogItem) {
