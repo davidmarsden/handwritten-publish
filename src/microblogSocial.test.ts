@@ -48,6 +48,102 @@ describe('MicroblogSocialClient', () => {
     expect(init?.headers).toMatchObject({ Authorization: 'Bearer abc123' });
   });
 
+  it('recovers an exact blank streams timeline item from its Micro.blog conversation', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async input => {
+      const url = String(input);
+      if (url.includes('op=timeline')) return response({
+        items: [{
+          id: '123',
+          date_published: '2026-09-23T10:38:00Z',
+          author: {
+            name: 'elmussol',
+            url: 'https://streams.elsmussols.net/channel/elmussol',
+          },
+          _microblog: { date_relative: '10:38' },
+        }],
+      });
+      if (url.includes('op=conversation') && url.includes('id=123')) return response({
+        items: [
+          { id: '122', content_html: '<p>Parent</p>' },
+          {
+            id: '123',
+            url: 'https://streams.elsmussols.net/item/abc',
+            content_html: '<p>Recovered exact post</p>',
+            author: {
+              name: 'elmussol',
+              url: 'https://streams.elsmussols.net/channel/elmussol',
+            },
+          },
+        ],
+      });
+      return response({ items: [] });
+    });
+    const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
+
+    const result = await client.timeline();
+
+    expect(result.items[0]).toMatchObject({
+      id: '123',
+      url: 'https://streams.elsmussols.net/item/abc',
+      content_html: '<p>Recovered exact post</p>',
+      _microblog: {
+        date_relative: '10:38',
+        exact_conversation_enriched: true,
+      },
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not substitute a different conversation item for a blank timeline id', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async input => {
+      const url = String(input);
+      if (url.includes('op=timeline')) return response({
+        items: [{
+          id: '123',
+          author: {
+            name: 'elmussol',
+            url: 'https://streams.elsmussols.net/channel/elmussol',
+          },
+        }],
+      });
+      return response({
+        items: [{ id: '999', content_html: '<p>Wrong post</p>', url: 'https://example.com/wrong' }],
+      });
+    });
+    const client = new MicroblogSocialClient({ fetchImpl });
+
+    const result = await client.timeline();
+
+    expect(result.items[0]).toEqual({
+      id: '123',
+      author: {
+        name: 'elmussol',
+        url: 'https://streams.elsmussols.net/channel/elmussol',
+      },
+    });
+  });
+
+  it('keeps timeline loading successful if exact conversation enrichment fails', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async input => {
+      const url = String(input);
+      if (url.includes('op=timeline')) return response({
+        items: [{
+          id: '123',
+          author: {
+            name: 'elmussol',
+            url: 'https://streams.elsmussols.net/channel/elmussol',
+          },
+        }],
+      });
+      return response({ error: 'conversation unavailable' }, 502);
+    });
+    const client = new MicroblogSocialClient({ fetchImpl });
+
+    const result = await client.timeline();
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].id).toBe('123');
+  });
+
   it('loads mentions with paging without mixing in the replies endpoint', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => response({ items: [] }));
     const client = new MicroblogSocialClient({ token: 'abc123', fetchImpl });
