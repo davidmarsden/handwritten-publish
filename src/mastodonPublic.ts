@@ -15,6 +15,7 @@ export type MastodonProfileResult = {
 export type MastodonProfilePaging = {
   limit?: number;
   maxId?: string;
+  includeReplies?: boolean;
 };
 
 type MastodonAccount = {
@@ -163,8 +164,9 @@ function pagingRemoteId(value?: string): string | undefined {
   return match?.[1];
 }
 
-async function fetchPublicChannel(profileUrl: string, fetchImpl: typeof fetch): Promise<MastodonProfileResult> {
+async function fetchPublicChannel(profileUrl: string, paging: MastodonProfilePaging, fetchImpl: typeof fetch): Promise<MastodonProfileResult> {
   const params = new URLSearchParams({ profile: profileUrl });
+  if (paging.includeReplies) params.set('mode', 'all');
   const response = await fetchImpl(`/api/fediverse/public?${params.toString()}`, { headers: { Accept: 'application/json' } });
   const payload = await response.json().catch(() => ({})) as Partial<MastodonProfileResult> & { error?: string };
   if (!response.ok) throw new Error(payload.error || `Public Fediverse profile request failed (${response.status}).`);
@@ -175,7 +177,7 @@ async function fetchPublicChannel(profileUrl: string, fetchImpl: typeof fetch): 
 export async function fetchMastodonProfile(profileUrl: string, paging: MastodonProfilePaging = {}, fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis)): Promise<MastodonProfileResult> {
   const target = parsePublicProfileUrl(profileUrl);
   if (!target) throw new Error('That profile is not a supported Fediverse URL.');
-  if (target.kind === 'channel') return fetchPublicChannel(target.url, fetchImpl);
+  if (target.kind === 'channel') return fetchPublicChannel(target.url, paging, fetchImpl);
 
   const lookupUrl = new URL('/api/v1/accounts/lookup', target.origin);
   lookupUrl.searchParams.set('acct', target.username);
@@ -206,5 +208,86 @@ export async function fetchMastodonProfile(profileUrl: string, paging: MastodonP
       url: normalizedAccount.url || target.url,
     },
     feed: { items: Array.isArray(statuses) ? statuses.flatMap(status => { const item = normalizeStatus(status, fallback); return item ? [item] : []; }) : [] },
+  };
+}
+
+
+function hasVisibleContent(item: MicroblogItem): boolean {
+  return Boolean(item.content_text?.trim() || item.content_html?.trim() || item.url);
+}
+
+function channelProfileUrl(value?: string): string | undefined {
+  const target = parsePublicProfileUrl(value);
+  return target?.kind === 'channel' ? target.url : undefined;
+}
+
+function publishedAt(item: MicroblogItem): number | undefined {
+  if (!item.date_published) return undefined;
+  const value = Date.parse(item.date_published);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+function closestPublishedItem(source: MicroblogItem, candidates: MicroblogItem[]): MicroblogItem | undefined {
+  const sourceTime = publishedAt(source);
+  if (sourceTime === undefined) return undefined;
+  let best: { item: MicroblogItem; delta: number } | undefined;
+  for (const candidate of candidates) {
+    const candidateTime = publishedAt(candidate);
+    if (candidateTime === undefined) continue;
+    const delta = Math.abs(candidateTime - sourceTime);
+    if (delta > 2 * 60 * 1000) continue;
+    if (!best || delta < best.delta) best = { item: candidate, delta };
+  }
+  return best?.item;
+}
+
+export async function enrichBlankChannelItems(
+  feed: MicroblogFeed,
+  fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis),
+): Promise<MicroblogFeed> {
+  const blanks = feed.items.filter(item => !hasVisibleContent(item) && channelProfileUrl(item.author?.url));
+  if (!blanks.length) return feed;
+
+  const profiles = [...new Set(blanks.flatMap(item => {
+    const url = channelProfileUrl(item.author?.url);
+    return url ? [url] : [];
+  }))];
+
+  const remoteFeeds = new Map<string, MicroblogFeed>();
+  await Promise.all(profiles.map(async profileUrl => {
+    try {
+      const result = await fetchMastodonProfile(profileUrl, { includeReplies: true }, fetchImpl);
+      remoteFeeds.set(profileUrl, result.feed);
+    } catch {
+      // A remote enrichment failure should never break the Micro.blog timeline.
+    }
+  }));
+
+  return {
+    ...feed,
+    items: feed.items.map(item => {
+      if (hasVisibleContent(item)) return item;
+      const profileUrl = channelProfileUrl(item.author?.url);
+      if (!profileUrl) return item;
+      const remote = closestPublishedItem(item, remoteFeeds.get(profileUrl)?.items || []);
+      if (!remote) return item;
+      return {
+        ...item,
+        ...(remote.url ? { url: remote.url } : {}),
+        ...(remote.content_html ? { content_html: remote.content_html } : {}),
+        ...(remote.content_text ? { content_text: remote.content_text } : {}),
+        author: {
+          ...(remote.author || {}),
+          ...(item.author || {}),
+          avatar: item.author?.avatar || remote.author?.avatar,
+          url: item.author?.url || remote.author?.url,
+        },
+        _microblog: {
+          ...(item._microblog || {}),
+          remote_enriched: true,
+          remote_source_id: remote.id,
+        },
+      };
+    }),
   };
 }
