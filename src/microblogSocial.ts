@@ -59,6 +59,7 @@ export type MicroblogSocialClientOptions = {
 
 const LEGACY_TOKEN_KEY = 'microblog-social-token';
 const CIRCLE_KEY = 'dent-hand-circle';
+const MAX_TIMELINE_CONVERSATION_ENRICHMENTS = 4;
 
 const MICROBLOG_CAPABILITIES: SocialProviderCapabilities = {
   bookmarks: true,
@@ -189,6 +190,39 @@ function siteHostname(defaultSite?: string): string | undefined {
   }
 }
 
+function isBlankChannelItem(item: MicroblogItem): boolean {
+  if (!/^\d+$/.test(item.id)) return false;
+  if (item.content_text?.trim() || item.content_html?.trim() || item.url) return false;
+  const authorUrl = item.author?.url;
+  if (!authorUrl) return false;
+  try {
+    const url = new URL(authorUrl);
+    const parts = url.pathname.split('/').filter(Boolean);
+    return url.protocol === 'https:' && parts[0] === 'channel' && Boolean(parts[1]);
+  } catch {
+    return false;
+  }
+}
+
+function mergeRecoveredItem(original: MicroblogItem, recovered: MicroblogItem): MicroblogItem {
+  return {
+    ...original,
+    ...(recovered.url ? { url: recovered.url } : {}),
+    ...(recovered.content_html?.trim() ? { content_html: recovered.content_html } : {}),
+    ...(recovered.content_text?.trim() ? { content_text: recovered.content_text } : {}),
+    author: {
+      ...(recovered.author || {}),
+      ...(original.author || {}),
+      avatar: original.author?.avatar || recovered.author?.avatar,
+      url: original.author?.url || recovered.author?.url,
+    },
+    _microblog: {
+      ...(original._microblog || {}),
+      exact_conversation_enriched: true,
+    },
+  };
+}
+
 export class MicroblogSocialClient implements SocialProvider {
   readonly id = 'microblog' as const;
   readonly label = 'Micro.blog';
@@ -201,6 +235,7 @@ export class MicroblogSocialClient implements SocialProvider {
   private readonly token?: string;
   private readonly endpoint: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly conversationEnrichmentCache = new Map<string, MicroblogItem | null>();
 
   constructor(options: MicroblogSocialClientOptions = {}) {
     clearLegacyBrowserToken();
@@ -257,7 +292,51 @@ export class MicroblogSocialClient implements SocialProvider {
   async timeline(paging?: Paging): Promise<MicroblogFeed> {
     const params = new URLSearchParams();
     appendPaging(params, paging);
-    return normalizeFeed(await this.request('timeline', {}, params));
+    const timeline = normalizeFeed(await this.request<MicroblogFeed>('timeline', {}, params));
+    const blankIds = timeline.items.filter(isBlankChannelItem).map(item => item.id);
+    if (!blankIds.length) return timeline;
+
+    const recovered = new Map<string, MicroblogItem>();
+    for (const id of blankIds) {
+      const cached = this.conversationEnrichmentCache.get(id);
+      if (cached) recovered.set(id, cached);
+    }
+
+    const idsToFetch = blankIds
+      .filter(id => !this.conversationEnrichmentCache.has(id))
+      .slice(0, MAX_TIMELINE_CONVERSATION_ENRICHMENTS);
+
+    await Promise.all(idsToFetch.map(async id => {
+      try {
+        const conversation = normalizeFeed(await this.request<MicroblogFeed>(
+          'conversation',
+          {},
+          new URLSearchParams({ id: assertId(id) }),
+        ));
+        const exact = conversation.items.find(item => item.id === id);
+        const hasBody = Boolean(exact?.content_text?.trim() || exact?.content_html?.trim());
+        if (exact && hasBody) {
+          this.conversationEnrichmentCache.set(id, exact);
+          recovered.set(id, exact);
+        } else {
+          // URL-only conversation results must remain eligible for the
+          // downstream public-feed body fallback.
+          this.conversationEnrichmentCache.set(id, null);
+        }
+      } catch {
+        // Timeline loading must not fail because optional enrichment failed.
+        // Do not cache transient failures so a later refresh can retry.
+      }
+    }));
+
+    if (!recovered.size) return timeline;
+    return {
+      ...timeline,
+      items: timeline.items.map(item => {
+        const exact = recovered.get(item.id);
+        return exact ? mergeRecoveredItem(item, exact) : item;
+      }),
+    };
   }
 
   async bookmarks(paging?: Paging): Promise<MicroblogFeed> {
