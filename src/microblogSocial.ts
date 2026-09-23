@@ -59,6 +59,7 @@ export type MicroblogSocialClientOptions = {
 
 const LEGACY_TOKEN_KEY = 'microblog-social-token';
 const CIRCLE_KEY = 'dent-hand-circle';
+const MAX_TIMELINE_CONVERSATION_ENRICHMENTS = 4;
 
 const MICROBLOG_CAPABILITIES: SocialProviderCapabilities = {
   bookmarks: true,
@@ -234,6 +235,7 @@ export class MicroblogSocialClient implements SocialProvider {
   private readonly token?: string;
   private readonly endpoint: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly conversationEnrichmentCache = new Map<string, MicroblogItem | null>();
 
   constructor(options: MicroblogSocialClientOptions = {}) {
     clearLegacyBrowserToken();
@@ -295,7 +297,16 @@ export class MicroblogSocialClient implements SocialProvider {
     if (!blankIds.length) return timeline;
 
     const recovered = new Map<string, MicroblogItem>();
-    await Promise.all(blankIds.map(async id => {
+    for (const id of blankIds) {
+      const cached = this.conversationEnrichmentCache.get(id);
+      if (cached) recovered.set(id, cached);
+    }
+
+    const idsToFetch = blankIds
+      .filter(id => !this.conversationEnrichmentCache.has(id))
+      .slice(0, MAX_TIMELINE_CONVERSATION_ENRICHMENTS);
+
+    await Promise.all(idsToFetch.map(async id => {
       try {
         const conversation = normalizeFeed(await this.request<MicroblogFeed>(
           'conversation',
@@ -303,11 +314,18 @@ export class MicroblogSocialClient implements SocialProvider {
           new URLSearchParams({ id: assertId(id) }),
         ));
         const exact = conversation.items.find(item => item.id === id);
-        if (exact && (exact.content_text?.trim() || exact.content_html?.trim() || exact.url)) {
+        const hasBody = Boolean(exact?.content_text?.trim() || exact?.content_html?.trim());
+        if (exact && hasBody) {
+          this.conversationEnrichmentCache.set(id, exact);
           recovered.set(id, exact);
+        } else {
+          // URL-only conversation results must remain eligible for the
+          // downstream public-feed body fallback.
+          this.conversationEnrichmentCache.set(id, null);
         }
       } catch {
         // Timeline loading must not fail because optional enrichment failed.
+        // Do not cache transient failures so a later refresh can retry.
       }
     }));
 
