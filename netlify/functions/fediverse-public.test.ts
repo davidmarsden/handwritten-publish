@@ -15,6 +15,8 @@ describe('public Fediverse feed parsing', () => {
         <entry>
           <id>tag:streams.example,2026:item-123</id>
           <title>Reply title</title>
+          <link rel="self" href="https://streams.example/api/item/123" />
+          <link rel="replies" href="https://streams.example/item/123/replies" />
           <link rel="alternate" href="https://streams.example/item/123" />
           <published>2026-09-23T09:38:00Z</published>
           <content type="html">&lt;p&gt;Hello from Atom&lt;/p&gt;</content>
@@ -40,6 +42,23 @@ describe('public Fediverse feed parsing', () => {
         in_reply_to: 'https://davidmarsden.info/2026/09/23/example/',
       },
     });
+  });
+
+  it('uses an Atom link without rel when no alternate link exists', () => {
+    const xml = `
+      <feed xmlns="http://www.w3.org/2005/Atom">
+        <entry>
+          <id>tag:streams.example,2026:item-124</id>
+          <link rel="self" href="https://streams.example/api/item/124" />
+          <link href="https://streams.example/item/124" />
+          <updated>2026-09-23T09:39:00Z</updated>
+          <summary>No-rel canonical link</summary>
+        </entry>
+      </feed>
+    `;
+
+    const [item] = parseFeed(xml, target, undefined, 80);
+    expect(item.url).toBe('https://streams.example/item/124');
   });
 
   it('continues to parse RSS items', () => {
