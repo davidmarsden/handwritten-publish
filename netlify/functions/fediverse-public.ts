@@ -60,6 +60,19 @@ function tagAttribute(block: string, name: string, attribute: string): string | 
   return match ? decodeXml(match[1].trim()) : undefined;
 }
 
+function atomLink(block: string): string | undefined {
+  const tags = block.match(/<link\b[^>]*>/gi) || [];
+  let fallback: string | undefined;
+  for (const tag of tags) {
+    const href = tagAttribute(tag, 'link', 'href');
+    if (!href) continue;
+    const rel = tagAttribute(tag, 'link', 'rel')?.toLowerCase();
+    if (!fallback) fallback = href;
+    if (!rel || rel === 'alternate') return href;
+  }
+  return fallback;
+}
+
 function meta(html: string, key: string): string | undefined {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const patterns = [
@@ -105,8 +118,8 @@ export function parseFeed(xml: string, target: ChannelTarget, avatar: string | u
   // returning an empty feed when the server switches syndication format.
   const blocks = xml.match(/<(item|entry)\b[\s\S]*?<\/\1>/gi) || [];
   return blocks.slice(0, limit).flatMap(block => {
-    const link = element(block, 'link')
-      || tagAttribute(block, 'link', 'href')
+    const isAtomEntry = /^<entry\b/i.test(block.trim());
+    const link = (isAtomEntry ? atomLink(block) : element(block, 'link'))
       || element(block, 'guid')
       || element(block, 'id');
     const guid = element(block, 'guid') || element(block, 'id') || link;
