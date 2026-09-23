@@ -227,18 +227,24 @@ function publishedAt(item: MicroblogItem): number | undefined {
   return Number.isFinite(value) ? value : undefined;
 }
 
-function closestPublishedItem(source: MicroblogItem, candidates: MicroblogItem[]): MicroblogItem | undefined {
+function uniquePublishedItem(
+  source: MicroblogItem,
+  candidates: MicroblogItem[],
+  usedRemoteIds: Set<string>,
+): MicroblogItem | undefined {
   const sourceTime = publishedAt(source);
   if (sourceTime === undefined) return undefined;
-  let best: { item: MicroblogItem; delta: number } | undefined;
-  for (const candidate of candidates) {
+
+  const matches = candidates.filter(candidate => {
+    if (!candidate.id || usedRemoteIds.has(candidate.id)) return false;
     const candidateTime = publishedAt(candidate);
-    if (candidateTime === undefined) continue;
-    const delta = Math.abs(candidateTime - sourceTime);
-    if (delta > 2 * 60 * 1000) continue;
-    if (!best || delta < best.delta) best = { item: candidate, delta };
-  }
-  return best?.item;
+    return candidateTime !== undefined && Math.abs(candidateTime - sourceTime) <= 2 * 60 * 1000;
+  });
+
+  // Timestamp matching is only safe when it identifies exactly one unused
+  // remote item. If several posts land in the same window, leave the
+  // Micro.blog card untouched rather than risk mismatched actions.
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 export async function enrichBlankChannelItems(
@@ -263,14 +269,17 @@ export async function enrichBlankChannelItems(
     }
   }));
 
+  const usedRemoteIds = new Set<string>();
+
   return {
     ...feed,
     items: feed.items.map(item => {
       if (hasVisibleContent(item)) return item;
       const profileUrl = channelProfileUrl(item.author?.url);
       if (!profileUrl) return item;
-      const remote = closestPublishedItem(item, remoteFeeds.get(profileUrl)?.items || []);
+      const remote = uniquePublishedItem(item, remoteFeeds.get(profileUrl)?.items || [], usedRemoteIds);
       if (!remote) return item;
+      usedRemoteIds.add(remote.id);
       return {
         ...item,
         ...(remote.url ? { url: remote.url } : {}),
