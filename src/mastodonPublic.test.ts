@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fetchMastodonProfile, isMastodonProfileUrl } from './mastodonPublic';
+import { enrichBlankChannelItems, fetchMastodonProfile, isMastodonProfileUrl } from './mastodonPublic';
 
 function response(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -18,6 +18,7 @@ describe('Mastodon public profile adapter', () => {
     const fetchImpl = vi.fn<typeof fetch>(async input => {
       expect(String(input)).toContain('/api/fediverse/public?');
       expect(String(input)).toContain(encodeURIComponent('https://streams.elsmussols.net/channel/elmussol'));
+      expect(String(input)).toContain('mode=all');
       return response({
         account: {
           name: 'elmussol',
@@ -36,12 +37,90 @@ describe('Mastodon public profile adapter', () => {
       });
     });
 
-    const result = await fetchMastodonProfile('https://streams.elsmussols.net/channel/elmussol', {}, fetchImpl);
+    const result = await fetchMastodonProfile('https://streams.elsmussols.net/channel/elmussol', { includeReplies: true }, fetchImpl);
     expect(result.account.username).toBe('elmussol@streams.elsmussols.net');
     expect(result.feed.items[0]).toMatchObject({
       content_html: '<p>Hello from streams</p>',
       _microblog: { source: 'mastodon', public_fallback: true },
     });
+  });
+
+  it('enriches a blank streams timeline item from the matching remote publication time', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async input => {
+      expect(String(input)).toContain('mode=all');
+      return response({
+        account: {
+          name: 'elmussol',
+          username: 'elmussol@streams.elsmussols.net',
+          url: 'https://streams.elsmussols.net/channel/elmussol',
+        },
+        feed: {
+          items: [{
+            id: 'mastodon:streams.elsmussols.net:fediverse-abc',
+            url: 'https://streams.elsmussols.net/item/abc',
+            content_html: '<p>Recovered remote content</p>',
+            date_published: '2026-09-23T09:38:30.000Z',
+            author: {
+              name: 'elmussol',
+              username: 'elmussol@streams.elsmussols.net',
+              url: 'https://streams.elsmussols.net/channel/elmussol',
+            },
+            _microblog: { source: 'mastodon', public_fallback: true },
+          }],
+        },
+      });
+    });
+
+    const result = await enrichBlankChannelItems({
+      items: [{
+        id: '987654',
+        date_published: '2026-09-23T09:38:00.000Z',
+        author: {
+          name: 'elmussol',
+          url: 'https://streams.elsmussols.net/channel/elmussol',
+        },
+        _microblog: { date_relative: '10:38' },
+      }],
+    }, fetchImpl);
+
+    expect(result.items[0]).toMatchObject({
+      id: '987654',
+      url: 'https://streams.elsmussols.net/item/abc',
+      content_html: '<p>Recovered remote content</p>',
+      _microblog: {
+        date_relative: '10:38',
+        remote_enriched: true,
+        remote_source_id: 'mastodon:streams.elsmussols.net:fediverse-abc',
+      },
+    });
+    expect(result.items[0]._microblog?.source).toBeUndefined();
+  });
+
+  it('leaves blank remote items untouched when no close timestamp match exists', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({
+      account: {
+        name: 'elmussol',
+        username: 'elmussol@streams.elsmussols.net',
+        url: 'https://streams.elsmussols.net/channel/elmussol',
+      },
+      feed: {
+        items: [{
+          id: 'remote',
+          content_html: '<p>Wrong post</p>',
+          date_published: '2026-09-23T08:00:00.000Z',
+        }],
+      },
+    }));
+
+    const source = {
+      items: [{
+        id: '987654',
+        date_published: '2026-09-23T09:38:00.000Z',
+        author: { name: 'elmussol', url: 'https://streams.elsmussols.net/channel/elmussol' },
+      }],
+    };
+    const result = await enrichBlankChannelItems(source, fetchImpl);
+    expect(result).toEqual(source);
   });
 
   it('loads an account and normalises public statuses into read-only Dent Hand items', async () => {
