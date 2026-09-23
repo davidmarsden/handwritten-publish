@@ -93,24 +93,41 @@ function replyTargetsAccount(value: string | undefined, targetHost: string | und
   return false;
 }
 
-function parseFeed(xml: string, target: ChannelTarget, avatar: string | undefined, limit: number) {
-  const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) || [];
+function isoDate(value?: string): string | undefined {
+  if (!value) return undefined;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
+export function parseFeed(xml: string, target: ChannelTarget, avatar: string | undefined, limit: number) {
+  // (streams)/Hubzilla can expose RSS <item> records for one feed shape and
+  // Atom <entry> records for another. Support both instead of silently
+  // returning an empty feed when the server switches syndication format.
+  const blocks = xml.match(/<(item|entry)\b[\s\S]*?<\/\1>/gi) || [];
   return blocks.slice(0, limit).flatMap(block => {
-    const link = element(block, 'link') || element(block, 'guid');
-    const guid = element(block, 'guid') || link;
+    const link = element(block, 'link')
+      || tagAttribute(block, 'link', 'href')
+      || element(block, 'guid')
+      || element(block, 'id');
+    const guid = element(block, 'guid') || element(block, 'id') || link;
     if (!guid) return [];
-    const content = element(block, 'content:encoded') || element(block, 'description') || element(block, 'title') || '';
+    const content = element(block, 'content:encoded')
+      || element(block, 'description')
+      || element(block, 'content')
+      || element(block, 'summary')
+      || element(block, 'title')
+      || '';
     const date = element(block, 'pubDate') || element(block, 'published') || element(block, 'updated');
     const inReplyTo = tagAttribute(block, 'thr:in-reply-to', 'href')
       || tagAttribute(block, 'thr:in-reply-to', 'ref')
       || tagAttribute(block, 'in-reply-to', 'href')
       || tagAttribute(block, 'in-reply-to', 'ref');
-    const id = `mastodon:${target.host}:fediverse-${stableId(guid)}`;
+    const remoteId = `fediverse-${stableId(guid)}`;
     return [{
-      id,
-      url: link,
+      id: `mastodon:${target.host}:${remoteId}`,
+      ...(link ? { url: link } : {}),
       content_html: content,
-      date_published: date ? new Date(date).toISOString() : undefined,
+      ...(isoDate(date) ? { date_published: isoDate(date) } : {}),
       author: {
         name: target.username,
         username: `${target.username}@${target.host}`,
@@ -119,7 +136,7 @@ function parseFeed(xml: string, target: ChannelTarget, avatar: string | undefine
       },
       _microblog: {
         source: 'mastodon',
-        remote_id: `fediverse-${stableId(guid)}`,
+        remote_id: remoteId,
         public_fallback: true,
         ...(inReplyTo ? { in_reply_to: inReplyTo } : {}),
       },
