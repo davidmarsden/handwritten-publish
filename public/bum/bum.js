@@ -127,6 +127,7 @@ function statusLabel(item) {
   if (item.state === 'uploaded' && item.collectionState === 'adding') return 'Adding to collection…';
   if (item.state === 'uploaded' && item.collectionState === 'added') return item.optimizedBytes ? 'Uploaded · optimized · collected' : 'Uploaded · collected';
   if (item.state === 'uploaded' && item.collectionState === 'failed') return item.optimizedBytes ? 'Uploaded · optimized · collection failed' : 'Uploaded · collection failed';
+  if (item.state === 'uploaded' && item.recovered) return 'Uploaded · recovered';
   if (item.state === 'uploaded') return item.optimizedBytes ? 'Uploaded · optimized' : 'Uploaded';
   if (item.state === 'failed') return item.error || 'Failed';
   if (item.needsOptimization) return 'Queued · will optimize';
@@ -287,7 +288,7 @@ async function addFiles(fileList) {
     }
     return {
       id: crypto.randomUUID(), file: stableFile, kind, mediaType, state, error, url: '', retryable,
-      collectionState: 'none', needsOptimization: kind === 'image' && stableFile.size > SAFE_UPLOAD_BYTES, optimizedBytes: null,
+      collectionState: 'none', needsOptimization: kind === 'image' && stableFile.size > SAFE_UPLOAD_BYTES, optimizedBytes: null, recovered: false,
     };
   }));
 
@@ -301,9 +302,29 @@ async function addFiles(fileList) {
   render();
 }
 
-async function uploadStreamedMedia(item, token, destination) {
+async function recentStreamedMedia(item, token, destination) {
   if (!upstreamMediaEndpoint) upstreamMediaEndpoint = await fetchUpstreamMediaEndpoint(token);
   const response = await fetch('/api/microblog/stream-media', {
+    method: 'POST',
+    headers: {
+      'X-BUM-Action': 'recent',
+      'X-Microblog-Token': token,
+      'X-Microblog-Media-Endpoint': encodeURIComponent(upstreamMediaEndpoint),
+      'X-Microblog-Destination': encodeURIComponent(destination),
+      'X-File-Name': encodeURIComponent(item.file.name),
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || 'Could not check recent Micro.blog uploads.');
+  return Array.isArray(payload.urls) ? payload.urls : [];
+}
+
+async function uploadStreamedMedia(item, token, destination) {
+  if (!upstreamMediaEndpoint) upstreamMediaEndpoint = await fetchUpstreamMediaEndpoint(token);
+  let before = null;
+  try { before = await recentStreamedMedia(item, token, destination); } catch { /* Upload can still proceed; recovery will be conservative. */ }
+  try {
+    const response = await fetch('/api/microblog/stream-media', {
     method: 'POST',
     headers: {
       'Content-Type': item.mediaType,
@@ -312,12 +333,42 @@ async function uploadStreamedMedia(item, token, destination) {
       'X-Microblog-Destination': encodeURIComponent(destination),
       'X-File-Name': encodeURIComponent(item.file.name),
     },
-    body: item.file,
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || `Could not upload ${item.file.name}.`);
-  if (!payload.url) throw new Error(`Micro.blog uploaded ${item.file.name} but returned no media URL.`);
-  return payload.url;
+      body: item.file,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const rejection = new Error(payload.error || `Could not upload ${item.file.name}.`);
+      rejection.name = 'DefinitiveUploadFailure';
+      throw rejection;
+    }
+    if (!payload.url) {
+      const acceptedWithoutUrl = new Error(`Micro.blog uploaded ${item.file.name} but returned no media URL.`);
+      acceptedWithoutUrl.name = 'AmbiguousUploadFailure';
+      throw acceptedWithoutUrl;
+    }
+    return { url: payload.url, recovered: false };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Upload response was lost';
+    const ambiguous = error instanceof TypeError
+      || (error instanceof Error && error.name === 'AmbiguousUploadFailure')
+      || /failed to fetch|network/i.test(message);
+    // A browser/proxy fetch can fail after Micro.blog has already accepted the bytes.
+    // Reconcile only genuinely ambiguous outcomes; never turn a definitive 4xx/5xx into success.
+    if (ambiguous && before) {
+      try {
+        const after = await recentStreamedMedia(item, token, destination);
+        const previous = new Set(before);
+        const recovered = after.find(url => !previous.has(url));
+        if (recovered) return { url: recovered, recovered: true };
+      } catch { /* Preserve the original ambiguous failure below. */ }
+    }
+    if (ambiguous) {
+      const uncertain = new Error('Upload status unknown — Micro.blog may have received this file. Reconnect or verify Uploads before trying again.');
+      uncertain.name = 'UploadStatusUnknown';
+      throw uncertain;
+    }
+    throw error;
+  }
 }
 
 async function uploadItem(item, token, destination) {
@@ -325,7 +376,9 @@ async function uploadItem(item, token, destination) {
   try {
     if (item.kind === 'audio' || item.kind === 'video' || item.kind === 'document') {
       item.state = 'uploading'; render();
-      item.url = await uploadStreamedMedia(item, token, destination);
+      const streamed = await uploadStreamedMedia(item, token, destination);
+      item.url = streamed.url;
+      item.recovered = streamed.recovered;
     } else {
       if (item.needsOptimization) { item.state = 'optimizing'; render(); }
       const prepared = await preparePhotoForMicroblog(item.file, item.mediaType);
@@ -341,7 +394,9 @@ async function uploadItem(item, token, destination) {
     }
     item.state = 'uploaded'; item.retryable = false; item.collectionState = 'none';
   } catch (error) {
-    item.state = 'failed'; item.error = error instanceof Error ? error.message : 'Upload failed'; item.retryable = true;
+    item.state = 'failed';
+    item.error = error instanceof Error ? error.message : 'Upload failed';
+    item.retryable = !(error instanceof Error && error.name === 'UploadStatusUnknown');
   }
   render();
 }
