@@ -33,6 +33,6 @@ describe('BUM Hand MP4 support', () => {
   });
 
   it('bumps the shell cache so existing installs receive the new client', () => {
-    expect(serviceWorker).toContain("const VERSION = 'v3'");
+    expect(serviceWorker).toContain("const VERSION = 'v4'");
   });
 });
