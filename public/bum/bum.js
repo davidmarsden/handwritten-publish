@@ -336,13 +336,25 @@ async function uploadStreamedMedia(item, token, destination) {
       body: item.file,
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `Could not upload ${item.file.name}.`);
-    if (!payload.url) throw new Error(`Micro.blog uploaded ${item.file.name} but returned no media URL.`);
+    if (!response.ok) {
+      const rejection = new Error(payload.error || `Could not upload ${item.file.name}.`);
+      rejection.name = 'DefinitiveUploadFailure';
+      throw rejection;
+    }
+    if (!payload.url) {
+      const acceptedWithoutUrl = new Error(`Micro.blog uploaded ${item.file.name} but returned no media URL.`);
+      acceptedWithoutUrl.name = 'AmbiguousUploadFailure';
+      throw acceptedWithoutUrl;
+    }
     return { url: payload.url, recovered: false };
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Upload response was lost';
+    const ambiguous = error instanceof TypeError
+      || (error instanceof Error && error.name === 'AmbiguousUploadFailure')
+      || /failed to fetch|network/i.test(message);
     // A browser/proxy fetch can fail after Micro.blog has already accepted the bytes.
-    // Only recover when we captured a pre-upload snapshot and can identify a new matching URL.
-    if (before) {
+    // Reconcile only genuinely ambiguous outcomes; never turn a definitive 4xx/5xx into success.
+    if (ambiguous && before) {
       try {
         const after = await recentStreamedMedia(item, token, destination);
         const previous = new Set(before);
@@ -350,8 +362,6 @@ async function uploadStreamedMedia(item, token, destination) {
         if (recovered) return { url: recovered, recovered: true };
       } catch { /* Preserve the original ambiguous failure below. */ }
     }
-    const message = error instanceof Error ? error.message : 'Upload response was lost';
-    const ambiguous = error instanceof TypeError || /failed to fetch|network/i.test(message);
     if (ambiguous) {
       const uncertain = new Error('Upload status unknown — Micro.blog may have received this file. Reconnect or verify Uploads before trying again.');
       uncertain.name = 'UploadStatusUnknown';
