@@ -170,7 +170,9 @@ export const config = {
   path: '/api/microblog/stream-media',
   method: 'POST',
   rateLimit: {
-    windowLimit: 30,
+    // Each streamed upload may use a recent-media snapshot plus the upload itself,
+    // with a third reconciliation lookup only when the upload response is ambiguous.
+    windowLimit: 90,
     windowSize: 60,
     aggregateBy: ['ip', 'domain'],
   },
