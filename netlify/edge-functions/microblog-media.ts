@@ -1,4 +1,4 @@
-const MAX_MEDIA_BYTES = 75_000_000;
+const MAX_MEDIA_BYTES = 25_000_000;
 const SUPPORTED_MEDIA_TYPES = new Set([
   'audio/mpeg',
   'audio/mp3',
@@ -98,6 +98,9 @@ export default async (request: Request) => {
   // Let the Fetch/FormData implementation serialize multipart headers and filename.
   // This mirrors the browser/native upload path recommended for Micropub media and
   // avoids subtle differences in hand-built Content-Disposition serialization.
+  // Native FormData currently requires buffering the incoming body in this edge
+  // runtime. Keep this path deliberately bounded; larger media must not be buffered
+  // into an isolate while we test Micro.blog's filename-preserving behaviour.
   let mediaBytes: ArrayBuffer;
   try {
     mediaBytes = await request.arrayBuffer();
@@ -105,7 +108,7 @@ export default async (request: Request) => {
     return json({ error: 'Could not read upload bytes.' }, 400);
   }
   if (mediaBytes.byteLength > MAX_MEDIA_BYTES) {
-    return json({ error: `This file is ${(mediaBytes.byteLength / 1_000_000).toFixed(1)} MB; BUM Hand currently accepts media up to 75 MB.` }, 413);
+    return json({ error: `This file is ${(mediaBytes.byteLength / 1_000_000).toFixed(1)} MB; BUM Hand currently accepts native-form media up to 25 MB.` }, 413);
   }
   const form = new FormData();
   form.append('mp-destination', destination);
