@@ -193,9 +193,10 @@ export const config = {
   path: '/api/microblog/stream-media',
   method: 'POST',
   rateLimit: {
-    // Each streamed upload may use a recent-media snapshot plus the upload itself,
-    // with a third reconciliation lookup only when the upload response is ambiguous.
-    windowLimit: 90,
+    // A full 30-image batch can poll asynchronously for Micro.blog-generated alt
+    // text (up to 11 lookups each), in addition to upload preflight/upload/recovery.
+    // Keep enough headroom for that supported worst case without 429ing our own UI.
+    windowLimit: 450,
     windowSize: 60,
     aggregateBy: ['ip', 'domain'],
   },
