@@ -74,6 +74,29 @@ export default async (request: Request) => {
   if (!endpoint.startsWith('https://')) return json({ error: 'A valid Micro.blog media endpoint is required.' }, 400);
   if (!destination) return json({ error: 'Choose a Micro.blog destination first.' }, 400);
 
+  if (action === 'alt') {
+    const mediaUrl = decodedHeader(request.headers.get('x-media-url'));
+    if (!mediaUrl.startsWith('https://')) return json({ error: 'A valid uploaded media URL is required.' }, 400);
+    const url = new URL(endpoint);
+    url.searchParams.set('q', 'source');
+    url.searchParams.set('mp-destination', destination);
+    try {
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) return json({ error: `Could not check Micro.blog accessibility text (HTTP ${response.status}).` }, 502);
+      const payload = await response.json().catch(() => ({}));
+      const entries = payload && typeof payload === 'object' && Array.isArray((payload as { items?: unknown[] }).items)
+        ? (payload as { items: unknown[] }).items
+        : [];
+      const match = entries.find(entry => entry && typeof entry === 'object' && (entry as { url?: unknown }).url === mediaUrl);
+      const alt = match && typeof (match as { alt?: unknown }).alt === 'string'
+        ? (match as { alt: string }).alt.trim()
+        : '';
+      return json({ alt });
+    } catch (error) {
+      return json({ error: `Could not check Micro.blog accessibility text: ${error instanceof Error ? error.message : 'network error'}` }, 502);
+    }
+  }
+
   if (action === 'recent') {
     const url = new URL(endpoint);
     url.searchParams.set('q', 'source');
@@ -141,9 +164,10 @@ export const config = {
   path: '/api/microblog/stream-media',
   method: 'POST',
   rateLimit: {
-    // Each streamed upload may use a recent-media snapshot plus the upload itself,
-    // with a third reconciliation lookup only when the upload response is ambiguous.
-    windowLimit: 90,
+    // A full 30-image batch can poll asynchronously for Micro.blog-generated alt
+    // text (up to 11 lookups each), in addition to upload preflight/upload/recovery.
+    // Keep enough headroom for that supported worst case without 429ing our own UI.
+    windowLimit: 450,
     windowSize: 60,
     aggregateBy: ['ip', 'domain'],
   },

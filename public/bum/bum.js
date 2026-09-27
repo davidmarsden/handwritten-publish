@@ -109,13 +109,14 @@ function connectionReady() {
   return Boolean(connectedToken && token === connectedToken && destinationSelect.value);
 }
 
+function imageAlt(item) { return item.altText || basename(item.file.name); }
 function resultMarkdown(item) {
-  if (item.kind === 'image') return `![${escapeMarkdown(basename(item.file.name))}](${item.url})`;
+  if (item.kind === 'image') return `![${escapeMarkdown(imageAlt(item))}](${item.url})`;
   if (item.kind === 'document') return `[${escapeMarkdown(documentLabel(item))}](${item.url})`;
   return `[${escapeMarkdown(item.file.name)}](${item.url})`;
 }
 function resultHtml(item) {
-  if (item.kind === 'image') return `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(basename(item.file.name))}">`;
+  if (item.kind === 'image') return `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(imageAlt(item))}">`;
   if (item.kind === 'document') return `<a href="${escapeHtml(item.url)}">${escapeHtml(documentLabel(item))}</a>`;
   if (item.kind === 'video') return `<video controls preload="metadata" src="${escapeHtml(item.url)}"></video>`;
   return `<audio controls preload="none" src="${escapeHtml(item.url)}"></audio>`;
@@ -206,6 +207,19 @@ function render() {
     const name = document.createElement('div'); name.className = 'file-name'; name.textContent = item.file.name;
     const url = document.createElement('a'); url.className = 'uploaded-url'; url.href = item.url; url.target = '_blank'; url.rel = 'noreferrer'; url.textContent = item.url;
     details.append(name, url);
+    if (item.kind === 'image') {
+      const alt = document.createElement('textarea');
+      alt.className = 'alt-text';
+      alt.rows = 2;
+      alt.placeholder = item.altState === 'loading' ? 'Micro.blog is generating accessibility text…' : 'Accessibility description';
+      alt.value = item.altText || '';
+      alt.setAttribute('aria-label', `Accessibility description for ${item.file.name}`);
+      alt.addEventListener('input', event => {
+        item.altText = event.target.value;
+        item.altState = 'edited';
+      });
+      details.append(alt);
+    }
     if (item.kind === 'audio') {
       const player = document.createElement('audio'); player.controls = true; player.preload = 'none'; player.src = item.url; details.append(player);
     } else if (item.kind === 'video') {
@@ -290,6 +304,7 @@ async function addFiles(fileList) {
     return {
       id: crypto.randomUUID(), file: stableFile, kind, mediaType, state, error, url: '', retryable,
       collectionState: 'none', needsOptimization: kind === 'image' && stableFile.size > SAFE_UPLOAD_BYTES, optimizedBytes: null, recovered: false, existing: false,
+      altText: '', altState: kind === 'image' ? 'waiting' : 'none',
     };
   }));
 
@@ -378,6 +393,40 @@ async function uploadStreamedMedia(item, token, destination) {
   }
 }
 
+async function fetchGeneratedAltText(item, token, destination) {
+  if (item.kind !== 'image' || !item.url) return;
+  if (!upstreamMediaEndpoint) upstreamMediaEndpoint = await fetchUpstreamMediaEndpoint(token);
+  item.altState = 'loading'; render();
+  for (let remaining = 10; remaining >= 0; remaining -= 1) {
+    try {
+      const response = await fetch('/api/microblog/stream-media', {
+        method: 'POST',
+        headers: {
+          'X-BUM-Action': 'alt',
+          'X-Microblog-Token': token,
+          'X-Microblog-Media-Endpoint': encodeURIComponent(upstreamMediaEndpoint),
+          'X-Microblog-Destination': encodeURIComponent(destination),
+          'X-Media-URL': encodeURIComponent(item.url),
+        },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.ok && payload.alt) {
+        if (item.altState !== 'edited') {
+          item.altText = payload.alt;
+          item.altState = 'generated';
+          render();
+        }
+        return;
+      }
+    } catch { /* Keep polling; alt generation is asynchronous. */ }
+    if (remaining > 0) await new Promise(resolve => setTimeout(resolve, 4000));
+  }
+  if (item.altState !== 'edited') {
+    item.altState = 'unavailable';
+    render();
+  }
+}
+
 async function uploadItem(item, token, destination) {
   item.error = ''; item.retryable = true; item.optimizedBytes = null;
   try {
@@ -401,6 +450,7 @@ async function uploadItem(item, token, destination) {
       );
     }
     item.state = 'uploaded'; item.retryable = false; item.collectionState = 'none';
+    if (item.kind === 'image') void fetchGeneratedAltText(item, token, destination);
   } catch (error) {
     item.state = 'failed';
     item.error = error instanceof Error ? error.message : 'Upload failed';

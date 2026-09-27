@@ -96,4 +96,34 @@ describe('Micro.blog streamed media edge proxy', () => {
     expect(response.status).toBe(413);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('returns generated alt text for an uploaded image', async () => {
+    const mediaUrl = 'https://example.micro.blog/uploads/photo.jpg';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      items: [
+        { url: mediaUrl, alt: 'A red bicycle leaning against a brick wall.' },
+        { url: 'https://example.micro.blog/uploads/other.jpg', alt: 'Another image.' },
+      ],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await handler(new Request('https://hand.example/api/microblog/stream-media', {
+      method: 'POST',
+      headers: {
+        'X-BUM-Action': 'alt',
+        'X-Microblog-Token': 'token',
+        'X-Microblog-Media-Endpoint': encodeURIComponent('https://micro.blog/micropub/media'),
+        'X-Microblog-Destination': encodeURIComponent('https://example.micro.blog/'),
+        'X-Media-URL': encodeURIComponent(mediaUrl),
+      },
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ alt: 'A red bicycle leaning against a brick wall.' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url] = fetchMock.mock.calls[0];
+    expect(String(url)).toContain('q=source');
+    expect(String(url)).toContain('mp-destination=');
+  });
+
 });
