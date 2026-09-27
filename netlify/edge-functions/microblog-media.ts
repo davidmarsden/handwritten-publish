@@ -118,6 +118,29 @@ export default async (request: Request) => {
   if (!endpoint.startsWith('https://')) return json({ error: 'A valid Micro.blog media endpoint is required.' }, 400);
   if (!destination) return json({ error: 'Choose a Micro.blog destination first.' }, 400);
 
+  if (action === 'alt') {
+    const mediaUrl = decodedHeader(request.headers.get('x-media-url'));
+    if (!mediaUrl.startsWith('https://')) return json({ error: 'A valid uploaded media URL is required.' }, 400);
+    const url = new URL(endpoint);
+    url.searchParams.set('q', 'source');
+    url.searchParams.set('mp-destination', destination);
+    try {
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) return json({ error: `Could not check Micro.blog accessibility text (HTTP ${response.status}).` }, 502);
+      const payload = await response.json().catch(() => ({}));
+      const entries = payload && typeof payload === 'object' && Array.isArray((payload as { items?: unknown[] }).items)
+        ? (payload as { items: unknown[] }).items
+        : [];
+      const match = entries.find(entry => entry && typeof entry === 'object' && (entry as { url?: unknown }).url === mediaUrl);
+      const alt = match && typeof (match as { alt?: unknown }).alt === 'string'
+        ? (match as { alt: string }).alt.trim()
+        : '';
+      return json({ alt });
+    } catch (error) {
+      return json({ error: `Could not check Micro.blog accessibility text: ${error instanceof Error ? error.message : 'network error'}` }, 502);
+    }
+  }
+
   if (action === 'recent') {
     const url = new URL(endpoint);
     url.searchParams.set('q', 'source');
