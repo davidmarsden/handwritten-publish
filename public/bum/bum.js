@@ -15,7 +15,7 @@ const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const AUDIO_TYPES = new Set(['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a']);
 const VIDEO_TYPES = new Set(['video/mp4']);
 const PDF_TYPE = 'application/pdf';
-const STREAMED_MEDIA_MAX_BYTES = 75_000_000;
+const STREAMED_MEDIA_MAX_BYTES = 25_000_000;
 const MAX_FILES = 30;
 const $ = selector => document.querySelector(selector);
 
@@ -282,7 +282,7 @@ async function addFiles(fileList) {
     if (kind === 'unsupported') { state = 'failed'; error = 'PNG, JPEG, WebP, MP3, M4A, MP4 or PDF only'; retryable = false; }
     else if (!file.size) { state = 'failed'; error = 'Empty file'; retryable = false; }
     else if ((kind === 'audio' || kind === 'video' || kind === 'document') && file.size > STREAMED_MEDIA_MAX_BYTES) {
-      state = 'failed'; error = `${formatBytes(file.size)} exceeds BUM Hand’s current 75 MB streamed-media limit`; retryable = false;
+      state = 'failed'; error = `${formatBytes(file.size)} exceeds BUM Hand’s current 25 MB native-form media limit`; retryable = false;
     } else {
       try { stableFile = await stableBrowserFile(file, mediaType); }
       catch { state = 'failed'; error = 'Could not read this file from the selected provider. Select it again or save it to the device first.'; retryable = false; }
