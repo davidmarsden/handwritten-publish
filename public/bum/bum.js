@@ -127,6 +127,7 @@ function statusLabel(item) {
   if (item.state === 'uploaded' && item.collectionState === 'adding') return 'Adding to collection…';
   if (item.state === 'uploaded' && item.collectionState === 'added') return item.optimizedBytes ? 'Uploaded · optimized · collected' : 'Uploaded · collected';
   if (item.state === 'uploaded' && item.collectionState === 'failed') return item.optimizedBytes ? 'Uploaded · optimized · collection failed' : 'Uploaded · collection failed';
+  if (item.state === 'uploaded' && item.existing) return 'Already uploaded · reused';
   if (item.state === 'uploaded' && item.recovered) return 'Uploaded · recovered';
   if (item.state === 'uploaded') return item.optimizedBytes ? 'Uploaded · optimized' : 'Uploaded';
   if (item.state === 'failed') return item.error || 'Failed';
@@ -288,7 +289,7 @@ async function addFiles(fileList) {
     }
     return {
       id: crypto.randomUUID(), file: stableFile, kind, mediaType, state, error, url: '', retryable,
-      collectionState: 'none', needsOptimization: kind === 'image' && stableFile.size > SAFE_UPLOAD_BYTES, optimizedBytes: null, recovered: false,
+      collectionState: 'none', needsOptimization: kind === 'image' && stableFile.size > SAFE_UPLOAD_BYTES, optimizedBytes: null, recovered: false, existing: false,
     };
   }));
 
@@ -322,7 +323,13 @@ async function recentStreamedMedia(item, token, destination) {
 async function uploadStreamedMedia(item, token, destination) {
   if (!upstreamMediaEndpoint) upstreamMediaEndpoint = await fetchUpstreamMediaEndpoint(token);
   let before = null;
-  try { before = await recentStreamedMedia(item, token, destination); } catch { /* Upload can still proceed; recovery will be conservative. */ }
+  try {
+    before = await recentStreamedMedia(item, token, destination);
+    // BUM Hand deliberately treats an existing same-name upload as the same media.
+    // For this workflow, filename is the identity key: reuse its canonical URL rather
+    // than creating Micro.blog's hash-named collision copy.
+    if (before.length) return { url: before[0], recovered: false, existing: true };
+  } catch { /* Upload can still proceed; recovery will be conservative. */ }
   try {
     const response = await fetch('/api/microblog/stream-media', {
     method: 'POST',
@@ -346,7 +353,7 @@ async function uploadStreamedMedia(item, token, destination) {
       acceptedWithoutUrl.name = 'AmbiguousUploadFailure';
       throw acceptedWithoutUrl;
     }
-    return { url: payload.url, recovered: false };
+    return { url: payload.url, recovered: false, existing: false };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Upload response was lost';
     const ambiguous = error instanceof TypeError
@@ -359,7 +366,7 @@ async function uploadStreamedMedia(item, token, destination) {
         const after = await recentStreamedMedia(item, token, destination);
         const previous = new Set(before);
         const recovered = after.find(url => !previous.has(url));
-        if (recovered) return { url: recovered, recovered: true };
+        if (recovered) return { url: recovered, recovered: true, existing: false };
       } catch { /* Preserve the original ambiguous failure below. */ }
     }
     if (ambiguous) {
@@ -379,6 +386,7 @@ async function uploadItem(item, token, destination) {
       const streamed = await uploadStreamedMedia(item, token, destination);
       item.url = streamed.url;
       item.recovered = streamed.recovered;
+      item.existing = streamed.existing;
     } else {
       if (item.needsOptimization) { item.state = 'optimizing'; render(); }
       const prepared = await preparePhotoForMicroblog(item.file, item.mediaType);
