@@ -1,4 +1,4 @@
-const MAX_MEDIA_BYTES = 75_000_000;
+const MAX_MEDIA_BYTES = 25_000_000;
 const SUPPORTED_MEDIA_TYPES = new Set([
   'audio/mpeg',
   'audio/mp3',
@@ -59,50 +59,6 @@ function recentMatchingUrls(payload: unknown, filename: string): string[] {
   });
 }
 
-function multipartStream(
-  source: ReadableStream<Uint8Array>,
-  boundary: string,
-  filename: string,
-  contentType: string,
-  destination: string,
-): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-  const prefix = encoder.encode(
-    `--${boundary}\r\n` +
-    `Content-Disposition: form-data; name="mp-destination"\r\n\r\n${destination}\r\n` +
-    `--${boundary}\r\n` +
-    `Content-Disposition: form-data; name="file"; filename="${safeFilename(filename)}"\r\n` +
-    `Content-Type: ${contentType}\r\n\r\n`,
-  );
-  const suffix = encoder.encode(`\r\n--${boundary}--\r\n`);
-  const reader = source.getReader();
-  let sentPrefix = false;
-  let finishedSource = false;
-
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      if (!sentPrefix) {
-        sentPrefix = true;
-        controller.enqueue(prefix);
-        return;
-      }
-      if (!finishedSource) {
-        const { done, value } = await reader.read();
-        if (!done && value) {
-          controller.enqueue(value);
-          return;
-        }
-        finishedSource = true;
-      }
-      controller.enqueue(suffix);
-      controller.close();
-    },
-    async cancel(reason) {
-      await reader.cancel(reason);
-    },
-  });
-}
-
 export default async (request: Request) => {
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
 
@@ -139,8 +95,24 @@ export default async (request: Request) => {
     return json({ error: `This file is ${(contentLength / 1_000_000).toFixed(1)} MB; BUM Hand currently accepts streamed media up to 75 MB.` }, 413);
   }
 
-  const boundary = `----bum-hand-${crypto.randomUUID()}`;
-  const outgoing = multipartStream(request.body, boundary, filename, contentType, destination);
+  // Let the Fetch/FormData implementation serialize multipart headers and filename.
+  // This mirrors the browser/native upload path recommended for Micropub media and
+  // avoids subtle differences in hand-built Content-Disposition serialization.
+  // Native FormData currently requires buffering the incoming body in this edge
+  // runtime. Keep this path deliberately bounded; larger media must not be buffered
+  // into an isolate while we test Micro.blog's filename-preserving behaviour.
+  let mediaBytes: ArrayBuffer;
+  try {
+    mediaBytes = await request.arrayBuffer();
+  } catch {
+    return json({ error: 'Could not read upload bytes.' }, 400);
+  }
+  if (mediaBytes.byteLength > MAX_MEDIA_BYTES) {
+    return json({ error: `This file is ${(mediaBytes.byteLength / 1_000_000).toFixed(1)} MB; BUM Hand currently accepts native-form media up to 25 MB.` }, 413);
+  }
+  const form = new FormData();
+  form.append('mp-destination', destination);
+  form.append('file', new Blob([mediaBytes], { type: contentType }), safeFilename(filename));
 
   let response: Response;
   try {
@@ -148,9 +120,8 @@ export default async (request: Request) => {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
       },
-      body: outgoing,
+      body: form,
     });
   } catch (error) {
     return json({ error: `Could not reach the Micro.blog media endpoint: ${error instanceof Error ? error.message : 'network error'}` }, 502);

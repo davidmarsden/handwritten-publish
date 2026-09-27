@@ -37,8 +37,14 @@ describe('Micro.blog streamed media edge proxy', () => {
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     expect(init.method).toBe('POST');
     expect(new Headers(init.headers).get('Authorization')).toBe('Bearer token');
-    expect(new Headers(init.headers).get('Content-Type')).toMatch(/^multipart\/form-data; boundary=----bum-hand-/);
-    expect(init.body).toBeInstanceOf(ReadableStream);
+    expect(new Headers(init.headers).get('Content-Type')).toBeNull();
+    expect(init.body).toBeInstanceOf(FormData);
+    const form = init.body as FormData;
+    expect(form.get('mp-destination')).toBe('https://example.micro.blog/');
+    const uploaded = form.get('file');
+    expect(uploaded).toBeInstanceOf(File);
+    expect((uploaded as File).name).toBe(filename);
+    expect((uploaded as File).type).toBe(contentType);
   });
 
   it('lists recent matching uploads for reconciliation without uploading again', async () => {
@@ -70,7 +76,7 @@ describe('Micro.blog streamed media edge proxy', () => {
     expect((init as RequestInit).method).toBeUndefined();
   });
 
-  it('rejects streamed media above 75 MB before proxying', async () => {
+  it('rejects native-form media above 25 MB before proxying', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
@@ -78,7 +84,7 @@ describe('Micro.blog streamed media edge proxy', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Length': '75000001',
+        'Content-Length': '25000001',
         'X-Microblog-Token': 'token',
         'X-Microblog-Media-Endpoint': encodeURIComponent('https://micro.blog/micropub/media'),
         'X-Microblog-Destination': encodeURIComponent('https://example.micro.blog/'),
