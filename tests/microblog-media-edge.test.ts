@@ -41,6 +41,35 @@ describe('Micro.blog streamed media edge proxy', () => {
     expect(init.body).toBeInstanceOf(ReadableStream);
   });
 
+  it('lists recent matching uploads for reconciliation without uploading again', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([
+      { url: 'https://example.micro.blog/uploads/2026/2.-revolution.m4a' },
+      { url: 'https://example.micro.blog/uploads/2026/other-song.m4a' },
+    ]), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await handler(new Request('https://hand.example/api/microblog/stream-media', {
+      method: 'POST',
+      headers: {
+        'X-BUM-Action': 'recent',
+        'X-Microblog-Token': 'token',
+        'X-Microblog-Media-Endpoint': encodeURIComponent('https://micro.blog/micropub/media'),
+        'X-Microblog-Destination': encodeURIComponent('https://example.micro.blog/'),
+        'X-File-Name': encodeURIComponent('2. Revolution.m4a'),
+      },
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      urls: ['https://example.micro.blog/uploads/2026/2.-revolution.m4a'],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toContain('q=source');
+    expect(String(url)).toContain('mp-destination=');
+    expect((init as RequestInit).method).toBeUndefined();
+  });
+
   it('rejects streamed media above 75 MB before proxying', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
