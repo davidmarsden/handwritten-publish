@@ -76,7 +76,7 @@ describe('Micro.blog streamed media edge proxy', () => {
     expect((init as RequestInit).method).toBeUndefined();
   });
 
-  it('rejects streamed media above 75 MB before proxying', async () => {
+  it('rejects native-form media above 25 MB before proxying', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
@@ -84,7 +84,7 @@ describe('Micro.blog streamed media edge proxy', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Length': '75000001',
+        'Content-Length': '25000001',
         'X-Microblog-Token': 'token',
         'X-Microblog-Media-Endpoint': encodeURIComponent('https://micro.blog/micropub/media'),
         'X-Microblog-Destination': encodeURIComponent('https://example.micro.blog/'),
