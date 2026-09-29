@@ -12,7 +12,8 @@ import {
 } from '/shared/image-optimization.js';
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
-const AUDIO_TYPES = new Set(['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/ogg']);
+const AUDIO_TYPES = new Set(['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a']);
+const OGG_TYPES = new Set(['audio/ogg', 'application/ogg']);
 const VIDEO_TYPES = new Set(['video/mp4']);
 const PDF_TYPE = 'application/pdf';
 const STREAMED_MEDIA_MAX_BYTES = 25_000_000;
@@ -60,7 +61,7 @@ function inferAudioType(file) {
   const type = (file.type || '').toLowerCase();
   if (type === 'audio/mpeg' || type === 'audio/mp3') return 'audio/mpeg';
   if (type === 'audio/mp4' || type === 'audio/x-m4a') return 'audio/mp4';
-  if (type === 'audio/ogg' || type === 'application/ogg') return 'audio/ogg';
+  if (OGG_TYPES.has(type)) return 'audio/ogg';
   const name = file.name.toLowerCase();
   if (name.endsWith('.mp3')) return 'audio/mpeg';
   if (name.endsWith('.m4a')) return 'audio/mp4';
@@ -85,6 +86,7 @@ function classifyFile(file) {
   const imageType = inferImageMediaType(file);
   if (IMAGE_TYPES.has(imageType)) return { kind: 'image', mediaType: imageType };
   const audioType = inferAudioType(file);
+  if (audioType === 'audio/ogg') return { kind: 'ogg', mediaType: audioType };
   if (AUDIO_TYPES.has(audioType)) return { kind: 'audio', mediaType: audioType };
   const videoType = inferVideoType(file);
   if (VIDEO_TYPES.has(videoType)) return { kind: 'video', mediaType: videoType };
@@ -295,7 +297,8 @@ async function addFiles(fileList) {
   const staged = await Promise.all(accepted.map(async file => {
     const { kind, mediaType } = classifyFile(file);
     let state = 'queued', error = '', retryable = true, stableFile = file;
-    if (kind === 'unsupported') { state = 'failed'; error = 'PNG, JPEG, WebP, MP3, M4A, OGG, MP4 or PDF only'; retryable = false; }
+    if (kind === 'ogg') { state = 'failed'; error = 'Micro.blog does not currently accept OGG uploads. Convert this file to MP3 or M4A first.'; retryable = false; }
+    else if (kind === 'unsupported') { state = 'failed'; error = 'PNG, JPEG, WebP, MP3, M4A, MP4 or PDF only'; retryable = false; }
     else if (!file.size) { state = 'failed'; error = 'Empty file'; retryable = false; }
     else if ((kind === 'audio' || kind === 'video' || kind === 'document') && file.size > STREAMED_MEDIA_MAX_BYTES) {
       state = 'failed'; error = `${formatBytes(file.size)} exceeds BUM Hand’s current 25 MB native-form media limit`; retryable = false;

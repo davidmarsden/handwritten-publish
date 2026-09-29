@@ -23,12 +23,14 @@ describe('BUM Hand media support', () => {
     expect(source).toContain("if (type === 'audio/mp4' || type === 'audio/x-m4a') return 'audio/mp4'");
   });
 
-  it('accepts OGG audio by MIME type or filename', () => {
-    expect(source).toContain("'audio/ogg'");
-    expect(source).toContain("type === 'audio/ogg' || type === 'application/ogg'");
+  it('detects OGG but blocks it before Micro.blog upload', () => {
+    expect(source).toContain("const OGG_TYPES = new Set(['audio/ogg', 'application/ogg'])");
     expect(source).toContain("name.endsWith('.ogg') || name.endsWith('.oga')");
+    expect(source).toContain("return { kind: 'ogg', mediaType: audioType }");
+    expect(source).toContain('Micro.blog does not currently accept OGG uploads. Convert this file to MP3 or M4A first.');
     expect(html).toContain('.ogg');
     expect(html).toContain('.oga');
+    expect(html).toContain('convert OGG to MP3 or M4A first');
   });
 
   it('offers MP4 in the picker and renders responsive video output', () => {
@@ -41,6 +43,6 @@ describe('BUM Hand media support', () => {
   });
 
   it('bumps the shell cache so existing installs receive the new client', () => {
-    expect(serviceWorker).toContain("const VERSION = 'v5'");
+    expect(serviceWorker).toContain("const VERSION = 'v6'");
   });
 });
