@@ -6,7 +6,7 @@ const html = readFileSync(new URL('../public/bum/index.html', import.meta.url), 
 const css = readFileSync(new URL('../public/bum/bum.css', import.meta.url), 'utf8');
 const serviceWorker = readFileSync(new URL('../public/hand-sw.js', import.meta.url), 'utf8');
 
-describe('BUM Hand MP4 support', () => {
+describe('BUM Hand media support', () => {
   it('classifies explicit video MP4 and generic/blank MIME .mp4 files as video', () => {
     expect(source).toContain("const VIDEO_TYPES = new Set(['video/mp4'])");
     expect(source).toContain("if (type === 'video/mp4') return 'video/mp4'");
@@ -23,6 +23,14 @@ describe('BUM Hand MP4 support', () => {
     expect(source).toContain("if (type === 'audio/mp4' || type === 'audio/x-m4a') return 'audio/mp4'");
   });
 
+  it('accepts OGG audio by MIME type or filename', () => {
+    expect(source).toContain("'audio/ogg'");
+    expect(source).toContain("type === 'audio/ogg' || type === 'application/ogg'");
+    expect(source).toContain("name.endsWith('.ogg') || name.endsWith('.oga')");
+    expect(html).toContain('.ogg');
+    expect(html).toContain('.oga');
+  });
+
   it('offers MP4 in the picker and renders responsive video output', () => {
     expect(html).toContain('video/mp4');
     expect(html).toContain('.mp4');
@@ -33,6 +41,6 @@ describe('BUM Hand MP4 support', () => {
   });
 
   it('bumps the shell cache so existing installs receive the new client', () => {
-    expect(serviceWorker).toContain("const VERSION = 'v4'");
+    expect(serviceWorker).toContain("const VERSION = 'v5'");
   });
 });
