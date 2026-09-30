@@ -29,6 +29,14 @@ type SocialOperation =
 
 type Destination = { uid: string; name: string };
 
+type ConversationItem = {
+  id?: string | number;
+  author?: {
+    username?: unknown;
+    _microblog?: { username?: unknown };
+  };
+};
+
 async function tokenFrom(request: Request): Promise<string | null> {
   const sessionToken = await dentHandSessionToken(request);
   if (sessionToken) return sessionToken;
@@ -97,6 +105,36 @@ async function upstream(request: Request, path: string, init: RequestInit = {}):
     return json(JSON.parse(text));
   } catch {
     return json({ ok: true, result: text });
+  }
+}
+
+async function replyContentFor(request: Request, id: string, content: string): Promise<string> {
+  // Micro.blog's reply API associates the reply with `id`, but its own clients also
+  // include the recipient's @username in `content`. That mention is what makes the
+  // reply visible as an @reply/mention to the recipient. Dent Hand previously sent
+  // only the prose typed by the user, so replies could be threaded without actually
+  // mentioning the person being replied to.
+  const token = await tokenFrom(request);
+  if (!token) return content;
+
+  try {
+    const response = await fetch(`${API_ROOT}/posts/conversation?id=${encodeURIComponent(id)}`, {
+      headers: { Accept: 'application/json', ...bearer(token) },
+    });
+    if (!response.ok) return content;
+
+    const payload = await response.json().catch(() => null) as { items?: ConversationItem[] } | null;
+    const target = payload?.items?.find(item => String(item.id ?? '') === id);
+    const rawUsername = target?.author?._microblog?.username ?? target?.author?.username;
+    const username = safeUsername(typeof rawUsername === 'string' ? rawUsername : null);
+    if (!username) return content;
+
+    const mention = `@${username}`;
+    const alreadyMentionsTarget = new RegExp(`(^|\\s)@${username}(?=\\s|$|[.,!?;:])`, 'i').test(content);
+    return alreadyMentionsTarget ? content : `${mention} ${content}`;
+  } catch {
+    // Replying should still work if conversation enrichment is temporarily unavailable.
+    return content;
   }
 }
 
@@ -217,7 +255,9 @@ export default async (request: Request): Promise<Response> => {
       if (!id) return json({ error: 'Reply id must be numeric.' }, 400);
       if (!content) return json({ error: 'Reply content is required.' }, 400);
       if (content.length > 10000) return json({ error: 'Reply content is too long.' }, 400);
-      const form = new URLSearchParams({ id, content });
+      const replyContent = await replyContentFor(request, id, content);
+      if (replyContent.length > 10000) return json({ error: 'Reply content is too long after adding the recipient mention.' }, 400);
+      const form = new URLSearchParams({ id, content: replyContent });
       return upstream(request, '/posts/reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
