@@ -33,6 +33,7 @@ type ConversationItem = {
   id?: string | number;
   author?: {
     username?: unknown;
+    url?: unknown;
     _microblog?: { username?: unknown };
   };
 };
@@ -68,6 +69,19 @@ function safeUsername(value: string | null): string | null {
   if (!value) return null;
   const trimmed = value.trim().replace(/^@/, '');
   return /^[A-Za-z0-9_-]{1,64}$/.test(trimmed) ? trimmed : null;
+}
+
+function usernameFromMicroblogUrl(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const parsed = new URL(value.trim());
+    if (parsed.protocol !== 'https:' || parsed.hostname.toLowerCase() !== 'micro.blog') return null;
+    const [candidate, ...rest] = parsed.pathname.split('/').filter(Boolean);
+    if (!candidate || rest.length > 0) return null;
+    return safeUsername(candidate);
+  } catch {
+    return null;
+  }
 }
 
 async function readBody(request: Request): Promise<Record<string, unknown>> {
@@ -126,7 +140,8 @@ async function replyContentFor(request: Request, id: string, content: string): P
     const payload = await response.json().catch(() => null) as { items?: ConversationItem[] } | null;
     const target = payload?.items?.find(item => String(item.id ?? '') === id);
     const rawUsername = target?.author?._microblog?.username ?? target?.author?.username;
-    const username = safeUsername(typeof rawUsername === 'string' ? rawUsername : null);
+    const username = safeUsername(typeof rawUsername === 'string' ? rawUsername : null)
+      ?? usernameFromMicroblogUrl(target?.author?.url);
     if (!username) return content;
 
     const mention = `@${username}`;
