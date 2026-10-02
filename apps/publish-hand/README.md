@@ -8,11 +8,13 @@ It owns:
 
 - handwritten page/document models;
 - PNG/JPEG/WebP/PDF import;
-- page ordering and local document state;
+- page ordering, page removal and local document state;
 - transcripts and handwritten link regions;
 - photo/document enrichment;
 - `.handpub` import/export;
 - browser publishing orchestration.
+
+Imported PDF pages can be removed from the document before publishing. Removal is non-destructive: the original PDF is untouched, while the local Publish Hand document, portable bundle and publisher output use only the remaining pages. A document must retain at least one page.
 
 The root `/` route is the Helping Hand launcher rather than a second copy of Publish Hand.
 
