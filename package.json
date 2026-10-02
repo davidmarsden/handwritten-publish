@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "sync:publishing-core": "node scripts/sync-publishing-core.mjs",
-    "predev": "npm run sync:publishing-core",
+    "apply:page-removal": "node scripts/apply-page-removal-feature.mjs",
+    "predev": "npm run sync:publishing-core && npm run apply:page-removal",
     "dev": "vite",
-    "prebuild": "npm run sync:publishing-core",
+    "prebuild": "npm run sync:publishing-core && npm run apply:page-removal",
     "build": "tsc -b && vite build",
+    "pretest": "npm run apply:page-removal",
     "preview": "vite preview",
     "test": "vitest run"
   },
