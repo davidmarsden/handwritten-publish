@@ -20,7 +20,7 @@ const VIDEO_TYPES = new Set(['video/mp4']);
 const PDF_TYPE = 'application/pdf';
 const STREAMED_MEDIA_MAX_BYTES = 100_000_000;
 const MAX_FILES = 30;
-const AUDIO_LIMIT = 25_000_000;
+const AUDIO_LIMIT = 100_000_000;
 const $ = selector => document.querySelector(selector);
 
 const tokenInput = $('#token');
@@ -558,7 +558,7 @@ async function processAudioFile(file, { convert, split, segmentMinutes }) {
   const segments = planAudioSegments(duration, { split, segmentMinutes });
   if (!convert && segments.length === 1) return [file];
   if (!convert && segments.length > 1) throw new Error('Enable MP3 conversion to split this audio.');
-  if (file.size > AUDIO_LIMIT) throw new Error('Audio exceeds the 25 MB browser processing limit.');
+  if (file.size > AUDIO_LIMIT) throw new Error('Audio exceeds the 100 MB browser processing limit. Large conversions require enough free device memory.');
   if (/\.mp3$/i.test(file.name) && segments.length === 1) return [file];
   assertAudioNotCancelled();
   const ffmpeg = await getAudioEncoder();
