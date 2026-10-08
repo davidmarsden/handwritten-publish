@@ -517,13 +517,17 @@ async function getAudioEncoder() {
     import('https://esm.sh/@ffmpeg/util@0.12.2'),
   ]);
   const ffmpeg = new FFmpeg();
+  ffmpeg.on('log', ({ message }) => {
+    if (/error|failed|invalid|unknown encoder/i.test(message)) setStatus('FFmpeg: ' + message.slice(0, 220));
+  });
   const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
   const workerURL = new URL('/bum/ffmpeg-worker.js', window.location.origin).href;
-  await ffmpeg.load({
+  setStatus('Loading audio encoder (first use may take a moment)…');
+  await Promise.race([ffmpeg.load({
     classWorkerURL: workerURL,
     coreURL: await toBlobURL(base + '/ffmpeg-core.js', 'text/javascript'),
     wasmURL: await toBlobURL(base + '/ffmpeg-core.wasm', 'application/wasm'),
-  });
+  }), new Promise((_, reject) => setTimeout(() => reject(new Error('Audio encoder did not start within 45 seconds. Please retry or use another browser.')), 45000))]);
   ffmpegInstance = ffmpeg;
   return ffmpeg;
 }
@@ -554,7 +558,15 @@ async function processAudioFile(file, { convert, split, segmentMinutes }) {
       setStatus(`Encoding part ${segment.index} of ${segments.length} for ${file.name}…`);
       const output = 'output-' + crypto.randomUUID() + '.mp3';
       const args = ['-ss', String(segment.startSeconds), '-i', input, '-t', String(segment.durationSeconds), '-vn', '-codec:a', 'libmp3lame', '-b:a', '192k', '-y', output];
-      const code = await ffmpeg.exec(args);
+      let lastProgress = -1;
+      const onProgress = ({ progress }) => {
+        const pct = Math.max(0, Math.min(99, Math.round(progress * 100)));
+        if (pct >= lastProgress + 5) { lastProgress = pct; setStatus(`Encoding part ${segment.index} of ${segments.length}: ${pct}%…`); }
+      };
+      ffmpeg.on('progress', onProgress);
+      let code;
+      try { code = await ffmpeg.exec(args, 180000); }
+      finally { ffmpeg.off('progress', onProgress); }
       if (code !== 0) throw new Error('MP3 conversion failed.');
       assertAudioNotCancelled();
       const bytes = await ffmpeg.readFile(output);
