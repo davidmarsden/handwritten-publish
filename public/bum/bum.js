@@ -20,7 +20,6 @@ const VIDEO_TYPES = new Set(['video/mp4']);
 const PDF_TYPE = 'application/pdf';
 const STREAMED_MEDIA_MAX_BYTES = 25_000_000;
 const MAX_FILES = 30;
-const MP3_BITRATE = 192000;
 const AUDIO_LIMIT = 25_000_000;
 const $ = selector => document.querySelector(selector);
 
@@ -563,7 +562,7 @@ async function runUpload(targets) {
           item.file = parts[0]; item.mediaType = parts[0].type || 'audio/mpeg'; item.state = 'queued';
           await uploadItem(item, token, destination);
         } else {
-          item.state = 'uploaded'; item.url = ''; item.retryable = false;
+          item.state = 'processing'; item.url = ''; item.retryable = false;
           const at = items.indexOf(item);
           const segmentItems = parts.map(file => ({ ...item, id: crypto.randomUUID(), file, mediaType: 'audio/mpeg', state: 'queued', url: '', error: '', retryable: true, parentName: item.file.name }));
           items.splice(at, 1, ...segmentItems);
@@ -574,7 +573,7 @@ async function runUpload(targets) {
       }
     } else await uploadItem(item, token, destination);
   }
-  const uploadedNow = targets.filter(item => item.state === 'uploaded');
+  const uploadedNow = uploadedItems();
   let collectionOk = true;
   if (selectedCollection()) collectionOk = await addToSelectedCollection(uploadedNow);
   busy = false;
