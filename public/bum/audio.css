@@ -1,2 +1,11 @@
 .uploaded-list audio{display:block;width:min(100%,520px);margin-top:10px;height:38px}
 @media(max-width:700px){.uploaded-list audio{width:100%}}
+
+.audio-controls{margin:20px 0 8px;padding:18px;border:1px solid #888;border-radius:12px;min-width:0}
+.audio-controls legend{padding:0 8px;font-weight:750}
+.audio-controls label{display:flex;align-items:center;gap:10px;line-height:1.5;margin:12px 0;max-width:100%;overflow-wrap:anywhere}
+.audio-controls input[type=checkbox]{width:18px;height:18px;flex:0 0 18px;accent-color:#17653a}
+.audio-controls label[for=audio-minutes]{margin:16px 0 6px;font-weight:700}
+.audio-controls select{display:block;width:min(100%,320px);margin:0 0 12px}
+.audio-controls .hint{max-width:65ch;margin:12px 0 0;line-height:1.5}
+@media(max-width:600px){.audio-controls{padding:14px}.audio-controls label{align-items:flex-start}}

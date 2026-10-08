@@ -1,5 +1,5 @@
 const APP = new URL(self.location.href).searchParams.get('app') || 'hand';
-const VERSION = 'v6';
+const VERSION = 'v8';
 const CONFIG = {
   writing: {
     start: '/setup/email/',
@@ -11,7 +11,7 @@ const CONFIG = {
   },
   bum: {
     start: '/bum/',
-    shell: ['/bum/', '/bum/bum.css', '/bum/audio.css', '/bum/bum.js', '/brand/bum-hand.svg', '/bum-hand.webmanifest'],
+    shell: ['/bum/', '/bum/bum.css', '/bum/audio.css', '/bum/bum.js', '/bum/audio-plan.js', '/bum/ffmpeg-worker.js', '/brand/bum-hand.svg', '/bum-hand.webmanifest'],
   },
   markdown: {
     start: '/markdown/',

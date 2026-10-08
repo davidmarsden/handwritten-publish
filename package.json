@@ -7,7 +7,7 @@
     "sync:publishing-core": "node scripts/sync-publishing-core.mjs",
     "predev": "npm run sync:publishing-core",
     "dev": "vite",
-    "prebuild": "npm run sync:publishing-core",
+    "prebuild": "npm run sync:publishing-core && node scripts/stage-bum-ffmpeg.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run"
@@ -21,7 +21,10 @@
     "react": "latest",
     "react-dom": "latest",
     "jszip": "latest",
-    "pdfjs-dist": "latest"
+    "pdfjs-dist": "latest",
+    "@ffmpeg/ffmpeg": "0.12.15",
+    "@ffmpeg/core": "0.12.10",
+    "@ffmpeg/util": "0.12.2"
   },
   "devDependencies": {
     "@types/react": "latest",
