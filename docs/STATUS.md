@@ -65,6 +65,9 @@ Still optional/future: PDF email attachments and deeper native tablet integratio
 - [x] One mixed-file chooser and queue
 - [x] JPEG, PNG and WebP image uploads
 - [x] MP3 and M4A audio uploads
+- [x] MP4 video uploads
+- [x] 100 MB native-form media upload and browser audio-processing ceilings
+- [x] Browser-local 192 kbps MP3 conversion, selectable 1/2/3/4/5/10/15-minute splitting, sequential uploads and ZIP download
 - [x] PDF document uploads
 - [x] Mixed image/audio/PDF batches in one run
 - [x] Up to 30 selected files per queue
