@@ -286,6 +286,7 @@ export default async (request: Request): Promise<Response> => {
       if (!id) return json({ error: 'Reply id must be numeric.' }, 400);
       if (!content) return json({ error: 'Reply content is required.' }, 400);
       if (content.length > 10000) return json({ error: 'Reply content is too long.' }, 400);
+      if (!await tokenFrom(request)) return json({ error: 'Connect Dent Hand to Micro.blog first.' }, 401);
       const replyContent = await replyContentFor(request, id, content);
       if (!replyContent) return json({ error: 'Could not identify the reply recipient from Micro.blog. No reply was published; please try again.' }, 502);
       if (replyContent.length > 10000) return json({ error: 'Reply content is too long after adding the recipient mention.' }, 400);
