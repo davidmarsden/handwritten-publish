@@ -11,7 +11,7 @@ const CONFIG = {
   },
   bum: {
     start: '/bum/',
-    shell: ['/bum/', '/bum/bum.css', '/bum/audio.css', '/bum/bum.js', '/bum/audio-plan.js', '/brand/bum-hand.svg', '/bum-hand.webmanifest'],
+    shell: ['/bum/', '/bum/bum.css', '/bum/audio.css', '/bum/bum.js', '/bum/audio-plan.js', '/bum/ffmpeg-worker.js', '/brand/bum-hand.svg', '/bum-hand.webmanifest'],
   },
   markdown: {
     start: '/markdown/',
