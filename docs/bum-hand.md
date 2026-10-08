@@ -23,9 +23,9 @@ Image uploads use the buffered Micro.blog media bridge after local optimisation.
 
 ### Audio
 
-BUM Hand accepts MP3 and M4A files in the same queue. Audio uses a same-origin Netlify Edge proxy that streams the file to Micro.blog's media endpoint, avoiding browser CORS restrictions and the smaller buffered photo bridge.
+BUM Hand accepts MP3 and M4A files in the same queue, alongside MP4 video and PDFs. Audio uses a same-origin Netlify Edge proxy that streams the file to Micro.blog's media endpoint, avoiding browser CORS restrictions and the smaller buffered photo bridge.
 
-The current streamed-media limit is 75 MB per file. Audio results include canonical URLs, Markdown links, `<audio>` HTML and a browser playback control.
+The native-form media upload and browser-local audio-processing limits are 100 MB per file. A 58 MB recording has been successfully split in real use. FFmpeg WASM is packaged with BUM Hand and runs locally, converting to 192 kbps MP3. Recordings longer than 15 minutes can be split into 1, 2, 3, 4, 5, 10 or 15 minute parts (default 5); processed parts upload sequentially and can be downloaded as a ZIP. Original recordings are preserved. Large conversions may use substantially more device RAM than the compressed input size. Audio results include canonical URLs, Markdown links, `<audio>` HTML and a browser playback control.
 
 The streamed route carries the selected Micro.blog destination too, so audio and image uploads behave consistently for accounts that can access more than one blog.
 
