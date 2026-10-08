@@ -523,13 +523,22 @@ async function getAudioEncoder() {
     if (/error|failed|invalid|unknown encoder/i.test(message)) setStatus('FFmpeg: ' + message.slice(0, 220));
   });
   const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
-  const workerURL = new URL('/bum/ffmpeg-worker.js', window.location.origin).href;
+  // esm.sh's worker is an ESM module. A classic importScripts() wrapper cannot
+  // execute it; fetch it as a Blob URL to satisfy Worker origin restrictions.
+  const workerURL = await toBlobURL('https://esm.sh/@ffmpeg/ffmpeg@0.12.15/es2022/worker.js', 'text/javascript');
   setStatus('Loading audio encoder (first use may take a moment)…');
-  await Promise.race([ffmpeg.load({
-    classWorkerURL: workerURL,
-    coreURL: await toBlobURL(base + '/ffmpeg-core.js', 'text/javascript'),
-    wasmURL: await toBlobURL(base + '/ffmpeg-core.wasm', 'application/wasm'),
-  }), new Promise((_, reject) => setTimeout(() => reject(new Error('Audio encoder did not start within 45 seconds. Please retry or use another browser.')), 45000))]);
+  try {
+    await Promise.race([ffmpeg.load({
+      classWorkerURL: workerURL,
+      coreURL: await toBlobURL(base + '/ffmpeg-core.js', 'text/javascript'),
+      wasmURL: await toBlobURL(base + '/ffmpeg-core.wasm', 'application/wasm'),
+    }), new Promise((_, reject) => setTimeout(() => reject(new Error('Audio encoder did not start within 45 seconds. The worker or WASM core may be blocked.')), 45000))]);
+  } catch (error) {
+    ffmpeg.terminate();
+    throw error;
+  } finally {
+    URL.revokeObjectURL(workerURL);
+  }
   ffmpegInstance = ffmpeg;
   return ffmpeg;
 }
