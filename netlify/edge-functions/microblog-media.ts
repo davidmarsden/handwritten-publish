@@ -1,4 +1,4 @@
-const MAX_MEDIA_BYTES = 25_000_000;
+const MAX_MEDIA_BYTES = 100_000_000;
 const SUPPORTED_MEDIA_TYPES = new Set([
   'audio/mpeg',
   'audio/mp3',
@@ -115,7 +115,7 @@ export default async (request: Request) => {
   if (!SUPPORTED_MEDIA_TYPES.has(contentType)) return json({ error: 'An MP3, M4A, MP4 or PDF file is required.' }, 400);
   if (!request.body) return json({ error: 'Upload is empty.' }, 400);
   if (contentLength > MAX_MEDIA_BYTES) {
-    return json({ error: `This file is ${(contentLength / 1_000_000).toFixed(1)} MB; BUM Hand currently accepts streamed media up to 75 MB.` }, 413);
+    return json({ error: `This file is ${(contentLength / 1_000_000).toFixed(1)} MB; BUM Hand currently accepts native-form media up to 100 MB.` }, 413);
   }
 
   // Let the Fetch/FormData implementation serialize multipart headers and filename.
@@ -131,7 +131,7 @@ export default async (request: Request) => {
     return json({ error: 'Could not read upload bytes.' }, 400);
   }
   if (mediaBytes.byteLength > MAX_MEDIA_BYTES) {
-    return json({ error: `This file is ${(mediaBytes.byteLength / 1_000_000).toFixed(1)} MB; BUM Hand currently accepts native-form media up to 25 MB.` }, 413);
+    return json({ error: `This file is ${(mediaBytes.byteLength / 1_000_000).toFixed(1)} MB; BUM Hand currently accepts native-form media up to 100 MB.` }, 413);
   }
   const form = new FormData();
   form.append('mp-destination', destination);
