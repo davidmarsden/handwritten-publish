@@ -512,10 +512,12 @@ async function getAudioEncoder() {
   if (ffmpegInstance) return ffmpegInstance;
   // Pinned FFmpeg WASM modules. Load only on demand to keep normal BUM Hand uploads lightweight.
   // Host the worker on our own origin: browsers block cross-origin Worker scripts.
+  setStatus('Downloading FFmpeg JavaScript modules…');
   const [{ FFmpeg }, { toBlobURL }] = await Promise.all([
     import('https://esm.sh/@ffmpeg/ffmpeg@0.12.15'),
     import('https://esm.sh/@ffmpeg/util@0.12.2'),
   ]);
+  setStatus('Preparing audio encoder worker…');
   const ffmpeg = new FFmpeg();
   ffmpeg.on('log', ({ message }) => {
     if (/error|failed|invalid|unknown encoder/i.test(message)) setStatus('FFmpeg: ' + message.slice(0, 220));
@@ -534,6 +536,7 @@ async function getAudioEncoder() {
 async function processAudioFile(file, { convert, split, segmentMinutes }) {
   if (!isProcessableAudio(file)) throw new Error('Unsupported audio format.');
   if (isAudioOnlyMp4(file)) throw new Error('MP4 video requires explicit audio extraction; select an audio-only M4A instead.');
+  setStatus('Reading audio duration…');
   const duration = await new Promise((resolve, reject) => {
     const element = document.createElement('audio'); const url = URL.createObjectURL(file);
     const finish = (value, error) => { element.removeAttribute('src'); element.load(); URL.revokeObjectURL(url); error ? reject(error) : resolve(value); };
@@ -548,10 +551,12 @@ async function processAudioFile(file, { convert, split, segmentMinutes }) {
   if (/\.mp3$/i.test(file.name) && segments.length === 1) return [file];
   assertAudioNotCancelled();
   const ffmpeg = await getAudioEncoder();
+  setStatus('Audio encoder ready. Preparing source file…');
   activeAudioEncoder = ffmpeg;
   const input = 'input-' + crypto.randomUUID() + '.' + (file.name.split('.').pop() || 'm4a').toLowerCase();
   const outputs = [];
   try {
+    setStatus('Copying source audio into encoder…');
     await ffmpeg.writeFile(input, new Uint8Array(await file.arrayBuffer()));
     for (const segment of segments) {
       assertAudioNotCancelled();
