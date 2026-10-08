@@ -68,7 +68,7 @@
         <label><input id="audio-split" type="checkbox"> Split recordings longer than 15 minutes</label>
         <label for="audio-minutes">Segment length</label>
         <select id="audio-minutes"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>10</option><option>15</option></select> minutes
-        <p class="hint">Runs locally in your browser. For splitting, also enable MP3 conversion. Video MP4 is not extracted automatically.</p>
+        <p class="hint">Runs locally in your browser. For splitting, also enable MP3 conversion. Stop prevents the next part or upload; it cannot interrupt an encoding step already underway. Video MP4 is not extracted automatically.</p>
         <p id="audio-preview" class="hint" aria-live="polite"></p>
       </fieldset>
       <div id="selection-summary" class="selection-summary" hidden></div>
@@ -79,6 +79,7 @@
       <button id="upload" class="button primary" type="button" disabled>Upload queued files</button>
       <button id="retry" class="button secondary" type="button" hidden>Retry failed</button>
       <button id="retry-collection" class="button secondary" type="button" hidden>Retry collection</button>
+      <button id="cancel-audio" class="button secondary" type="button" hidden>Stop after current step</button>
       <button id="download-audio-zip" class="button secondary" type="button" hidden>Download processed MP3s (ZIP)</button>
       <button id="clear" class="button ghost" type="button" disabled>Clear</button>
     </section>
