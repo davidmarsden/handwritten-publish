@@ -38,6 +38,7 @@ const audioSplit = $('#audio-split');
 const audioMinutes = $('#audio-minutes');
 const audioPreview = $('#audio-preview');
 const downloadAudioZipButton = $('#download-audio-zip');
+const cancelAudioButton = $('#cancel-audio');
 const dropZone = $('#drop-zone');
 const selectionSummary = $('#selection-summary');
 const queueEl = $('#queue');
@@ -200,6 +201,7 @@ function render() {
     selectionSummary.textContent = `${items.length} file${items.length === 1 ? '' : 's'} selected · ${images} image${images === 1 ? '' : 's'} · ${videos} video${videos === 1 ? '' : 's'} · ${audio} audio · ${documents} PDF${documents === 1 ? '' : 's'}`;
   }
   audioPreview.textContent = items.some(item => item.kind === 'audio') ? 'Audio conversion and splitting will run before upload. Source files are preserved.' : '';
+  cancelAudioButton.hidden = !busy;
   downloadAudioZipButton.hidden = generatedAudio.size === 0;
   downloadAudioZipButton.disabled = busy;
   audioConvert.disabled = busy;
@@ -503,6 +505,9 @@ async function addToSelectedCollection(targets) {
 }
 
 let ffmpegInstance;
+let audioCancelRequested = false;
+let activeAudioEncoder = null;
+function assertAudioNotCancelled() { if (audioCancelRequested) throw new Error('Audio processing cancelled.'); }
 async function getAudioEncoder() {
   if (ffmpegInstance) return ffmpegInstance;
   // Pinned FFmpeg WASM modules. Load only on demand to keep normal BUM Hand uploads lightweight.
@@ -531,16 +536,21 @@ async function processAudioFile(file, { convert, split, segmentMinutes }) {
   if (!convert && segments.length > 1) throw new Error('Enable MP3 conversion to split this audio.');
   if (file.size > AUDIO_LIMIT) throw new Error('Audio exceeds the 25 MB browser processing limit.');
   if (/\\.mp3$/i.test(file.name) && segments.length === 1) return [file];
+  assertAudioNotCancelled();
   const ffmpeg = await getAudioEncoder();
+  activeAudioEncoder = ffmpeg;
   const input = 'input-' + crypto.randomUUID() + '.' + (file.name.split('.').pop() || 'm4a').toLowerCase();
   const outputs = [];
   try {
     await ffmpeg.writeFile(input, new Uint8Array(await file.arrayBuffer()));
     for (const segment of segments) {
+      assertAudioNotCancelled();
+      setStatus(`Encoding part ${segment.index} of ${segments.length} for ${file.name}…`);
       const output = 'output-' + crypto.randomUUID() + '.mp3';
       const args = ['-ss', String(segment.startSeconds), '-i', input, '-t', String(segment.durationSeconds), '-vn', '-codec:a', 'libmp3lame', '-b:a', '192k', '-y', output];
       const code = await ffmpeg.exec(args);
       if (code !== 0) throw new Error('MP3 conversion failed.');
+      assertAudioNotCancelled();
       const bytes = await ffmpeg.readFile(output);
       if (!bytes.length) throw new Error('Encoder returned an empty audio file.');
       const name = segments.length === 1 ? file.name.replace(/\\.[^.]+$/, '') + '.mp3' : audioPartFilename(file.name, segment.index, segments.length);
@@ -548,7 +558,7 @@ async function processAudioFile(file, { convert, split, segmentMinutes }) {
       await ffmpeg.deleteFile(output);
     }
     return outputs;
-  } finally { await ffmpeg.deleteFile(input).catch(() => undefined); }
+  } finally { activeAudioEncoder = null; await ffmpeg.deleteFile(input).catch(() => undefined); }
 }
 
 async function runUpload(targets) {
@@ -556,8 +566,10 @@ async function runUpload(targets) {
   const destination = destinationSelect.value;
   if (!connectionReady()) { setStatus('Connect to Micro.blog with the current token and choose a destination first.'); return; }
   if (!targets.length) return;
+  audioCancelRequested = false;
   busy = true; setStatus(`Uploading ${targets.length} file${targets.length === 1 ? '' : 's'}…`); render();
   for (const item of targets) {
+    if (audioCancelRequested) break;
     if (item.kind === 'audio' && (audioConvert.checked || audioSplit.checked)) {
       try {
         item.state = 'processing'; render();
@@ -571,7 +583,10 @@ async function runUpload(targets) {
           const at = items.indexOf(item);
           const segmentItems = parts.map(file => ({ ...item, id: crypto.randomUUID(), file, mediaType: 'audio/mpeg', state: 'queued', url: '', error: '', retryable: true, parentName: item.file.name }));
           items.splice(at, 1, ...segmentItems);
-          for (const part of segmentItems) await uploadItem(part, token, destination);
+          for (const part of segmentItems) {
+            if (audioCancelRequested) break;
+            await uploadItem(part, token, destination);
+          }
         }
       } catch (error) {
         item.state = 'failed'; item.error = error instanceof Error ? error.message : 'Audio conversion failed'; item.retryable = true; render();
@@ -583,7 +598,8 @@ async function runUpload(targets) {
   if (selectedCollection()) collectionOk = await addToSelectedCollection(uploadedNow);
   busy = false;
   const failed = failedItems().length;
-  if (collectionOk) setStatus(failed
+  if (audioCancelRequested) setStatus('Stopped. Files not yet uploaded remain in the queue.');
+  else if (collectionOk) setStatus(failed
     ? `${uploadedItems().length} uploaded; ${failed} failed.${retryableFailedItems().length ? ' Retry is available.' : ''}`
     : `${uploadedItems().length} file${uploadedItems().length === 1 ? '' : 's'} uploaded to Micro.blog.`);
   render();
@@ -636,6 +652,7 @@ uploadButton.addEventListener('click', () => runUpload(queuedItems()));
 retryButton.addEventListener('click', () => { for (const item of retryableFailedItems()) { item.state = 'queued'; item.error = ''; } runUpload(queuedItems()); });
 retryCollectionButton.addEventListener('click', () => addToSelectedCollection(uploadedItems().filter(item => item.collectionState === 'failed')));
 audioSplit.addEventListener('change', render);
+cancelAudioButton.addEventListener('click', () => { audioCancelRequested = true; setStatus('Stopping after the current operation…'); });
 downloadAudioZipButton.addEventListener('click', async () => {
   try {
     const { default: JSZip } = await import('https://esm.sh/jszip@3.10.1');
