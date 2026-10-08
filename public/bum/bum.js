@@ -67,8 +67,8 @@ function formatBytes(bytes) {
   return `${(bytes / 1_000_000).toFixed(1)} MB`;
 }
 
-function isProcessableAudio(file) { return /\\.(mp3|m4a|mp4|wav)$/i.test(file.name) || /^(audio\\/(mpeg|mp3|mp4|x-m4a|wav|x-wav))$/i.test(file.type); }
-function isAudioOnlyMp4(file) { return /\\.mp4$/i.test(file.name) || file.type === 'video/mp4'; }
+function isProcessableAudio(file) { return /\.(mp3|m4a|mp4|wav)$/i.test(file.name) || /^(audio\/(mpeg|mp3|mp4|x-m4a|wav|x-wav))$/i.test(file.type); }
+function isAudioOnlyMp4(file) { return /\.mp4$/i.test(file.name) || file.type === 'video/mp4'; }
 function inferAudioType(file) {
   const type = (file.type || '').toLowerCase();
   if (type === 'audio/mpeg' || type === 'audio/mp3') return 'audio/mpeg';
@@ -535,7 +535,7 @@ async function processAudioFile(file, { convert, split, segmentMinutes }) {
   if (!convert && segments.length === 1) return [file];
   if (!convert && segments.length > 1) throw new Error('Enable MP3 conversion to split this audio.');
   if (file.size > AUDIO_LIMIT) throw new Error('Audio exceeds the 25 MB browser processing limit.');
-  if (/\\.mp3$/i.test(file.name) && segments.length === 1) return [file];
+  if (/\.mp3$/i.test(file.name) && segments.length === 1) return [file];
   assertAudioNotCancelled();
   const ffmpeg = await getAudioEncoder();
   activeAudioEncoder = ffmpeg;
@@ -553,7 +553,7 @@ async function processAudioFile(file, { convert, split, segmentMinutes }) {
       assertAudioNotCancelled();
       const bytes = await ffmpeg.readFile(output);
       if (!bytes.length) throw new Error('Encoder returned an empty audio file.');
-      const name = segments.length === 1 ? file.name.replace(/\\.[^.]+$/, '') + '.mp3' : audioPartFilename(file.name, segment.index, segments.length);
+      const name = segments.length === 1 ? file.name.replace(/\.[^.]+$/, '') + '.mp3' : audioPartFilename(file.name, segment.index, segments.length);
       outputs.push(new File([bytes], name, { type: 'audio/mpeg' }));
       await ffmpeg.deleteFile(output);
     }
@@ -593,7 +593,7 @@ async function runUpload(targets) {
       }
     } else await uploadItem(item, token, destination);
   }
-  const uploadedNow = uploadedItems();
+  const uploadedNow = targets.filter(item => item.state === 'uploaded' && item.url);
   let collectionOk = true;
   if (selectedCollection()) collectionOk = await addToSelectedCollection(uploadedNow);
   busy = false;
