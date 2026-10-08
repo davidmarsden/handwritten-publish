@@ -1,5 +1,5 @@
 const APP = new URL(self.location.href).searchParams.get('app') || 'hand';
-const VERSION = 'v7';
+const VERSION = 'v8';
 const CONFIG = {
   writing: {
     start: '/setup/email/',
