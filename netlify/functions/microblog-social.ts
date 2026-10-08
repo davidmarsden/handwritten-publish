@@ -160,7 +160,7 @@ async function replyContentFor(request: Request, id: string, content: string): P
       if (!username) continue;
 
       const mention = `@${username}`;
-      const alreadyMentionsTarget = new RegExp(`(^|\\\\s)@${username}(?=\\\\s|$|[.,!?;:])`, 'i').test(content);
+      const alreadyMentionsTarget = new RegExp(`(^|\\s)@${username}(?=\\s|$|[.,!?;:])`, 'i').test(content);
       return alreadyMentionsTarget ? content : `${mention} ${content}`;
     } catch {
       // Try the compatibility lookup, but never post a reply missing its recipient.
