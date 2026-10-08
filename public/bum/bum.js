@@ -18,9 +18,9 @@ const AUDIO_TYPES = new Set(['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4
 const OGG_TYPES = new Set(['audio/ogg', 'application/ogg']);
 const VIDEO_TYPES = new Set(['video/mp4']);
 const PDF_TYPE = 'application/pdf';
-const STREAMED_MEDIA_MAX_BYTES = 25_000_000;
+const STREAMED_MEDIA_MAX_BYTES = 100_000_000;
 const MAX_FILES = 30;
-const AUDIO_LIMIT = 25_000_000;
+const AUDIO_LIMIT = 100_000_000;
 const $ = selector => document.querySelector(selector);
 
 const tokenInput = $('#token');
@@ -321,7 +321,7 @@ async function addFiles(fileList) {
     else if (kind === 'unsupported') { state = 'failed'; error = 'PNG, JPEG, WebP, MP3, M4A, MP4 or PDF only'; retryable = false; }
     else if (!file.size) { state = 'failed'; error = 'Empty file'; retryable = false; }
     else if ((kind === 'audio' || kind === 'video' || kind === 'document') && file.size > STREAMED_MEDIA_MAX_BYTES) {
-      state = 'failed'; error = `${formatBytes(file.size)} exceeds BUM Hand’s current 25 MB native-form media limit`; retryable = false;
+      state = 'failed'; error = `${formatBytes(file.size)} exceeds BUM Hand’s 100 MB native-form media limit`; retryable = false;
     } else {
       try { stableFile = await stableBrowserFile(file, mediaType); }
       catch { state = 'failed'; error = 'Could not read this file from the selected provider. Select it again or save it to the device first.'; retryable = false; }
@@ -558,7 +558,7 @@ async function processAudioFile(file, { convert, split, segmentMinutes }) {
   const segments = planAudioSegments(duration, { split, segmentMinutes });
   if (!convert && segments.length === 1) return [file];
   if (!convert && segments.length > 1) throw new Error('Enable MP3 conversion to split this audio.');
-  if (file.size > AUDIO_LIMIT) throw new Error('Audio exceeds the 25 MB browser processing limit.');
+  if (file.size > AUDIO_LIMIT) throw new Error('Audio exceeds the 100 MB browser processing limit. Large conversions require enough free device memory.');
   if (/\.mp3$/i.test(file.name) && segments.length === 1) return [file];
   assertAudioNotCancelled();
   const ffmpeg = await getAudioEncoder();

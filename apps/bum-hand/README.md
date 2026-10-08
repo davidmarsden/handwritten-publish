@@ -34,10 +34,10 @@ BUM Hand is an uploader, not a media library or CMS. New file types or outputs s
 
 Shared Micro.blog primitives live in `packages/publishing-core/` where practical. Product-specific mixed-queue orchestration remains in the BUM Hand surface.
 
-## Experimental audio processing (PR #124)
+## Audio processing
 
 The upload screen offers opt-in browser-local MP3 conversion at 192 kbps and segmentation of recordings longer than 15 minutes into 1, 2, 3, 4, 5, 10 or 15 minute parts. Conversion uses FFmpeg WASM loaded on demand; processed files are available as a ZIP, and parts are uploaded sequentially through the existing Micro.blog stream-media route. MP3 inputs remain unchanged when no split is necessary. Original source files are never overwritten on the device.
 
-This implementation is experimental and the PR must remain a draft until browser-level verification of the FFmpeg CDN loading, encoding, and stream uploads on desktop and Android is complete. Browser memory and the existing 25 MB media limit restrict large recordings. The stop button prevents subsequent parts/uploads but does not interrupt an in-flight FFmpeg operation or network upload. MP4 video remains a video upload, not an implicit audio extraction. Existing uploads are reconciled by filename; choose unique names for distinct recordings.
+The native-form upload ceiling for MP3, M4A, MP4 and PDF is 100 MB per file. Browser-local FFmpeg conversion and splitting also accept source audio up to 100 MB, including 58 MB recordings. This is an upper bound rather than a device-memory guarantee: FFmpeg WASM may require significantly more RAM than the compressed input size. Segment encoding runs sequentially, but generated parts remain in memory for ZIP download and upload retries. The Netlify edge proxy buffers the incoming upload to build native FormData; 100 MB uploads therefore require real-world testing against edge runtime and Micro.blog upstream limits. The stop button prevents subsequent parts/uploads but does not interrupt an in-flight FFmpeg operation or network upload. MP4 video remains a video upload, not an implicit audio extraction. Existing uploads are reconciled by filename; choose unique names for distinct recordings.
 
 Regression checks: `npm test` (audio segment boundaries, valid lengths, naming), `npm run build`, plus manual 44.1 kHz and 48 kHz M4A-to-MP3 conversion, a >15-minute recording, MP3 pass-through, interrupted/retried segment uploads, ZIP download and Android file picker.
