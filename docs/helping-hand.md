@@ -26,7 +26,7 @@ Publish Hand remains destination-neutral at the document-model level. Micro.blog
 
 **Batch Uploader for Micro.blog.**
 
-A focused mixed-file uploader for JPEG/PNG/WebP images, MP3/M4A audio and PDFs. One chooser feeds one queue; the files are routed to the correct upload path behind the scenes. Successful photos can be added directly to Micro.blog Photo Collections, while all supported files return useful canonical URL/Markdown/HTML results.
+A focused mixed-file uploader for JPEG/PNG/WebP images, MP3/M4A audio, MP4 video and PDFs (up to 100 MB per file). Browser-local FFmpeg converts recordings to 192 kbps MP3, splits long audio into selectable 1–15 minute parts and offers a ZIP download; source files remain untouched. One chooser feeds one queue; the files are routed to the correct upload path behind the scenes. Successful photos can be added directly to Micro.blog Photo Collections, while all supported files return useful canonical URL/Markdown/HTML results.
 
 BUM Hand discovers the blogs available to the supplied Micro.blog token and treats the selected blog as part of the upload contract. Buffered image uploads and streamed audio/PDF uploads all forward the chosen destination to Micro.blog, so multi-blog accounts do not rely on an implicit default.
 
