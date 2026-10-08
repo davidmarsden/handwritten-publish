@@ -122,35 +122,51 @@ async function upstream(request: Request, path: string, init: RequestInit = {}):
   }
 }
 
-async function replyContentFor(request: Request, id: string, content: string): Promise<string> {
-  // Micro.blog's reply API associates the reply with `id`, but its own clients also
-  // include the recipient's @username in `content`. That mention is what makes the
-  // reply visible as an @reply/mention to the recipient. Dent Hand previously sent
-  // only the prose typed by the user, so replies could be threaded without actually
-  // mentioning the person being replied to.
-  const token = await tokenFrom(request);
-  if (!token) return content;
+function replyTargetUsername(item: ConversationItem | null | undefined): string | null {
+  const raw = item?.author?._microblog?.username ?? item?.author?.username;
+  return safeUsername(typeof raw === 'string' ? raw : null)
+    ?? usernameFromMicroblogUrl(item?.author?.url);
+}
 
-  try {
-    const response = await fetch(`${API_ROOT}/posts/conversation?id=${encodeURIComponent(id)}`, {
-      headers: { Accept: 'application/json', ...bearer(token) },
-    });
-    if (!response.ok) return content;
-
-    const payload = await response.json().catch(() => null) as { items?: ConversationItem[] } | null;
-    const target = payload?.items?.find(item => String(item.id ?? '') === id);
-    const rawUsername = target?.author?._microblog?.username ?? target?.author?.username;
-    const username = safeUsername(typeof rawUsername === 'string' ? rawUsername : null)
-      ?? usernameFromMicroblogUrl(target?.author?.url);
-    if (!username) return content;
-
-    const mention = `@${username}`;
-    const alreadyMentionsTarget = new RegExp(`(^|\\s)@${username}(?=\\s|$|[.,!?;:])`, 'i').test(content);
-    return alreadyMentionsTarget ? content : `${mention} ${content}`;
-  } catch {
-    // Replying should still work if conversation enrichment is temporarily unavailable.
-    return content;
+function lookupItem(payload: unknown, id: string): ConversationItem | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const record = payload as { items?: unknown; id?: unknown; author?: unknown };
+  if (Array.isArray(record.items)) {
+    return (record.items as ConversationItem[]).find(item => String(item?.id ?? '') === id) ?? null;
   }
+  if (String(record.id ?? '') === id && record.author) return record as ConversationItem;
+  return null;
+}
+
+async function replyContentFor(request: Request, id: string, content: string): Promise<string | null> {
+  const token = await tokenFrom(request);
+  if (!token) return null;
+
+  // Resolve the exact post first. Conversation responses can omit the requested
+  // item or return a different participant, so they must not be treated as a
+  // reliable post-by-ID lookup.
+  for (const path of [
+    `/posts/all/by_id?id=${encodeURIComponent(id)}`,
+    `/posts/conversation?id=${encodeURIComponent(id)}`,
+  ]) {
+    try {
+      const response = await fetch(`${API_ROOT}${path}`, {
+        headers: { Accept: 'application/json', ...bearer(token) },
+      });
+      if (!response.ok) continue;
+      const payload: unknown = await response.json();
+      const target = lookupItem(payload, id);
+      const username = replyTargetUsername(target);
+      if (!username) continue;
+
+      const mention = `@${username}`;
+      const alreadyMentionsTarget = new RegExp(`(^|\\\\s)@${username}(?=\\\\s|$|[.,!?;:])`, 'i').test(content);
+      return alreadyMentionsTarget ? content : `${mention} ${content}`;
+    } catch {
+      // Try the compatibility lookup, but never post a reply missing its recipient.
+    }
+  }
+  return null;
 }
 
 async function accountFor(request: Request): Promise<Response> {
@@ -271,6 +287,7 @@ export default async (request: Request): Promise<Response> => {
       if (!content) return json({ error: 'Reply content is required.' }, 400);
       if (content.length > 10000) return json({ error: 'Reply content is too long.' }, 400);
       const replyContent = await replyContentFor(request, id, content);
+      if (!replyContent) return json({ error: 'Could not identify the reply recipient from Micro.blog. No reply was published; please try again.' }, 502);
       if (replyContent.length > 10000) return json({ error: 'Reply content is too long after adding the recipient mention.' }, 400);
       const form = new URLSearchParams({ id, content: replyContent });
       return upstream(request, '/posts/reply', {
