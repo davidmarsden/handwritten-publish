@@ -511,13 +511,19 @@ function assertAudioNotCancelled() { if (audioCancelRequested) throw new Error('
 async function getAudioEncoder() {
   if (ffmpegInstance) return ffmpegInstance;
   // Pinned FFmpeg WASM modules. Load only on demand to keep normal BUM Hand uploads lightweight.
+  // Host the worker on our own origin: browsers block cross-origin Worker scripts.
   const [{ FFmpeg }, { toBlobURL }] = await Promise.all([
     import('https://esm.sh/@ffmpeg/ffmpeg@0.12.15'),
     import('https://esm.sh/@ffmpeg/util@0.12.2'),
   ]);
   const ffmpeg = new FFmpeg();
   const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
-  await ffmpeg.load({ coreURL: await toBlobURL(base + '/ffmpeg-core.js', 'text/javascript'), wasmURL: await toBlobURL(base + '/ffmpeg-core.wasm', 'application/wasm') });
+  const workerURL = new URL('/bum/ffmpeg-worker.js', window.location.origin).href;
+  await ffmpeg.load({
+    classWorkerURL: workerURL,
+    coreURL: await toBlobURL(base + '/ffmpeg-core.js', 'text/javascript'),
+    wasmURL: await toBlobURL(base + '/ffmpeg-core.wasm', 'application/wasm'),
+  });
   ffmpegInstance = ffmpeg;
   return ffmpeg;
 }
