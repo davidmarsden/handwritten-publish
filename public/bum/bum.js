@@ -37,6 +37,7 @@ const audioConvert = $('#audio-convert');
 const audioSplit = $('#audio-split');
 const audioMinutes = $('#audio-minutes');
 const audioPreview = $('#audio-preview');
+const downloadAudioZipButton = $('#download-audio-zip');
 const dropZone = $('#drop-zone');
 const selectionSummary = $('#selection-summary');
 const queueEl = $('#queue');
@@ -58,6 +59,7 @@ let loadingCollections = false;
 let connectedToken = '';
 let collections = [];
 let upstreamMediaEndpoint = '';
+const generatedAudio = new Map();
 
 function formatBytes(bytes) {
   if (bytes < 1_000_000) return `${Math.max(1, Math.round(bytes / 1000))} KB`;
@@ -198,6 +200,8 @@ function render() {
     selectionSummary.textContent = `${items.length} file${items.length === 1 ? '' : 's'} selected · ${images} image${images === 1 ? '' : 's'} · ${videos} video${videos === 1 ? '' : 's'} · ${audio} audio · ${documents} PDF${documents === 1 ? '' : 's'}`;
   }
   audioPreview.textContent = items.some(item => item.kind === 'audio') ? 'Audio conversion and splitting will run before upload. Source files are preserved.' : '';
+  downloadAudioZipButton.hidden = generatedAudio.size === 0;
+  downloadAudioZipButton.disabled = busy;
   audioConvert.disabled = busy;
   audioSplit.disabled = busy;
   audioMinutes.disabled = busy || !audioSplit.checked;
@@ -558,6 +562,7 @@ async function runUpload(targets) {
       try {
         item.state = 'processing'; render();
         const parts = await processAudioFile(item.file, { convert: audioConvert.checked, split: audioSplit.checked, segmentMinutes: Number(audioMinutes.value) });
+        if (parts.some(part => part !== item.file)) for (const part of parts) generatedAudio.set(part.name, part);
         if (parts.length === 1) {
           item.file = parts[0]; item.mediaType = parts[0].type || 'audio/mpeg'; item.state = 'queued';
           await uploadItem(item, token, destination);
@@ -631,7 +636,18 @@ uploadButton.addEventListener('click', () => runUpload(queuedItems()));
 retryButton.addEventListener('click', () => { for (const item of retryableFailedItems()) { item.state = 'queued'; item.error = ''; } runUpload(queuedItems()); });
 retryCollectionButton.addEventListener('click', () => addToSelectedCollection(uploadedItems().filter(item => item.collectionState === 'failed')));
 audioSplit.addEventListener('change', render);
-clearButton.addEventListener('click', () => { items = []; setStatus('Queue cleared.'); render(); });
+downloadAudioZipButton.addEventListener('click', async () => {
+  try {
+    const { default: JSZip } = await import('https://esm.sh/jszip@3.10.1');
+    const zip = new JSZip();
+    for (const [name, file] of generatedAudio) zip.file(name, file);
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'bum-hand-audio.zip'; anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (error) { setStatus(error instanceof Error ? error.message : 'Could not create audio ZIP.'); }
+});
+clearButton.addEventListener('click', () => { generatedAudio.clear(); items = []; setStatus('Queue cleared.'); render(); });
 copyUrlsButton.addEventListener('click', () => copyText(uploadedItems().map(item => item.url).join('\n'), 'Copied URLs.'));
 copyMarkdownButton.addEventListener('click', () => copyText(uploadedItems().map(resultMarkdown).join('\n'), 'Copied Markdown.'));
 copyHtmlButton.addEventListener('click', () => copyText(uploadedItems().map(resultHtml).join('\n'), 'Copied HTML.'));
