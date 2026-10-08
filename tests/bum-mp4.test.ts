@@ -43,7 +43,7 @@ describe('BUM Hand media support', () => {
   });
 
   it('bumps the shell cache so existing installs receive the new client', () => {
-    expect(serviceWorker).toContain("const VERSION = 'v7'");
+    expect(serviceWorker).toContain("const VERSION = 'v8'");
     expect(serviceWorker).toContain("'/bum/audio-plan.js'");
   });
 });
