@@ -42,6 +42,12 @@ describe('BUM Hand media support', () => {
     expect(css).toContain('.uploaded-list video { height: auto; }');
   });
 
+  it('checks the deployed client version even after a worker has activated', () => {
+    expect(source).toContain("fetch('/bum/bum.js?update-check=' + Date.now(), { cache: 'no-store' })");
+    expect(source).toContain('deployedVersion[1] !== BUM_CLIENT_VERSION');
+    expect(source).not.toContain('registration.active !== previousWorker');
+  });
+
   it('bumps the shell cache so existing installs receive the new client', () => {
     expect(serviceWorker).toContain("const VERSION = 'v10'");
     expect(serviceWorker).toContain("'/bum/audio-plan.js'");
