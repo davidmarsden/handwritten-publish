@@ -22,6 +22,40 @@ const STREAMED_MEDIA_MAX_BYTES = 100_000_000;
 const MAX_FILES = 30;
 const AUDIO_LIMIT = 100_000_000;
 const $ = selector => document.querySelector(selector);
+const BUM_CLIENT_VERSION = '2026.10.09.1';
+const versionLabel = $('#bum-version');
+const checkUpdatesButton = $('#check-updates');
+const updateStatus = $('#update-status');
+if (versionLabel) versionLabel.textContent = `BUM Hand ${BUM_CLIENT_VERSION} · ${STREAMED_MEDIA_MAX_BYTES / 1_000_000} MB media limit`;
+
+async function checkForBumUpdates() {
+  if (!('serviceWorker' in navigator)) {
+    updateStatus.textContent = 'Update checks are unavailable in this browser. Reload the page to check.';
+    return;
+  }
+  checkUpdatesButton.disabled = true;
+  updateStatus.textContent = 'Checking for updates…';
+  try {
+    const registration = await navigator.serviceWorker.getRegistration('/bum/');
+    if (!registration) {
+      updateStatus.textContent = 'No installed app cache. Reload the page to get the latest version.';
+      return;
+    }
+    await registration.update();
+    if (registration.waiting) {
+      updateStatus.textContent = 'An update is ready. Reload this page to use it.';
+    } else if (registration.installing) {
+      updateStatus.textContent = 'Downloading an update. Reload this page in a moment.';
+    } else {
+      updateStatus.textContent = 'Update check complete. If this page still looks old, close and reopen BUM Hand.';
+    }
+  } catch {
+    updateStatus.textContent = 'Could not check for updates. Check your connection and try again.';
+  } finally {
+    checkUpdatesButton.disabled = false;
+  }
+}
+checkUpdatesButton?.addEventListener('click', checkForBumUpdates);
 
 const tokenInput = $('#token');
 const toggleToken = $('#toggle-token');
