@@ -41,11 +41,19 @@ async function checkForBumUpdates() {
       updateStatus.textContent = 'No installed app cache. Reload the page to get the latest version.';
       return;
     }
-    const previousWorker = registration.active;
     await registration.update();
-    if (registration.waiting) {
+    // The worker may have activated before this click while the page still
+    // runs an older cache-first module. Compare the deployed client version.
+    const latestResponse = await fetch('/bum/bum.js?update-check=' + Date.now(), { cache: 'no-store' });
+    if (!latestResponse.ok) throw new Error('Unable to fetch deployed client version');
+    const latestSource = await latestResponse.text();
+    const deployedVersion = latestSource.match(/const BUM_CLIENT_VERSION = ['"]([^'"]+)['"]/);
+    if (!deployedVersion) throw new Error('Unable to identify deployed client version');
+    if (deployedVersion[1] !== BUM_CLIENT_VERSION) {
+      updateStatus.textContent = `Version ${deployedVersion[1]} is available. Reload this page to use it.`;
+    } else if (registration.waiting) {
       updateStatus.textContent = 'An update is ready. Reload this page to use it.';
-    } else if (registration.installing || (registration.active && registration.active !== previousWorker)) {
+    } else if (registration.installing) {
       updateStatus.textContent = 'An update is being installed. Reload this page in a moment.';
     } else {
       updateStatus.textContent = 'No new update detected. This page is running the version shown above.';
