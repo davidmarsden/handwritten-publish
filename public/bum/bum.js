@@ -22,6 +22,49 @@ const STREAMED_MEDIA_MAX_BYTES = 100_000_000;
 const MAX_FILES = 30;
 const AUDIO_LIMIT = 100_000_000;
 const $ = selector => document.querySelector(selector);
+const BUM_CLIENT_VERSION = '2026.10.09.1';
+const versionLabel = $('#bum-version');
+const checkUpdatesButton = $('#check-updates');
+const updateStatus = $('#update-status');
+if (versionLabel) versionLabel.textContent = `BUM Hand ${BUM_CLIENT_VERSION} · ${STREAMED_MEDIA_MAX_BYTES / 1_000_000} MB media limit`;
+
+async function checkForBumUpdates() {
+  if (!('serviceWorker' in navigator)) {
+    updateStatus.textContent = 'Update checks are unavailable in this browser. Reload the page to check.';
+    return;
+  }
+  checkUpdatesButton.disabled = true;
+  updateStatus.textContent = 'Checking for updates…';
+  try {
+    const registration = await navigator.serviceWorker.getRegistration('/bum/');
+    if (!registration) {
+      updateStatus.textContent = 'No installed app cache. Reload the page to get the latest version.';
+      return;
+    }
+    await registration.update();
+    // The worker may have activated before this click while the page still
+    // runs an older cache-first module. Compare the deployed client version.
+    const latestResponse = await fetch('/bum/bum.js?update-check=' + Date.now(), { cache: 'no-store' });
+    if (!latestResponse.ok) throw new Error('Unable to fetch deployed client version');
+    const latestSource = await latestResponse.text();
+    const deployedVersion = latestSource.match(/const BUM_CLIENT_VERSION = ['"]([^'"]+)['"]/);
+    if (!deployedVersion) throw new Error('Unable to identify deployed client version');
+    if (deployedVersion[1] !== BUM_CLIENT_VERSION) {
+      updateStatus.textContent = `Version ${deployedVersion[1]} is available. Reload this page to use it.`;
+    } else if (registration.waiting) {
+      updateStatus.textContent = 'An update is ready. Reload this page to use it.';
+    } else if (registration.installing) {
+      updateStatus.textContent = 'An update is being installed. Reload this page in a moment.';
+    } else {
+      updateStatus.textContent = 'No new update detected. This page is running the version shown above.';
+    }
+  } catch {
+    updateStatus.textContent = 'Could not check for updates. Check your connection and try again.';
+  } finally {
+    checkUpdatesButton.disabled = false;
+  }
+}
+checkUpdatesButton?.addEventListener('click', checkForBumUpdates);
 
 const tokenInput = $('#token');
 const toggleToken = $('#toggle-token');
