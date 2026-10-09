@@ -41,13 +41,14 @@ async function checkForBumUpdates() {
       updateStatus.textContent = 'No installed app cache. Reload the page to get the latest version.';
       return;
     }
+    const previousWorker = registration.active;
     await registration.update();
     if (registration.waiting) {
       updateStatus.textContent = 'An update is ready. Reload this page to use it.';
-    } else if (registration.installing) {
-      updateStatus.textContent = 'Downloading an update. Reload this page in a moment.';
+    } else if (registration.installing || (registration.active && registration.active !== previousWorker)) {
+      updateStatus.textContent = 'An update is being installed. Reload this page in a moment.';
     } else {
-      updateStatus.textContent = 'Update check complete. If this page still looks old, close and reopen BUM Hand.';
+      updateStatus.textContent = 'No new update detected. This page is running the version shown above.';
     }
   } catch {
     updateStatus.textContent = 'Could not check for updates. Check your connection and try again.';
