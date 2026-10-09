@@ -42,3 +42,7 @@ The upload screen offers opt-in browser-local MP3 conversion at 192 kbps and seg
 Native-form media and local audio processing accept files up to 100 MB; a 58 MB audio conversion and split has been verified in real use. FFmpeg runs from same-origin packaged assets. Large files may require considerably more browser memory than their compressed source size. The stop button prevents subsequent parts/uploads but does not interrupt an in-flight FFmpeg operation or network upload. MP4 video remains a video upload, not an implicit audio extraction. Existing uploads are reconciled by filename; choose unique names for distinct recordings.
 
 Regression checks: `npm test` (audio segment boundaries, valid lengths, naming), `npm run build`, plus manual 44.1 kHz and 48 kHz M4A-to-MP3 conversion, a >15-minute recording, MP3 pass-through, interrupted/retried segment uploads, ZIP download and Android file picker.
+
+## Client version and updates
+
+BUM Hand displays its running client version and media-size ceiling beside a **Check for updates** button. The button requests a fresh service-worker update check and reports whether a new worker is installing or waiting; it does not interrupt in-progress uploads or silently reload the page. Reload BUM Hand after an update is ready to use the new cached assets. The PWA shell cache version is bumped when shipping client changes so existing installed copies receive new JavaScript.
