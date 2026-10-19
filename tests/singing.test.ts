@@ -46,6 +46,12 @@ describe('Singing Hand pitch helpers', () => {
     expect(notes[1].start).toBeGreaterThan(0.55);
   });
 
+  it('hears a repeated note sung twice in a row', () => {
+    // "Twin-kle": the same pitch re-sung after a short consonant dip.
+    const notes = transcribeMelody(join(tone(261.63, 0.5), tone(261.63, 0.06, 0.02), tone(261.63, 0.5), tone(392, 0.5)));
+    expect(notes.map(note => note.midi)).toEqual([60, 60, 67]);
+  });
+
   it('keeps transposed notes on the piano keyboard', () => {
     expect(transposeNotes([{ midi: 100, start: 0, duration: 1 }], 1)[0].midi).toBe(108);
     expect(transposeNotes([{ midi: 48, start: 0, duration: 1 }], -1)[0].midi).toBe(36);

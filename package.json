@@ -20,6 +20,7 @@
     "typescript": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "abcjs": "latest",
     "jszip": "latest",
     "pdfjs-dist": "latest",
     "@ffmpeg/ffmpeg": "0.12.15",

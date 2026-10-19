@@ -175,7 +175,11 @@ Future Drawing Hand work should remain child-safety-first and need-driven. A pub
 - [x] Live `/singing/` surface
 - [x] Record up to two minutes from the microphone, or choose an existing recording
 - [x] In-browser YIN pitch tracking and semitone note segmentation
-- [x] Synthesised piano playback with no vocals, optional left-hand octave and octave shift
+- [x] Synthesised playback with no vocals: piano (default), guitar, marimba, organ, flute or violin
+- [x] Octave shift and optional fuller doubled octave
+- [x] Repeated same-pitch notes split at loudness dips
+- [x] Follow-along playhead, on-screen keyboard and highlighted sheet music during playback
+- [x] Printable sheet music with estimated tempo, key and rhythm, and optional note names
 - [x] Compare with the original voice
 - [x] Download the piano version as WAV
 - [x] Nothing uploaded or stored

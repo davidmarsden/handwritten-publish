@@ -8,6 +8,10 @@
 - Detect the sung melody in the browser with YIN pitch tracking, snap it to piano notes, and render it through a small additive piano synthesiser.
 - Offer octave shift, an optional left-hand octave, comparison with the original voice and WAV download. Recordings never leave the browser.
 - Add Singing Hand to the Helping Hand launcher and suite footers.
+- Add guitar, marimba, organ, flute and violin alongside the default piano; rename “left-hand octave” to “Fuller sound” with an explanation.
+- Follow along during playback with a moving playhead, an on-screen keyboard showing the key to press, and the current note highlighted in the sheet music.
+- Generate printable sheet music (ABC notation drawn with abcjs) with estimated tempo, key, rhythm and optional note names.
+- Split repeated notes on the same pitch at loudness dips so “twin-kle twin-kle” is heard as separate notes.
 
 ### BUM Hand
 

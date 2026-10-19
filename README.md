@@ -106,7 +106,7 @@ See [`apps/drawing-hand/README.md`](apps/drawing-hand/README.md) for the product
 
 Singing Hand turns a sung melody into piano. The public surface is `/singing/`.
 
-Record up to two minutes (or choose an existing recording). Singing Hand detects the pitch of the voice, snaps it to piano notes, and plays them back on a synthesised piano — optionally an octave higher or lower, with a soft left-hand octave. Compare it with the original voice or download the piano version as a WAV. Everything runs locally in the browser.
+Record up to two minutes (or choose an existing recording). Singing Hand detects the pitch of the voice, snaps it to notes, and plays them back on a synthesised piano — or guitar, marimba, organ, flute or violin — optionally an octave higher or lower, with a fuller doubled octave. A playhead, on-screen keyboard and highlighted sheet music follow along during playback. The sheet music (tempo, key and rhythm guessed from the singing, with optional note names) can be printed so the tune can be played on a keyboard. Compare with the original voice or download the playback as a WAV. Everything runs locally in the browser.
 
 See [`apps/singing-hand/README.md`](apps/singing-hand/README.md) for how it works.
 
