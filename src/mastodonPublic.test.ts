@@ -132,6 +132,44 @@ describe('Mastodon public profile adapter', () => {
     expect(result).toEqual(source);
   });
 
+  it('recovers URL-only blank items by permalink even when timestamps are ambiguous', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => response({
+      account: {
+        name: 'elmussol',
+        username: 'elmussol@streams.elsmussols.net',
+        url: 'https://streams.elsmussols.net/channel/elmussol',
+      },
+      feed: {
+        items: [
+          {
+            id: 'remote-a',
+            url: 'https://streams.elsmussols.net/item/a',
+            content_html: '<p>First possible match</p>',
+            date_published: '2026-09-23T09:37:30.000Z',
+          },
+          {
+            id: 'remote-b',
+            url: 'https://streams.elsmussols.net/item/b',
+            content_html: '<p>Second possible match</p>',
+            date_published: '2026-09-23T09:38:20.000Z',
+          },
+        ],
+      },
+    }));
+
+    const result = await enrichBlankChannelItems({
+      items: [{
+        id: '987654',
+        url: 'https://streams.elsmussols.net/item/b',
+        date_published: '2026-09-23T09:38:00.000Z',
+        author: { name: 'elmussol', url: 'https://streams.elsmussols.net/channel/elmussol' },
+      }],
+    }, fetchImpl);
+
+    expect(result.items[0].content_html).toBe('<p>Second possible match</p>');
+    expect(result.items[0]._microblog?.remote_source_id).toBe('remote-b');
+  });
+
   it('does not reuse one remote item to enrich multiple Micro.blog ids', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => response({
       account: {

@@ -213,7 +213,30 @@ export async function fetchMastodonProfile(profileUrl: string, paging: MastodonP
 
 
 function hasVisibleContent(item: MicroblogItem): boolean {
-  return Boolean(item.content_text?.trim() || item.content_html?.trim() || item.url);
+  // A permalink alone renders as an empty card, so URL-only items still need
+  // their body recovered.
+  return Boolean(item.content_text?.trim() || item.content_html?.trim());
+}
+
+function comparableUrl(value?: string): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    url.hash = '';
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return undefined;
+  }
+}
+
+function matchingUrlItem(
+  source: MicroblogItem,
+  candidates: MicroblogItem[],
+  usedRemoteIds: Set<string>,
+): MicroblogItem | undefined {
+  const target = comparableUrl(source.url);
+  if (!target) return undefined;
+  return candidates.find(candidate => candidate.id && !usedRemoteIds.has(candidate.id) && comparableUrl(candidate.url) === target);
 }
 
 function channelProfileUrl(value?: string): string | undefined {
@@ -277,7 +300,8 @@ export async function enrichBlankChannelItems(
       if (hasVisibleContent(item)) return item;
       const profileUrl = channelProfileUrl(item.author?.url);
       if (!profileUrl) return item;
-      const remote = uniquePublishedItem(item, remoteFeeds.get(profileUrl)?.items || [], usedRemoteIds);
+      const candidates = remoteFeeds.get(profileUrl)?.items || [];
+      const remote = matchingUrlItem(item, candidates, usedRemoteIds) || uniquePublishedItem(item, candidates, usedRemoteIds);
       if (!remote) return item;
       usedRemoteIds.add(remote.id);
       return {
