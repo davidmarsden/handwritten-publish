@@ -2,7 +2,7 @@
 
 ## Current release: v1.0.0 core + post-v1.0 additions
 
-Helping Hand's original four-tool publishing suite reached feature-complete v1.0.0 status for the workflows it was built to solve. Dent Hand later joined as a fifth, deliberately small multi-network social client for Micro.blog and Mastodon-compatible servers. Drawing Hand is now the sixth product boundary: a live remote drawing-challenge and judging workflow. Future work remains optional and should be driven by real needs rather than a release calendar.
+Helping Hand's original four-tool publishing suite reached feature-complete v1.0.0 status for the workflows it was built to solve. Dent Hand later joined as a fifth, deliberately small multi-network social client for Micro.blog and Mastodon-compatible servers. Drawing Hand is now the sixth product boundary: a live remote drawing-challenge and judging workflow. Singing Hand is the seventh: sing a song and hear it back as piano, entirely in the browser. Future work remains optional and should be driven by real needs rather than a release calendar.
 
 ## Writing Hand — working
 
@@ -169,6 +169,16 @@ Further Dent Hand work should stay deliberately small and need-driven: better hi
 - [x] Competition images stored as Drawing Hand application data rather than through a participant's Micro.blog account
 
 Future Drawing Hand work should remain child-safety-first and need-driven. A public gallery or challenge archive is optional and must remain explicitly moderated; participant accounts, leaderboards and unnecessary personal data are deliberately out of scope.
+
+## Singing Hand — working
+
+- [x] Live `/singing/` surface
+- [x] Record up to two minutes from the microphone, or choose an existing recording
+- [x] In-browser YIN pitch tracking and semitone note segmentation
+- [x] Synthesised piano playback with no vocals, optional left-hand octave and octave shift
+- [x] Compare with the original voice
+- [x] Download the piano version as WAV
+- [x] Nothing uploaded or stored
 
 ## Safety and privacy boundary
 

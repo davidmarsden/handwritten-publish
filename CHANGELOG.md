@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Singing Hand
+
+- Add Singing Hand at `/singing/`: sing a song (or choose a recording) and hear it played back as a piano version with no vocals.
+- Detect the sung melody in the browser with YIN pitch tracking, snap it to piano notes, and render it through a small additive piano synthesiser.
+- Offer octave shift, an optional left-hand octave, comparison with the original voice and WAV download. Recordings never leave the browser.
+- Add Singing Hand to the Helping Hand launcher and suite footers.
+
 ### BUM Hand
 
 - Route JPEG/PNG/WebP uploads to the selected Micro.blog blog by carrying the chosen destination through the browser client and Netlify image bridge as `mp-destination`.
