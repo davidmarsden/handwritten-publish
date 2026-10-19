@@ -192,7 +192,7 @@ function siteHostname(defaultSite?: string): string | undefined {
 
 function isBlankChannelItem(item: MicroblogItem): boolean {
   if (!/^\d+$/.test(item.id)) return false;
-  if (item.content_text?.trim() || item.content_html?.trim() || item.url) return false;
+  if (item.content_text?.trim() || item.content_html?.trim()) return false;
   const authorUrl = item.author?.url;
   if (!authorUrl) return false;
   try {
