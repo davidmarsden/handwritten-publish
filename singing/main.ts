@@ -1,4 +1,4 @@
-import { ANALYSIS_SAMPLE_RATE, encodeWav, transcribeMelody, transposeNotes, type SungNote } from '../src/singing';
+import { ANALYSIS_SAMPLE_RATE, encodeWav, transposeNotes, type SungNote } from '../src/singing';
 import { DEFAULT_INSTRUMENT, INSTRUMENTS, LEAD_IN, renderMelody, type InstrumentName } from '../src/singingInstruments';
 import { detectKey, displayName, spell, toSheetMusic } from '../src/singingNotation';
 
@@ -192,17 +192,27 @@ async function toMonoAnalysisRate(buffer: AudioBuffer) {
   return samples;
 }
 
+function transcribeOffThread(samples: Float32Array): Promise<SungNote[]> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./transcribe.worker.ts', import.meta.url), { type: 'module' });
+    worker.onmessage = (event: MessageEvent<SungNote[]>) => { worker.terminate(); resolve(event.data); };
+    worker.onerror = () => { worker.terminate(); reject(new Error('Singing Hand could not listen back to that recording.')); };
+    worker.postMessage(samples, [samples.buffer]);
+  });
+}
+
 async function processAudio(data: ArrayBuffer) {
   stopPlayback();
   recordButton.disabled = true;
   try {
     setStatus(recordStatus, 'Listening back for the tune…');
-    voiceBuffer = await context().decodeAudioData(data);
-    if (voiceBuffer.duration > MAX_SECONDS + 1) throw new Error('That recording is longer than two minutes. Try a shorter one.');
-    const samples = await toMonoAnalysisRate(voiceBuffer);
-    await new Promise(resolve => setTimeout(resolve));
-    sungNotes = transcribeMelody(samples);
-    if (!sungNotes.length) throw new Error('Singing Hand could not hear a tune in that. Try singing a little louder or closer to the microphone.');
+    const voice = await context().decodeAudioData(data);
+    if (voice.duration > MAX_SECONDS + 1) throw new Error('That recording is longer than two minutes. Try a shorter one.');
+    const notes = await transcribeOffThread(await toMonoAnalysisRate(voice));
+    if (!notes.length) throw new Error('Singing Hand could not hear a tune in that. Try singing a little louder or closer to the microphone.');
+    // Only replace the previous result once the new recording has worked.
+    voiceBuffer = voice;
+    sungNotes = notes;
     setStatus(recordStatus, '');
     result.hidden = false;
     sheetCard.hidden = false;
