@@ -41,6 +41,21 @@ describe('Micro.blog reply recipient resolution', () => {
     expect(form.get('content')).toBe('@andyc Hello there');
   });
 
+  it('mentions Fediverse authors by their full user@host handle', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async input => {
+      const path = String(input);
+      if (path.includes('/posts/all/by_id')) return response({ items: [
+        { id: '456', author: { url: 'https://streams.elsmussols.net/channel/elmussol', _microblog: { username: 'elmussol@streams.elsmussols.net' } } },
+      ] });
+      if (path.endsWith('/posts/reply')) return response({ ok: true });
+      throw new Error('Unexpected URL: ' + path);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    expect((await handler(request())).status).toBe(200);
+    const form = new URLSearchParams(String(fetchMock.mock.calls[1]?.[1]?.body));
+    expect(form.get('content')).toBe('@elmussol@streams.elsmussols.net Hello there');
+  });
+
   it('falls back to the exact matching conversation item and URL-only author', async () => {
     const fetchMock = vi.fn<typeof fetch>(async input => {
       const path = String(input);

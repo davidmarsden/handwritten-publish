@@ -68,7 +68,10 @@ function paging(url: URL): URLSearchParams {
 function safeUsername(value: string | null): string | null {
   if (!value) return null;
   const trimmed = value.trim().replace(/^@/, '');
-  return /^[A-Za-z0-9_-]{1,64}$/.test(trimmed) ? trimmed : null;
+  // Fediverse accounts followed through Micro.blog use full user@host handles.
+  return /^[A-Za-z0-9_-]{1,64}$/.test(trimmed) || /^[A-Za-z0-9_.-]{1,64}@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(trimmed)
+    ? trimmed
+    : null;
 }
 
 function usernameFromMicroblogUrl(value: unknown): string | null {
@@ -160,7 +163,8 @@ async function replyContentFor(request: Request, id: string, content: string): P
       if (!username) continue;
 
       const mention = `@${username}`;
-      const alreadyMentionsTarget = new RegExp(`(^|\\s)@${username}(?=\\s|$|[.,!?;:])`, 'i').test(content);
+      const escaped = username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const alreadyMentionsTarget = new RegExp(`(^|\\s)@${escaped}(?=\\s|$|[,!?;:]|\\.(?!\\w))`, 'i').test(content);
       return alreadyMentionsTarget ? content : `${mention} ${content}`;
     } catch {
       // Try the compatibility lookup, but never post a reply missing its recipient.
