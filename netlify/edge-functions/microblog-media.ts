@@ -63,7 +63,7 @@ function recentMatchingUrls(payload: unknown, filename: string): string[] {
         const parts = new URL(candidate).pathname.split('/').filter(Boolean);
         const directory = parts.at(-2) || '';
         if (parts.at(-1) === 'playlist.m3u8' &&
-            (directory === videoStem || /^\d+$/.test(directory.slice(videoStem.length)) && directory.startsWith(videoStem))) return [candidate];
+            directory === videoStem) return [candidate];
       } catch { /* Invalid URL. */ }
     }
     return [];
