@@ -428,7 +428,7 @@ async function uploadStreamedMedia(item, token, destination) {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
       const rejection = new Error(payload.error || `Could not upload ${item.file.name}.`);
-      rejection.name = 'DefinitiveUploadFailure';
+      rejection.name = payload.uncertain || response.status >= 500 ? 'AmbiguousUploadFailure' : 'DefinitiveUploadFailure';
       throw rejection;
     }
     if (!payload.url) {
@@ -443,7 +443,7 @@ async function uploadStreamedMedia(item, token, destination) {
       || (error instanceof Error && error.name === 'AmbiguousUploadFailure')
       || /failed to fetch|network/i.test(message);
     // A browser/proxy fetch can fail after Micro.blog has already accepted the bytes.
-    // Reconcile only genuinely ambiguous outcomes; never turn a definitive 4xx/5xx into success.
+    // Reconcile network failures and upstream 5xx responses; neither proves rejection.
     if (ambiguous && before) {
       try {
         const after = await recentStreamedMedia(item, token, destination);
@@ -453,7 +453,7 @@ async function uploadStreamedMedia(item, token, destination) {
       } catch { /* Preserve the original ambiguous failure below. */ }
     }
     if (ambiguous) {
-      const uncertain = new Error('Upload status unknown — Micro.blog may have received this file. Reconnect or verify Uploads before trying again.');
+      const uncertain = new Error('Upload status unknown — Micro.blog may have received this file. Check Micro.blog Uploads before trying again. ' + message);
       uncertain.name = 'UploadStatusUnknown';
       throw uncertain;
     }
