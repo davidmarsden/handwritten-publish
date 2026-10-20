@@ -46,6 +46,7 @@ function recentMatchingUrls(payload: unknown, filename: string): string[] {
       ? (payload as { items: unknown[] }).items
       : [];
   const wanted = mediaKey(filename);
+  const videoStem = wanted.endsWith('.mp4') ? wanted.slice(0, -4) : '';
   return entries.flatMap(entry => {
     if (!entry || typeof entry !== 'object') return [];
     const direct = (entry as { url?: unknown }).url;
@@ -55,7 +56,17 @@ function recentMatchingUrls(payload: unknown, filename: string): string[] {
       : Array.isArray(propertyUrl) && typeof propertyUrl[0] === 'string'
         ? propertyUrl[0]
         : '';
-    return candidate && mediaKey(candidate) === wanted ? [candidate] : [];
+    if (!candidate) return [];
+    if (mediaKey(candidate) === wanted) return [candidate];
+    if (videoStem) {
+      try {
+        const parts = new URL(candidate).pathname.split('/').filter(Boolean);
+        const directory = parts.at(-2) || '';
+        if (parts.at(-1) === 'playlist.m3u8' &&
+            (directory === videoStem || /^\d+$/.test(directory.slice(videoStem.length)) && directory.startsWith(videoStem))) return [candidate];
+      } catch { /* Invalid URL. */ }
+    }
+    return [];
   });
 }
 
@@ -152,7 +163,11 @@ export default async (request: Request) => {
 
   if (!response.ok) {
     const detail = (await response.text().catch(() => '')).trim();
-    return json({ error: detail || `Micro.blog rejected ${filename} (HTTP ${response.status}).` }, response.status);
+    const html = /<\s*(?:!doctype|html|head|body|title)\b/i.test(detail);
+    const error = html || !detail
+      ? `Micro.blog media service returned HTTP ${response.status}. Check recent uploads before retrying.`
+      : detail.slice(0, 500);
+    return json({ error, upstreamStatus: response.status, stage: 'microblog-media', uncertain: response.status >= 500 }, response.status);
   }
 
   const location = response.headers.get('Location');
