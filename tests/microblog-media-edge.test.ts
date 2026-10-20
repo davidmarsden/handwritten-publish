@@ -3,6 +3,10 @@ import handler from '../netlify/edge-functions/microblog-media';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+
+describe('Micro.blog streamed media edge proxy', () => {
   it('sanitizes upstream nginx HTML 502 errors and marks the upload uncertain', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html><head><title>502 Bad Gateway</title></head></html>', { status: 502 })));
     const response = await handler(new Request('https://hand.example/api/microblog/stream-media', {
@@ -40,9 +44,6 @@ afterEach(() => {
     expect((await response.json()).urls).toEqual(['https://cdn.uploads.micro.mov/251858/2026/the-queen-of-the-suburbs2/playlist.m3u8']);
   });
 
-});
-
-describe('Micro.blog streamed media edge proxy', () => {
   it.each([
     ['audio/mpeg', 'song.mp3', 'https://example.micro.blog/uploads/song.mp3'],
     ['video/mp4', 'clip.mp4', 'https://example.micro.blog/uploads/clip.mp4'],
