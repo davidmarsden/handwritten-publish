@@ -3,6 +3,43 @@ import handler from '../netlify/edge-functions/microblog-media';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  it('sanitizes upstream nginx HTML 502 errors and marks the upload uncertain', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html><head><title>502 Bad Gateway</title></head></html>', { status: 502 })));
+    const response = await handler(new Request('https://hand.example/api/microblog/stream-media', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'video/mp4',
+        'X-Microblog-Token': 'token',
+        'X-Microblog-Media-Endpoint': encodeURIComponent('https://micro.blog/micropub/media'),
+        'X-Microblog-Destination': encodeURIComponent('https://example.micro.blog/'),
+        'X-File-Name': encodeURIComponent('video.mp4'),
+      },
+      body: new Uint8Array([1, 2, 3]),
+    }));
+    expect(response.status).toBe(502);
+    const payload = await response.json();
+    expect(payload).toMatchObject({ upstreamStatus: 502, stage: 'microblog-media', uncertain: true });
+    expect(payload.error).not.toContain('<html>');
+  });
+
+  it('reconciles an HLS playlist matching the original MP4 filename', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([
+      { url: 'https://cdn.uploads.micro.mov/251858/2026/the-queen-of-the-suburbs2/playlist.m3u8' },
+    ]), { status: 200 })));
+    const response = await handler(new Request('https://hand.example/api/microblog/stream-media', {
+      method: 'POST',
+      headers: {
+        'X-BUM-Action': 'recent',
+        'X-Microblog-Token': 'token',
+        'X-Microblog-Media-Endpoint': encodeURIComponent('https://micro.blog/micropub/media'),
+        'X-Microblog-Destination': encodeURIComponent('https://example.micro.blog/'),
+        'X-File-Name': encodeURIComponent('The Queen of the suburbs~2.mp4'),
+      },
+    }));
+    expect(response.status).toBe(200);
+    expect((await response.json()).urls).toEqual(['https://cdn.uploads.micro.mov/251858/2026/the-queen-of-the-suburbs2/playlist.m3u8']);
+  });
+
 });
 
 describe('Micro.blog streamed media edge proxy', () => {
