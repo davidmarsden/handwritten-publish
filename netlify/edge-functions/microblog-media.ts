@@ -46,7 +46,7 @@ function recentMatchingUrls(payload: unknown, filename: string): string[] {
       ? (payload as { items: unknown[] }).items
       : [];
   const wanted = mediaKey(filename);
-  const videoStem = wanted.endsWith('.mp4') ? wanted.slice(0, -4) : '';
+  const videoStem = wanted.endsWith('.mp4') ? wanted.slice(0, -4).replace(/-(\d+)$/, '$1') : '';
   return entries.flatMap(entry => {
     if (!entry || typeof entry !== 'object') return [];
     const direct = (entry as { url?: unknown }).url;
