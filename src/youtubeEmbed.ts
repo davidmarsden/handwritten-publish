@@ -26,18 +26,25 @@ export function youtubeVideoId(text: string): string | null {
 }
 
 export function embedYoutubeLinks(text: string): string {
-  // Replace complete Markdown links, not just the URL inside their delimiters.
+  // Markdown links keep their wording; their videos are embedded after the text.
   const markdownLink = /\[([^\]\n]+)\]\((https?:\/\/[^\s()]+)\)/g;
-  const converted = text.replace(markdownLink, (original, _label: string, url: string) => {
-    const id = videoIdFromUrl(url);
-    return id ? `{{< yt ${id} >}}` : original;
-  });
-  return converted.replace(YOUTUBE_URL, (url, offset: number, source: string) => {
-    // Do not rewrite a URL embedded in a Markdown link that was not convertible.
+  const appended: string[] = [];
+  for (const match of text.matchAll(markdownLink)) {
+    const id = videoIdFromUrl(match[2]);
+    if (id && !appended.includes(id)) appended.push(id);
+  }
+
+  // Bare links are replaced by the embed where they appear.
+  const converted = text.replace(YOUTUBE_URL, (url, offset: number, source: string) => {
     const before = source.slice(0, offset);
     if (/\[[^\]\n]+\]\($/.test(before) && source[offset + url.length] === ')') return url;
     const cleanUrl = url.replace(/[.,!?;:]+$/, '');
     const id = videoIdFromUrl(cleanUrl);
     return id ? `{{< yt ${id} >}}${url.slice(cleanUrl.length)}` : url;
   });
+
+  const embeds = appended
+    .filter(id => !converted.includes(`{{< yt ${id} >}}`))
+    .map(id => `{{< yt ${id} >}}`);
+  return embeds.length ? `${converted}\n\n${embeds.join('\n\n')}` : converted;
 }

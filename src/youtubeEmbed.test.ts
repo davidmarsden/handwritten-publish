@@ -25,8 +25,19 @@ describe('YouTube shortcode embedding', () => {
     expect(youtubeVideoId(`https://www.youtube.com/watch?rv=AAAAAAAAAAA&v=${ID}`)).toBe(ID);
   });
 
-  it('replaces whole Markdown links to YouTube and leaves other links alone', () => {
-    expect(embedYoutubeLinks(`See [this](https://youtu.be/${ID}) now`)).toBe(`See {{< yt ${ID} >}} now`);
+  it('keeps Markdown links and embeds their videos after the text', () => {
+    const link = '[This](https://youtu.be/ZfwpPhpImSs?is=HEHX8LDFHaQOG48c) is awesome!';
+    expect(embedYoutubeLinks(link)).toBe(`${link}\n\n{{< yt ZfwpPhpImSs >}}`);
+    expect(embedYoutubeLinks(`[a](https://youtu.be/${ID}) and [b](https://youtu.be/${ID})`))
+      .toBe(`[a](https://youtu.be/${ID}) and [b](https://youtu.be/${ID})\n\n{{< yt ${ID} >}}`);
+  });
+
+  it('does not embed the same video twice', () => {
+    expect(embedYoutubeLinks(`[This](https://youtu.be/${ID}) again: https://youtu.be/${ID}`))
+      .toBe(`[This](https://youtu.be/${ID}) again: {{< yt ${ID} >}}`);
+  });
+
+  it('leaves non-YouTube Markdown links alone', () => {
     const other = 'See [this](https://example.com/page) now';
     expect(embedYoutubeLinks(other)).toBe(other);
   });
