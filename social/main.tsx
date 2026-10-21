@@ -1,6 +1,7 @@
 import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MicroblogAccount, MicroblogAuthor, MicroblogDestination, MicroblogFeed, MicroblogItem, MicroblogSocialClient } from '../src/microblogSocial';
+import { embedYoutubeLinks, youtubeVideoId } from '../src/youtubeEmbed';
 import { enrichBlankChannelItems, fetchMastodonProfile, isMastodonProfileUrl } from '../src/mastodonPublic';
 import './social.css';
 import { RichContent } from './RichContent';
@@ -75,47 +76,6 @@ function readCircle(): CirclePerson[] {
       return [{ id: candidate.id, name: candidate.name, username: candidate.username, url: candidate.url, avatar: candidate.avatar }];
     });
   } catch { return []; }
-}
-
-const YOUTUBE_URL = /https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?[^\s<>()[\]]*|shorts\/[^\s<>()[\]]*|live\/[^\s<>()[\]]*)|youtu\.be\/[^\s<>()[\]]*)/gi;
-
-function videoIdFromUrl(raw: string): string | null {
-  try {
-    const url = new URL(raw);
-    const host = url.hostname.toLowerCase();
-    let candidate: string | null = null;
-    if (host === 'youtu.be') candidate = url.pathname.slice(1).split('/')[0];
-    else if (['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(host)) {
-      if (url.pathname === '/watch') candidate = url.searchParams.get('v');
-      else if (/^\/(shorts|live)\//.test(url.pathname)) candidate = url.pathname.split('/')[2];
-    }
-    return candidate && /^[A-Za-z0-9_-]{11}$/.test(candidate) ? candidate : null;
-  } catch { return null; }
-}
-
-function youtubeVideoId(text: string): string | null {
-  for (const match of text.matchAll(YOUTUBE_URL)) {
-    const id = videoIdFromUrl(match[0].replace(/[.,!?;:]+$/, ''));
-    if (id) return id;
-  }
-  return null;
-}
-
-function embedYoutubeLinks(text: string): string {
-  // Replace complete Markdown links, not just the URL inside their delimiters.
-  const markdownLink = /\[([^\]\n]+)\]\((https?:\/\/[^\s()]+)\)/g;
-  const converted = text.replace(markdownLink, (original, _label: string, url: string) => {
-    const id = videoIdFromUrl(url);
-    return id ? `{{< yt ${id} >}}` : original;
-  });
-  return converted.replace(YOUTUBE_URL, (url, offset: number, source: string) => {
-    // Do not rewrite a URL embedded in a Markdown link that was not convertible.
-    const before = source.slice(0, offset);
-    if (/\[[^\]\n]+\]\($/.test(before) && source[offset + url.length] === ')') return url;
-    const cleanUrl = url.replace(/[.,!?;:]+$/, '');
-    const id = videoIdFromUrl(cleanUrl);
-    return id ? `{{< yt ${id} >}}${url.slice(cleanUrl.length)}` : url;
-  });
 }
 
 function readDraft(): ComposerDraft {
@@ -461,7 +421,7 @@ function App() {
 
   function openComposer(item?: MicroblogItem) {
     if (!authenticated) return;
-    setComposerError(''); setPublishNotice(null); setQuotedItem(item || null);
+    setComposerError(''); setPublishNotice(null); setQuotedItem(item || null); setEmbedYoutube(true);
     if (item) {
       setMicropostText('');
       setSelectedDestination(destinations.length === 1 ? destinations[0].uid : '');
