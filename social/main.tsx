@@ -2,6 +2,7 @@ import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MicroblogAccount, MicroblogAuthor, MicroblogDestination, MicroblogFeed, MicroblogItem, MicroblogSocialClient } from '../src/microblogSocial';
 import { embedYoutubeLinks, youtubeVideoId } from '../src/youtubeEmbed';
+import { createDemoFetch, DemoPost, demoModeRequested } from '../src/dentHandDemo';
 import { enrichBlankChannelItems, fetchMastodonProfile, isMastodonProfileUrl } from '../src/mastodonPublic';
 import './social.css';
 import { RichContent } from './RichContent';
@@ -181,7 +182,9 @@ function App() {
   const refreshRequestRef = useRef(0);
   const profileCacheRef = useRef(new Map<string, MicroblogFeed>());
 
-  const client = useMemo(() => new MicroblogSocialClient(), []);
+  const demoMode = useMemo(() => demoModeRequested(window.location), []);
+  const [demoPost, setDemoPost] = useState<DemoPost | null>(null);
+  const client = useMemo(() => new MicroblogSocialClient(demoMode ? { fetchImpl: createDemoFetch(setDemoPost) } : {}), []);
   const circleSet = useMemo(() => new Set(circle.map(person => person.id)), [circle]);
   const debugBlankItems = useMemo(() => new URLSearchParams(window.location.search).get('debug') === '1', []);
 
@@ -458,7 +461,7 @@ function App() {
       const target = destinations.find(destination => destination.uid === selectedDestination);
       if (!wasQuote) sessionStorage.removeItem(DRAFT_KEY);
       setComposing(false); setQuotedItem(null); setMicropostText(''); setSelectedDestination(destinations.length === 1 ? destinations[0].uid : '');
-      setPublishNotice({ message: `Published to ${target?.name || selectedDestination}.`, url: result.preview || result.url });
+      setPublishNotice(demoMode ? { message: 'Demo mode: nothing was published.' } : { message: `Published to ${target?.name || selectedDestination}.`, url: result.preview || result.url });
     } catch (err) { setComposerError(err instanceof Error ? err.message : 'Could not publish dent.'); }
     finally { setPublishing(false); }
   }
@@ -492,7 +495,7 @@ function App() {
   return <div className="social-shell">
     <header className="social-header"><div><a className="back-link" href="/">Helping Hand</a><p className="eyebrow">Dent Hand · Micro.blog</p><h1>{headerTitle}</h1><p className="lede">Chronological dents from people you chose. Read, reply, bookmark and quote. No algorithm required.</p></div><div className="token-card">{authChecking ? <div className="token-note">Checking Micro.blog sign-in…</div> : authenticated ? <><strong>{account?.name || `@${account?.username}`}</strong><div className="token-note">{account?.username && <>@{account.username} · </>}Connected securely. Your Micro.blog access token stays on the server. <button className="text-button" onClick={() => void signOut()}>Sign out</button></div></> : <><strong>Connect Micro.blog</strong><div className="token-note">Sign in on Micro.blog and approve Dent Hand. No app token to copy or store in this browser.</div><div className="token-row"><button onClick={() => window.location.assign('/api/microblog/auth?op=start')}>Connect Micro.blog</button></div></>}</div></header>
     <nav className="tabs" aria-label="Dent Hand views"><button className={!conversation && !profile && view === 'timeline' ? 'active' : ''} onClick={() => load('timeline')} disabled={!authenticated}>Timeline</button><button className={!conversation && !profile && view === 'circle' ? 'active' : ''} onClick={() => load('circle')} disabled={!authenticated}>Circle</button><button className={!conversation && !profile && view === 'bookmarks' ? 'active' : ''} onClick={() => load('bookmarks')} disabled={!authenticated}>Bookmarks</button><button className={!conversation && !profile && view === 'mentions' ? 'active' : ''} onClick={() => load('mentions')} disabled={!authenticated}>Mentions</button><button className={!conversation && !profile && view === 'replies' ? 'active' : ''} onClick={() => load('replies')} disabled={!authenticated}>Replies</button>{!conversation && !profile && view === 'timeline' && <button className="refresh-button" onClick={() => void checkForNew()} disabled={!authenticated || checkingNew}>{checkingNew ? 'Checking…' : 'Refresh'}</button>}{(conversation || profile) && <button className="active" onClick={() => conversation ? setConversation(null) : setProfile(null)}>← Back</button>}<button className="compose-launch" onClick={() => openComposer()} disabled={!authenticated}>+ New dent</button></nav>
-    {error && <div className="notice error" role="alert">{error}</div>}{publishNotice && <div className="notice success" role="status">{publishNotice.message} {publishNotice.url && <a href={publishNotice.url} target="_blank" rel="noreferrer">View dent ↗</a>}</div>}{!authenticated && !authChecking && !error && <div className="notice">Connect your Micro.blog account to load your timeline.</div>}
+    {demoMode && <div className="notice" role="status"><strong>Demo mode.</strong> Sample dents; nothing is sent to Micro.blog. <a href={window.location.pathname}>Leave demo</a>{demoPost && <details open><summary>{demoPost.replyTo ? `Reply to ${demoPost.replyTo} that would have been sent` : 'Dent that would have been published'}</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{demoPost.content}</pre></details>}</div>}{error && <div className="notice error" role="alert">{error}</div>}{publishNotice && <div className="notice success" role="status">{publishNotice.message} {publishNotice.url && <a href={publishNotice.url} target="_blank" rel="noreferrer">View dent ↗</a>}</div>}{!authenticated && !authChecking && !error && <div className="notice">Connect your Micro.blog account to load your timeline.</div>}
     {debugBlankItems && <div className="notice inline"><strong>Diagnostics on</strong> · Blank timeline cards will show structural debug details.</div>}
     {!conversation && !profile && view === 'timeline' && pendingNew.length > 0 && <div className="new-dents-wrap"><button className="new-dents-button" onClick={revealNew}>{pendingNew.length.toLocaleString()} new {pendingNew.length === 1 ? 'dent' : 'dents'} ↑</button></div>}
     {profile && <section className="profile-card"><div className="profile-main">{profile.person.avatar && <img className="profile-avatar" src={profile.person.avatar} alt=""/>}<div><p className="eyebrow">Profile</p><h2>{profile.person.name}</h2>{profile.person.username && <p>@{profile.person.username}</p>}{profile.loading && <p className="profile-status">{profile.source === 'mastodon' ? 'Loading public Mastodon history…' : 'Loading full Micro.blog history…'}</p>}{profile.loadError && <p className="profile-status">Showing dents already in your timeline.</p>}</div></div><div className="profile-actions"><button className="circle-toggle" onClick={() => toggleCircle(profile.person)}>{circleSet.has(profile.person.id) ? '★ In Circle' : '☆ Add to Circle'}</button>{profile.person.url && <a className="profile-link" href={profile.person.url} target="_blank" rel="noreferrer">Open profile ↗</a>}</div></section>}

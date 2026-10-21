@@ -2,6 +2,7 @@ import React, { FormEvent, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MicroblogSocialClient } from '../src/microblogSocial';
 import { MastodonSocialClient } from '../src/mastodonSocial';
+import { demoModeRequested } from '../src/dentHandDemo';
 import './social.css';
 
 type ProviderId = 'microblog' | 'mastodon';
@@ -107,6 +108,11 @@ function Chooser() {
 }
 
 async function boot() {
+  if (demoModeRequested(window.location)) {
+    await import('./main');
+    return;
+  }
+
   const params = new URLSearchParams(window.location.search);
   const forceChoose = params.get('choose') === '1';
   const preferred = selectedProvider();
