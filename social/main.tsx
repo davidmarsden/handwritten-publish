@@ -95,7 +95,7 @@ function videoIdFromUrl(raw: string): string | null {
 
 function youtubeVideoId(text: string): string | null {
   for (const match of text.matchAll(YOUTUBE_URL)) {
-    const id = videoIdFromUrl(match[0]);
+    const id = videoIdFromUrl(match[0].replace(/[.,!?;:]+$/, ''));
     if (id) return id;
   }
   return null;
@@ -112,8 +112,9 @@ function embedYoutubeLinks(text: string): string {
     // Do not rewrite a URL embedded in a Markdown link that was not convertible.
     const before = source.slice(0, offset);
     if (/\[[^\]\n]+\]\($/.test(before) && source[offset + url.length] === ')') return url;
-    const id = videoIdFromUrl(url);
-    return id ? `{{< yt ${id} >}}` : url;
+    const cleanUrl = url.replace(/[.,!?;:]+$/, '');
+    const id = videoIdFromUrl(cleanUrl);
+    return id ? `{{< yt ${id} >}}${url.slice(cleanUrl.length)}` : url;
   });
 }
 
