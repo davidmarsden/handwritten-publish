@@ -13,6 +13,7 @@ export default defineConfig({
         drawingHand: resolve(rootDir, 'drawing/index.html'),
         drawingHandJudge: resolve(rootDir, 'drawing/judge/index.html'),
         drawingHandResult: resolve(rootDir, 'drawing/result/index.html'),
+        singingHand: resolve(rootDir, 'singing/index.html'),
         social: resolve(rootDir, 'social/index.html'),
         socialMyPosts: resolve(rootDir, 'social/my-posts/index.html'),
       },

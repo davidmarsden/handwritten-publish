@@ -4,7 +4,7 @@ Helping Hand is a family of small, human-first tools for getting material from p
 
 ## v1.0.0 and beyond
 
-Helping Hand v1.0.0 was the first complete release of the original four-tool publishing suite. Dent Hand later joined the family as a fifth post-v1.0 product boundary, and Drawing Hand is now the sixth:
+Helping Hand v1.0.0 was the first complete release of the original four-tool publishing suite. Dent Hand later joined the family as a fifth post-v1.0 product boundary, Drawing Hand is the sixth, and Singing Hand is the seventh:
 
 - **Writing Hand** — reMarkable → Micro.blog. *From paper to web at the push of a pen.* Send edited transcription, original handwritten pages, or both by email. Posts are drafts by default unless `Status: published` is explicitly supplied.
 - **Publish Hand** — handwriting, scans, PDFs and photos → a web-ready Micro.blog post. Arrange mixed pages, add links and metadata, keep portable `.handpub` documents, and safely create/update tracked posts.
@@ -12,10 +12,11 @@ Helping Hand v1.0.0 was the first complete release of the original four-tool pub
 - **Markdown Hand** — prepared `.md` → private GitHub working draft or Micro.blog. *Your Markdown. Hands off.* Save raw Markdown unchanged to a configured private working-draft repository, or send it through Micropub as a draft or published post and verify the stored source round trip.
 - **Dent Hand** — a minimal social client for Micro.blog and Mastodon-compatible Fediverse servers: timelines, replies, profiles, bookmarks/favourites, boosts and short-form posting, with a local Circle that is independent of the connected network. It keeps social reading/responding separate from the longer-form publishing tools.
 - **Drawing Hand** — Elijah publishes a challenge drawing; anyone can submit a private attempt remotely; Elijah judges it with his own score/grade system; the entrant receives an unguessable private result link. *Draw it. Send it. Get graded.*
+- **Singing Hand** — sing a song into the microphone and hear it played back as a piano version with no vocals. Pitch detection and the piano are entirely in the browser; nothing is uploaded. *Sing it. Hear it on piano.*
 
-The deployed root route `/` is the **Helping Hand** launcher. The tools share infrastructure but keep separate product boundaries. Dent Hand lives at `/social/`; Drawing Hand lives at `/drawing/`.
+The deployed root route `/` is the **Helping Hand** launcher. The tools share infrastructure but keep separate product boundaries. Dent Hand lives at `/social/`; Drawing Hand lives at `/drawing/`; Singing Hand lives at `/singing/`.
 
-See [`docs/helping-hand.md`](docs/helping-hand.md) for the suite architecture, [`docs/bum-hand.md`](docs/bum-hand.md) for the mixed-media uploader, [`docs/microblog-social-plumbing.md`](docs/microblog-social-plumbing.md) for Dent Hand's social boundary, [`apps/drawing-hand/README.md`](apps/drawing-hand/README.md) for Drawing Hand, and [`docs/STATUS.md`](docs/STATUS.md) for the release boundary.
+See [`docs/helping-hand.md`](docs/helping-hand.md) for the suite architecture, [`docs/bum-hand.md`](docs/bum-hand.md) for the mixed-media uploader, [`docs/microblog-social-plumbing.md`](docs/microblog-social-plumbing.md) for Dent Hand's social boundary, [`apps/drawing-hand/README.md`](apps/drawing-hand/README.md) for Drawing Hand, [`apps/singing-hand/README.md`](apps/singing-hand/README.md) for Singing Hand, and [`docs/STATUS.md`](docs/STATUS.md) for the release boundary.
 
 ## Set up your own copy
 
@@ -100,6 +101,14 @@ Elijah publishes the current reference drawing and optional difficulty. Entrants
 Competition images are application data rather than Micro.blog uploads. Drawing Hand deliberately avoids participant accounts, email addresses, surnames, ages, schools, leaderboards and automatic public galleries. Any future public visibility must remain explicitly moderated.
 
 See [`apps/drawing-hand/README.md`](apps/drawing-hand/README.md) for the product and safety boundary.
+
+## Singing Hand
+
+Singing Hand turns a sung melody into piano. The public surface is `/singing/`.
+
+Record up to two minutes (or choose an existing recording). Singing Hand detects the pitch of the voice, snaps it to notes, and plays them back on a synthesised piano — or guitar, marimba, organ, flute or violin — optionally an octave higher or lower, with a fuller doubled octave. A playhead, on-screen keyboard and highlighted sheet music follow along during playback. The sheet music (tempo, key and rhythm guessed from the singing, with optional note names) can be printed so the tune can be played on a keyboard. Compare with the original voice or download the playback as a WAV. Everything runs locally in the browser.
+
+See [`apps/singing-hand/README.md`](apps/singing-hand/README.md) for how it works.
 
 ## Portable `.handpub` documents
 
