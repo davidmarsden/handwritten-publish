@@ -47,6 +47,7 @@ describe('Micro.blog streamed media edge proxy', () => {
   it.each([
     ['audio/mpeg', 'song.mp3', 'https://example.micro.blog/uploads/song.mp3'],
     ['video/mp4', 'clip.mp4', 'https://example.micro.blog/uploads/clip.mp4'],
+    ['image/gif', 'animated.gif', 'https://example.micro.blog/uploads/animated.gif'],
     ['application/pdf', 'annual-report.pdf', 'https://example.micro.blog/uploads/annual-report.pdf'],
   ])('streams %s uploads to the Micro.blog media endpoint', async (contentType, filename, location) => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('', {
