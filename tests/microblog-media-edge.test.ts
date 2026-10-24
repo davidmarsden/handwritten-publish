@@ -104,7 +104,7 @@ describe('Micro.blog streamed media edge proxy', () => {
     }));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'An MP3, M4A, MP4 or PDF file is required.' });
+    await expect(response.json()).resolves.toEqual({ error: 'An MP3, M4A, MP4, GIF or PDF file is required.' });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
