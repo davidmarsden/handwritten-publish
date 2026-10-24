@@ -7,6 +7,22 @@ const css = readFileSync(new URL('../public/bum/bum.css', import.meta.url), 'utf
 const serviceWorker = readFileSync(new URL('../public/hand-sw.js', import.meta.url), 'utf8');
 
 describe('BUM Hand media support', () => {
+  it('rechecks recent uploads after an ambiguous upstream response without reuploading', () => {
+    expect(source).toContain('for (const delayMs of [0, 1500, 3000, 5000])');
+    expect(source).toContain('const recovered = after.find(url => !previous.has(url))');
+    expect(source).toContain('if (recovered) return { url: recovered, recovered: true, existing: false }');
+    expect(source).toContain("uncertain.name = 'UploadStatusUnknown'");
+  });
+
+  it('accepts GIFs without stripping animation or routing through still-image optimization', () => {
+    expect(html).toContain('image/gif');
+    expect(html).toContain('.gif');
+    expect(source).toContain("return { kind: 'image', mediaType: 'image/gif' }");
+    expect(source).toContain("mediaType !== 'image/gif' && stableFile.size > SAFE_UPLOAD_BYTES");
+    expect(source).toContain("item.mediaType === 'image/gif'");
+    expect(source).toContain("kind === 'image' && mediaType !== 'image/gif'");
+  });
+
   it('classifies explicit video MP4 and generic/blank MIME .mp4 files as video', () => {
     expect(source).toContain("const VIDEO_TYPES = new Set(['video/mp4'])");
     expect(source).toContain("if (type === 'video/mp4') return 'video/mp4'");

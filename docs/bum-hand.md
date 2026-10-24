@@ -10,8 +10,8 @@ BUM Hand uses a single file chooser and queue. Files are classified after select
 
 ### Images
 
-- JPEG, PNG and WebP;
-- local resize/compression for larger photos;
+- JPEG, PNG, WebP and animated GIF;
+- local resize/compression for larger JPEG/PNG/WebP photos; GIFs bypass optimization to preserve animation and use the 100 MB media proxy;
 - destination-aware upload to the selected Micro.blog blog;
 - direct assignment to existing or newly created Micro.blog Photo Collections;
 - URL, Markdown and HTML output;

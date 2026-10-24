@@ -13,7 +13,7 @@ import {
 
 import { planAudioSegments, audioPartFilename } from './audio-plan.js';
 
-const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 const AUDIO_TYPES = new Set(['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a']);
 const OGG_TYPES = new Set(['audio/ogg', 'application/ogg']);
 const VIDEO_TYPES = new Set(['video/mp4']);
@@ -22,7 +22,7 @@ const STREAMED_MEDIA_MAX_BYTES = 100_000_000;
 const MAX_FILES = 30;
 const AUDIO_LIMIT = 100_000_000;
 const $ = selector => document.querySelector(selector);
-const BUM_CLIENT_VERSION = '2026.10.09.1';
+const BUM_CLIENT_VERSION = '2026.10.24.2';
 const versionLabel = $('#bum-version');
 const checkUpdatesButton = $('#check-updates');
 const updateStatus = $('#update-status');
@@ -138,6 +138,8 @@ function inferDocumentType(file) {
 }
 
 function classifyFile(file) {
+  // Preserve GIF animation: never send GIFs through still-image optimization.
+  if (file.type.toLowerCase() === 'image/gif' || /\.gif$/i.test(file.name)) return { kind: 'image', mediaType: 'image/gif' };
   const imageType = inferImageMediaType(file);
   if (IMAGE_TYPES.has(imageType)) return { kind: 'image', mediaType: imageType };
   const audioType = inferAudioType(file);
@@ -361,9 +363,9 @@ async function addFiles(fileList) {
     const { kind, mediaType } = classifyFile(file);
     let state = 'queued', error = '', retryable = true, stableFile = file;
     if (kind === 'ogg') { state = 'failed'; error = 'Micro.blog does not currently accept OGG uploads. Convert this file to MP3 or M4A first.'; retryable = false; }
-    else if (kind === 'unsupported') { state = 'failed'; error = 'PNG, JPEG, WebP, MP3, M4A, MP4 or PDF only'; retryable = false; }
+    else if (kind === 'unsupported') { state = 'failed'; error = 'PNG, JPEG, WebP, GIF, MP3, M4A, MP4 or PDF only'; retryable = false; }
     else if (!file.size) { state = 'failed'; error = 'Empty file'; retryable = false; }
-    else if ((kind === 'audio' || kind === 'video' || kind === 'document') && file.size > STREAMED_MEDIA_MAX_BYTES) {
+    else if ((kind === 'audio' || kind === 'video' || kind === 'document' || mediaType === 'image/gif') && file.size > STREAMED_MEDIA_MAX_BYTES) {
       state = 'failed'; error = `${formatBytes(file.size)} exceeds BUM Hand’s 100 MB native-form media limit`; retryable = false;
     } else {
       try { stableFile = await stableBrowserFile(file, mediaType); }
@@ -371,7 +373,7 @@ async function addFiles(fileList) {
     }
     return {
       id: crypto.randomUUID(), file: stableFile, kind, mediaType, state, error, url: '', retryable,
-      collectionState: 'none', needsOptimization: kind === 'image' && stableFile.size > SAFE_UPLOAD_BYTES, optimizedBytes: null, recovered: false, existing: false,
+      collectionState: 'none', needsOptimization: kind === 'image' && mediaType !== 'image/gif' && stableFile.size > SAFE_UPLOAD_BYTES, optimizedBytes: null, recovered: false, existing: false,
       altText: '', altState: kind === 'image' ? 'waiting' : 'none',
     };
   }));
@@ -445,12 +447,17 @@ async function uploadStreamedMedia(item, token, destination) {
     // A browser/proxy fetch can fail after Micro.blog has already accepted the bytes.
     // Reconcile network failures and upstream 5xx responses; neither proves rejection.
     if (ambiguous && before) {
-      try {
-        const after = await recentStreamedMedia(item, token, destination);
-        const previous = new Set(before);
-        const recovered = after.find(url => !previous.has(url));
-        if (recovered) return { url: recovered, recovered: true, existing: false };
-      } catch { /* Preserve the original ambiguous failure below. */ }
+      const previous = new Set(before);
+      // Micro.blog can accept media before its recent-upload index exposes it.
+      // Retry read-only reconciliation, never the upload itself.
+      for (const delayMs of [0, 1500, 3000, 5000]) {
+        if (delayMs) await new Promise(resolve => setTimeout(resolve, delayMs));
+        try {
+          const after = await recentStreamedMedia(item, token, destination);
+          const recovered = after.find(url => !previous.has(url));
+          if (recovered) return { url: recovered, recovered: true, existing: false };
+        } catch { /* A transient lookup failure must not trigger a duplicate upload. */ }
+      }
     }
     if (ambiguous) {
       const uncertain = new Error('Upload status unknown — Micro.blog may have received this file. Check Micro.blog Uploads before trying again. ' + message);
@@ -498,7 +505,7 @@ async function fetchGeneratedAltText(item, token, destination) {
 async function uploadItem(item, token, destination) {
   item.error = ''; item.retryable = true; item.optimizedBytes = null;
   try {
-    if (item.kind === 'audio' || item.kind === 'video' || item.kind === 'document') {
+    if (item.kind === 'audio' || item.kind === 'video' || item.kind === 'document' || item.mediaType === 'image/gif') {
       item.state = 'uploading'; render();
       const streamed = await uploadStreamedMedia(item, token, destination);
       item.url = streamed.url;
