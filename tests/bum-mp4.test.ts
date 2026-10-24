@@ -7,6 +7,13 @@ const css = readFileSync(new URL('../public/bum/bum.css', import.meta.url), 'utf
 const serviceWorker = readFileSync(new URL('../public/hand-sw.js', import.meta.url), 'utf8');
 
 describe('BUM Hand media support', () => {
+  it('rechecks recent uploads after an ambiguous upstream response without reuploading', () => {
+    expect(source).toContain('for (const delayMs of [0, 1500, 3000, 5000])');
+    expect(source).toContain('const recovered = after.find(url => !previous.has(url))');
+    expect(source).toContain('if (recovered) return { url: recovered, recovered: true, existing: false }');
+    expect(source).toContain("uncertain.name = 'UploadStatusUnknown'");
+  });
+
   it('accepts GIFs without stripping animation or routing through still-image optimization', () => {
     expect(html).toContain('image/gif');
     expect(html).toContain('.gif');
