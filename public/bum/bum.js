@@ -22,7 +22,7 @@ const STREAMED_MEDIA_MAX_BYTES = 100_000_000;
 const MAX_FILES = 30;
 const AUDIO_LIMIT = 100_000_000;
 const $ = selector => document.querySelector(selector);
-const BUM_CLIENT_VERSION = '2026.10.24.1';
+const BUM_CLIENT_VERSION = '2026.10.24.2';
 const versionLabel = $('#bum-version');
 const checkUpdatesButton = $('#check-updates');
 const updateStatus = $('#update-status');
@@ -447,12 +447,17 @@ async function uploadStreamedMedia(item, token, destination) {
     // A browser/proxy fetch can fail after Micro.blog has already accepted the bytes.
     // Reconcile network failures and upstream 5xx responses; neither proves rejection.
     if (ambiguous && before) {
-      try {
-        const after = await recentStreamedMedia(item, token, destination);
-        const previous = new Set(before);
-        const recovered = after.find(url => !previous.has(url));
-        if (recovered) return { url: recovered, recovered: true, existing: false };
-      } catch { /* Preserve the original ambiguous failure below. */ }
+      const previous = new Set(before);
+      // Micro.blog can accept media before its recent-upload index exposes it.
+      // Retry read-only reconciliation, never the upload itself.
+      for (const delayMs of [0, 1500, 3000, 5000]) {
+        if (delayMs) await new Promise(resolve => setTimeout(resolve, delayMs));
+        try {
+          const after = await recentStreamedMedia(item, token, destination);
+          const recovered = after.find(url => !previous.has(url));
+          if (recovered) return { url: recovered, recovered: true, existing: false };
+        } catch { /* A transient lookup failure must not trigger a duplicate upload. */ }
+      }
     }
     if (ambiguous) {
       const uncertain = new Error('Upload status unknown — Micro.blog may have received this file. Check Micro.blog Uploads before trying again. ' + message);
